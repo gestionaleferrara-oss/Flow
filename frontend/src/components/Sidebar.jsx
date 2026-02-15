@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +27,7 @@ const navigation = [
   { name: 'Fornitori', href: '/fornitori', icon: Truck },
   { name: 'Acquisti', href: '/ordini', icon: ShoppingCart },
   { name: 'Statistiche', href: '/statistiche', icon: BarChart3 },
+  { name: 'Report AI', href: '/report-ai', icon: Sparkles, badge: 'AI' },
   { name: 'Notizie', href: '/notizie', icon: Newspaper },
 ];
 
