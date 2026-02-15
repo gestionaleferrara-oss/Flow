@@ -2453,10 +2453,13 @@ async def get_trends_frutta_secca():
     # Check cache first (cache for 6 hours)
     cache = await db.cache.find_one({"key": "trends_frutta_secca"}, {"_id": 0})
     if cache:
-        from datetime import timezone
+        from datetime import timezone as tz
         cached_at = cache.get("cached_at")
-        if cached_at and (datetime.now(timezone.utc) - cached_at).total_seconds() < 21600:
-            return cache.get("data", [])
+        if cached_at:
+            if cached_at.tzinfo is None:
+                cached_at = cached_at.replace(tzinfo=tz.utc)
+            if (datetime.now(tz.utc) - cached_at).total_seconds() < 21600:
+                return cache.get("data", [])
 
     def fetch_trends():
         try:
