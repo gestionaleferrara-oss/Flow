@@ -118,7 +118,7 @@ export default function Notizie() {
           onClick={refreshNews} 
           disabled={refreshing}
           data-testid="refresh-news-btn"
-          className="bg-white/5 border border-white/10 hover:bg-white/10 text-white"
+          className="bg-white/10 border border-white/20 hover:bg-white/20 text-white hover:text-white disabled:text-white/70"
         >
           <RefreshCw className={cn('w-4 h-4 mr-2', refreshing && 'animate-spin')} />
           {refreshing ? 'Aggiornamento...' : 'Aggiorna'}
