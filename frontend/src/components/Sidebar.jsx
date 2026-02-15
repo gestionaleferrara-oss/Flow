@@ -151,7 +151,12 @@ export default function Sidebar() {
                   )}>
                     {item.name}
                   </span>
-                  {isActive && (
+                  {item.badge && (
+                    <span className="ml-auto px-1.5 py-0.5 text-[10px] font-semibold bg-purple-500/20 text-purple-300 rounded">
+                      {item.badge}
+                    </span>
+                  )}
+                  {isActive && !item.badge && (
                     <ChevronRight size={16} className="ml-auto text-blue-400/60" />
                   )}
                 </Link>
