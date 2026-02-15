@@ -890,19 +890,18 @@ async def get_prodotti(
     
     prodotti = await db.prodotti.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
     
-    # Calculate derived fields
+    # Calculate derived fields and clamp negatives
     for p in prodotti:
-        quantita = p.get('quantita', 0)
-        kg_pz = p.get('kg_per_pezzo', 0)
+        quantita = max(0, p.get('quantita', 0))
+        p['quantita'] = quantita
         prezzo = p.get('prezzo_medio', 0)
         minima = p.get('quantita_minima', 0)
         
-        p['kg_rimanenti'] = quantita * kg_pz
         p['valore_scorte'] = quantita * prezzo
         
         if quantita <= 0:
             p['stato'] = 'non_disponibile'
-        elif quantita > 0 and minima > 0 and quantita <= minima:
+        elif minima > 0 and quantita <= minima:
             p['stato'] = 'ordinare'
         else:
             p['stato'] = 'disponibile'
