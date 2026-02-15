@@ -191,6 +191,14 @@ def parse_italian_date(date_str: str) -> str:
     
     date_str = str(date_str).strip()
     
+    # Handle pandas Timestamp strings like "2025-07-01 00:00:00"
+    if ' ' in date_str and ':' in date_str:
+        try:
+            parsed = datetime.strptime(date_str.split(' ')[0], "%Y-%m-%d")
+            return parsed.strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+    
     # Try various formats
     formats = [
         "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%d/%m/%y", 
