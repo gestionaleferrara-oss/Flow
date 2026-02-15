@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -12,9 +12,9 @@ import {
   Newspaper,
   Menu,
   X,
-  ChevronRight,
   Sparkles,
-  FileText
+  ChevronRight,
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -33,11 +33,18 @@ const navigation = [
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [hoveredIdx, setHoveredIdx] = useState(null);
   const location = useLocation();
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 60000);
+    return () => clearInterval(t);
+  }, []);
 
   return (
     <>
-      {/* Mobile menu button */}
+      {/* Mobile toggle */}
       <button
         data-testid="sidebar-toggle"
         onClick={() => setIsOpen(!isOpen)}
@@ -45,7 +52,7 @@ export default function Sidebar() {
           bg-white/5 backdrop-blur-xl border border-white/10
           hover:bg-white/10 transition-all duration-300"
       >
-        {isOpen ? <X size={22} /> : <Menu size={22} />}
+        {isOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
       {/* Overlay */}
@@ -64,120 +71,127 @@ export default function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 h-full w-[280px] z-50',
-          'bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-900/80',
-          'backdrop-blur-2xl',
-          'border-r border-white/[0.06]',
-          'transform transition-transform duration-300 lg:translate-x-0',
+          'fixed left-0 top-0 h-full w-[220px] z-50 flex flex-col',
+          'transition-transform duration-300 lg:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
+        style={{
+          background: 'rgba(8, 12, 24, 0.55)',
+          backdropFilter: 'blur(40px)',
+          WebkitBackdropFilter: 'blur(40px)',
+          borderRight: '1px solid rgba(255,255,255,0.05)'
+        }}
       >
-        {/* Gradient accent line */}
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
-        
-        {/* Logo */}
-        <div className="h-24 flex items-center px-6 border-b border-white/[0.06]">
-          <Link 
-            to="/" 
-            className="flex items-center gap-4 group" 
-            data-testid="logo-link"
-          >
-            <div className="relative">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 
-                flex items-center justify-center shadow-lg shadow-blue-500/25
-                group-hover:shadow-blue-500/40 transition-all duration-300">
-                <Package className="w-6 h-6 text-white" />
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full 
-                bg-gradient-to-br from-cyan-400 to-blue-500 
-                flex items-center justify-center">
-                <Sparkles className="w-2.5 h-2.5 text-white" />
-              </div>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-300 
-                bg-clip-text text-transparent">
-                Flusso
-              </h1>
-              <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-medium">
-                Gestione Aziendale
-              </p>
-            </div>
-          </Link>
-        </div>
+        {/* Top accent line */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
 
-        {/* Navigation */}
-        <nav className="p-4 space-y-1.5">
+        {/* Logo */}
+        <Link
+          to="/"
+          className="flex items-center gap-3 px-5 py-5 group"
+          data-testid="logo-link"
+          onClick={() => setIsOpen(false)}
+        >
+          <div className="relative w-9 h-9 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 
+              blur-sm group-hover:blur-md transition-all duration-500" />
+            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 
+              flex items-center justify-center shadow-lg shadow-cyan-500/20
+              group-hover:shadow-cyan-500/40 transition-all duration-500">
+              <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
+            </div>
+          </div>
+          <div className="overflow-hidden">
+            <h1 className="text-lg font-bold tracking-tight text-white leading-none">
+              Flusso
+            </h1>
+            <p className="text-[9px] text-slate-500 uppercase tracking-[0.25em] font-medium mt-0.5">
+              Business Hub
+            </p>
+          </div>
+        </Link>
+
+        {/* Divider */}
+        <div className="mx-4 h-px bg-white/[0.04]" />
+
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
           {navigation.map((item, index) => {
             const isActive = location.pathname === item.href;
             const Icon = item.icon;
-            
+            const isHovered = hoveredIdx === index;
+
             return (
-              <motion.div
+              <Link
                 key={item.name}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
+                to={item.href}
+                data-testid={`nav-${item.name.toLowerCase().replace(/\s/g, '-')}`}
+                onClick={() => setIsOpen(false)}
+                onMouseEnter={() => setHoveredIdx(index)}
+                onMouseLeave={() => setHoveredIdx(null)}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative text-[13px] font-medium',
+                  isActive
+                    ? 'text-cyan-400'
+                    : 'text-slate-500 hover:text-slate-200'
+                )}
               >
-                <Link
-                  to={item.href}
-                  data-testid={`nav-${item.name.toLowerCase().replace(/\s/g, '-')}`}
-                  onClick={() => setIsOpen(false)}
-                  className={cn(
-                    'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300',
-                    'relative overflow-hidden group',
-                    isActive 
-                      ? 'bg-gradient-to-r from-blue-500/15 to-blue-500/5 text-blue-400 border border-blue-500/20'
-                      : 'hover:bg-white/[0.04] text-slate-400 hover:text-slate-200 border border-transparent'
-                  )}
-                >
-                  {/* Active indicator glow */}
-                  {isActive && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 
-                      bg-gradient-to-b from-blue-400 to-blue-600 rounded-r-full
-                      shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
-                  )}
-                  
-                  <Icon 
-                    size={20} 
+                {/* Active/Hover background */}
+                {(isActive || isHovered) && (
+                  <motion.div
+                    layoutId="sidebar-bg"
                     className={cn(
-                      'transition-all duration-300 relative z-10',
-                      isActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-300'
+                      'absolute inset-0 rounded-lg',
+                      isActive
+                        ? 'bg-white/[0.06] border border-white/[0.08]'
+                        : 'bg-white/[0.03]'
                     )}
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
-                  <span className={cn(
-                    'text-sm font-medium relative z-10',
-                    isActive ? 'text-blue-400' : ''
-                  )}>
-                    {item.name}
+                )}
+
+                {/* Active left bar */}
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-indicator"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.6)]"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )}
+
+                <Icon
+                  size={17}
+                  className={cn(
+                    'relative z-10 transition-colors duration-200',
+                    isActive ? 'text-cyan-400' : ''
+                  )}
+                />
+                <span className="relative z-10">{item.name}</span>
+
+                {item.badge && (
+                  <span className="ml-auto relative z-10 px-1.5 py-0.5 text-[9px] font-bold bg-purple-500/25 text-purple-300 rounded-md border border-purple-500/20">
+                    {item.badge}
                   </span>
-                  {item.badge && (
-                    <span className="ml-auto px-1.5 py-0.5 text-[10px] font-semibold bg-purple-500/20 text-purple-300 rounded">
-                      {item.badge}
-                    </span>
-                  )}
-                  {isActive && !item.badge && (
-                    <ChevronRight size={16} className="ml-auto text-blue-400/60" />
-                  )}
-                </Link>
-              </motion.div>
+                )}
+                {isActive && !item.badge && (
+                  <ChevronRight size={14} className="ml-auto relative z-10 text-cyan-400/40" />
+                )}
+              </Link>
             );
           })}
         </nav>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/[0.06]">
-          <div className="p-4 rounded-xl bg-gradient-to-br from-white/[0.03] to-transparent 
-            border border-white/[0.04]">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 
-                flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-blue-400" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-slate-400">Flusso v2.0</p>
-                <p className="text-[10px] text-slate-600">Smart Business</p>
-              </div>
+        <div className="px-4 py-4">
+          <div className="h-px bg-white/[0.04] mb-3" />
+          <div className="flex items-center justify-between px-1">
+            <div>
+              <p className="text-[10px] font-medium text-slate-500">Flusso v2.1</p>
+              <p className="text-[9px] text-slate-600">{time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</p>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[9px] text-emerald-500/70">Online</span>
             </div>
           </div>
         </div>
