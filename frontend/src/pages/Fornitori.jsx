@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Edit2, Trash2, Eye, X, Check, Package, ChevronDown, Calendar } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Eye, X, Check, Package, Calendar } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,15 +19,15 @@ export default function Fornitori() {
   const [editNote, setEditNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   
-  // Year selector - null means "not yet loaded", will be set from API response
-  const [selectedYear, setSelectedYear] = useState(null);
+  // Year selector
+  const [selectedYear, setSelectedYear] = useState('');
   const [availableYears, setAvailableYears] = useState([]);
   
-  // Modal per prodotti fornitore
-  const [showProdottiModal, setShowProdottiModal] = useState(false);
+  // Modal per acquisti fornitore
+  const [showModal, setShowModal] = useState(false);
   const [selectedFornitore, setSelectedFornitore] = useState(null);
-  const [fornitoreProdotti, setFornitoreProdotti] = useState(null);
-  const [loadingProdotti, setLoadingProdotti] = useState(false);
+  const [modalData, setModalData] = useState(null);
+  const [loadingModal, setLoadingModal] = useState(false);
   const [selectedMese, setSelectedMese] = useState('');
 
   useEffect(() => {
@@ -41,14 +41,12 @@ export default function Fornitori() {
       if (selectedYear) params.append('anno', selectedYear);
       const qs = params.toString() ? `?${params.toString()}` : '';
       const response = await axios.get(`${API}/fornitori-with-stats${qs}`);
-      setFornitori(response.data.fornitori || []);
-      const anni = response.data.anni_disponibili || [];
-      if (anni.length > 0) {
+      const data = response.data;
+      setFornitori(data.fornitori || []);
+      const anni = data.anni_disponibili || [];
+      if (anni.length > 0 && availableYears.length === 0) {
         setAvailableYears(anni);
-        // On first load, set to the most recent year
-        if (!selectedYear) {
-          setSelectedYear(Number(anni[0]));
-        }
+        if (!selectedYear) setSelectedYear(anni[0]);
       }
     } catch (error) {
       console.error('Error loading fornitori:', error);
@@ -80,7 +78,6 @@ export default function Fornitori() {
       loadFornitori();
     } catch (error) {
       console.error('Error saving note:', error);
-      alert('Errore nel salvataggio della nota');
     } finally {
       setSavingNote(false);
     }
@@ -91,38 +88,37 @@ export default function Fornitori() {
     setEditNote('');
   };
 
-  const handleViewProdotti = async (fornitore, mese = '') => {
+  const loadModalData = useCallback(async (fornitore, mese = '') => {
     setSelectedFornitore(fornitore);
-    setShowProdottiModal(true);
-    setLoadingProdotti(true);
-    setSelectedMese(mese);
+    setShowModal(true);
+    setLoadingModal(true);
     
     try {
       const params = mese ? `?mese=${mese}` : '';
       const response = await axios.get(`${API}/fornitori/${encodeURIComponent(fornitore.nome)}/prodotti${params}`);
-      setFornitoreProdotti(response.data);
-      // Set the selected month from the response if not already set
-      if (!mese && response.data.mese_selezionato) {
+      setModalData(response.data);
+      if (response.data.mese_selezionato) {
         setSelectedMese(response.data.mese_selezionato);
       }
     } catch (error) {
-      console.error('Error loading prodotti fornitore:', error);
-      setFornitoreProdotti({ prodotti: [], totale_prodotti: 0, totale_speso: 0, mesi_disponibili: [] });
+      console.error('Error loading acquisti fornitore:', error);
+      setModalData({ acquisti: [], totale_acquisti: 0, totale_speso: 0, mesi_disponibili: [] });
     } finally {
-      setLoadingProdotti(false);
+      setLoadingModal(false);
     }
-  };
+  }, []);
 
   const handleMeseChange = (mese) => {
+    setSelectedMese(mese);
     if (selectedFornitore) {
-      handleViewProdotti(selectedFornitore, mese);
+      loadModalData(selectedFornitore, mese);
     }
   };
 
-  const closeProdottiModal = () => {
-    setShowProdottiModal(false);
+  const closeModal = () => {
+    setShowModal(false);
     setSelectedFornitore(null);
-    setFornitoreProdotti(null);
+    setModalData(null);
     setSelectedMese('');
   };
 
@@ -164,20 +160,18 @@ export default function Fornitori() {
               <th className="text-right">
                 <div className="flex items-center justify-end gap-2">
                   <span>Fatturato</span>
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(Number(e.target.value))}
-                    className="bg-slate-800 border border-slate-600 rounded px-2 py-0.5 text-xs font-normal text-slate-300 cursor-pointer hover:border-slate-500 focus:outline-none focus:border-blue-500"
-                    data-testid="year-selector"
-                  >
-                    {availableYears.length > 0 ? (
-                      availableYears.map(y => (
+                  {availableYears.length > 0 && (
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(e.target.value)}
+                      className="bg-slate-800 border border-slate-600 rounded px-2 py-0.5 text-xs font-normal text-slate-300 cursor-pointer hover:border-slate-500 focus:outline-none focus:border-blue-500"
+                      data-testid="year-selector"
+                    >
+                      {availableYears.map(y => (
                         <option key={y} value={y}>{y}</option>
-                      ))
-                    ) : (
-                      <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
-                    )}
-                  </select>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </th>
               <th>Note</th>
@@ -242,9 +236,9 @@ export default function Fornitori() {
                   <td>
                     <div className="table-actions justify-end">
                       <button
-                        onClick={() => handleViewProdotti(fornitore)}
+                        onClick={() => loadModalData(fornitore)}
                         className="action-btn"
-                        title="Vedi prodotti"
+                        title="Vedi acquisti"
                         data-testid={`view-prodotti-btn-${index}`}
                       >
                         <Eye className="w-4 h-4" />
@@ -283,15 +277,15 @@ export default function Fornitori() {
         )}
       </div>
 
-      {/* Modal Prodotti Fornitore */}
+      {/* Modal Acquisti Fornitore */}
       <AnimatePresence>
-        {showProdottiModal && (
+        {showModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={closeProdottiModal}
+            onClick={closeModal}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -309,14 +303,14 @@ export default function Fornitori() {
                       <Package className="w-5 h-5 text-blue-400" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-semibold">Prodotti da {selectedFornitore?.nome}</h2>
+                      <h2 className="text-xl font-semibold">Acquisti da {selectedFornitore?.nome}</h2>
                       <p className="text-sm text-slate-400">
-                        Storico acquisti per prodotto
+                        Dettaglio acquisti per mese
                       </p>
                     </div>
                   </div>
                   <button
-                    onClick={closeProdottiModal}
+                    onClick={closeModal}
                     className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
                     data-testid="close-modal-btn"
                   >
@@ -325,7 +319,7 @@ export default function Fornitori() {
                 </div>
 
                 {/* Month Selector */}
-                {fornitoreProdotti?.mesi_disponibili?.length > 0 && (
+                {modalData?.mesi_disponibili?.length > 0 && (
                   <div className="mt-4 flex items-center gap-3">
                     <Calendar className="w-4 h-4 text-slate-400" />
                     <span className="text-sm text-slate-400">Periodo:</span>
@@ -335,7 +329,7 @@ export default function Fornitori() {
                       className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 cursor-pointer hover:border-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
                       data-testid="month-selector"
                     >
-                      {fornitoreProdotti.mesi_disponibili.map(m => (
+                      {modalData.mesi_disponibili.map(m => (
                         <option key={m.value} value={m.value}>{m.label}</option>
                       ))}
                     </select>
@@ -343,75 +337,75 @@ export default function Fornitori() {
                 )}
 
                 {/* Summary Stats */}
-                {fornitoreProdotti && (
+                {modalData && !loadingModal && (
                   <div className="grid grid-cols-3 gap-4 mt-4">
                     <div className="p-3 bg-white/5 rounded-lg">
-                      <p className="text-xs text-slate-400">Prodotti</p>
-                      <p className="text-lg font-semibold text-blue-400" data-testid="modal-total-products">
-                        {fornitoreProdotti.totale_prodotti}
+                      <p className="text-xs text-slate-400">N. Acquisti</p>
+                      <p className="text-lg font-semibold text-blue-400" data-testid="modal-total-items">
+                        {modalData.totale_acquisti}
                       </p>
                     </div>
                     <div className="p-3 bg-white/5 rounded-lg">
                       <p className="text-xs text-slate-400">Totale Speso</p>
                       <p className="text-lg font-semibold text-emerald-400" data-testid="modal-total-spent">
-                        {formatCurrency(fornitoreProdotti.totale_speso)}
+                        {formatCurrency(modalData.totale_speso)}
                       </p>
                     </div>
                     <div className="p-3 bg-white/5 rounded-lg">
                       <p className="text-xs text-slate-400">Mese</p>
                       <p className="text-lg font-semibold text-amber-400" data-testid="modal-month-label">
-                        {fornitoreProdotti.mese_riferimento || 'N/A'}
+                        {modalData.mese_riferimento || 'N/A'}
                       </p>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Modal Body */}
-              <div className="p-6 overflow-auto max-h-[calc(80vh-260px)]">
-                {loadingProdotti ? (
+              {/* Modal Body - Individual purchase rows */}
+              <div className="overflow-auto max-h-[calc(80vh-280px)]">
+                {loadingModal ? (
                   <div className="flex items-center justify-center py-12">
                     <LoadingSpinner />
                   </div>
-                ) : fornitoreProdotti?.prodotti?.length > 0 ? (
-                  <div className="space-y-3">
-                    {fornitoreProdotti.prodotti.map((prodotto, index) => (
-                      <div
-                        key={prodotto.nome}
-                        className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:border-slate-600 transition-colors"
-                        data-testid={`prodotto-item-${index}`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-medium text-slate-200">{prodotto.nome}</h3>
-                          <span className="text-emerald-400 font-semibold">
-                            {formatCurrency(prodotto.totale_speso)}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <p className="text-slate-500">Quantita Tot.</p>
-                            <p className="text-slate-300">{prodotto.quantita_totale.toLocaleString('it-IT')}</p>
-                          </div>
-                          <div>
-                            <p className="text-slate-500">N. Ordini</p>
-                            <p className="text-slate-300">{prodotto.num_ordini}</p>
-                          </div>
-                          <div>
-                            <p className="text-slate-500">Ultimo Prezzo</p>
-                            <p className="text-slate-300">{formatCurrency(prodotto.ultimo_prezzo)}</p>
-                          </div>
-                          <div>
-                            <p className="text-slate-500">Ultimo Ordine</p>
-                            <p className="text-slate-300">{formatDate(prodotto.ultimo_ordine)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                ) : modalData?.acquisti?.length > 0 ? (
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-slate-800/90 backdrop-blur-sm">
+                      <tr className="text-slate-400 text-xs uppercase tracking-wider">
+                        <th className="text-left px-6 py-3">Prodotto</th>
+                        <th className="text-right px-4 py-3">Qtà</th>
+                        <th className="text-right px-4 py-3">Prezzo</th>
+                        <th className="text-right px-4 py-3">Totale</th>
+                        <th className="text-right px-6 py-3">Data</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {modalData.acquisti.map((acq, index) => (
+                        <tr
+                          key={index}
+                          className="border-t border-slate-800 hover:bg-slate-800/40 transition-colors"
+                          data-testid={`acquisto-row-${index}`}
+                        >
+                          <td className="px-6 py-3 font-medium text-slate-200">{acq.prodotto}</td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-300">
+                            {acq.quantita.toLocaleString('it-IT')}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-300">
+                            {formatCurrency(acq.prezzo_unitario)}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums font-medium text-emerald-400">
+                            {formatCurrency(acq.totale)}
+                          </td>
+                          <td className="px-6 py-3 text-right text-slate-400">
+                            {formatDate(acq.data)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 ) : (
                   <div className="text-center py-12">
                     <Package className="w-12 h-12 mx-auto text-slate-600 mb-3" />
-                    <p className="text-slate-400">Nessun prodotto acquistato in questo mese</p>
+                    <p className="text-slate-400">Nessun acquisto in questo mese</p>
                   </div>
                 )}
               </div>
