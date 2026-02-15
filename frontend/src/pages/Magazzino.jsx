@@ -209,6 +209,19 @@ export default function Magazzino() {
                     </td>
                     <td className="text-right tabular-nums">{p.kg_per_pezzo?.toFixed(2)}</td>
                     <td>{p.imballo || '-'}</td>
+                    <td className="text-right tabular-nums">
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          value={editData.quantita_minima || 0}
+                          onChange={(e) => setEditData({ ...editData, quantita_minima: parseFloat(e.target.value) })}
+                          className="h-8 w-20 text-right"
+                          data-testid="edit-quantita-minima"
+                        />
+                      ) : (
+                        p.quantita_minima?.toLocaleString('it-IT') || '0'
+                      )}
+                    </td>
                     <td className="text-right tabular-nums">{p.quantita?.toLocaleString('it-IT')}</td>
                     <td className="text-right tabular-nums">{p.kg_rimanenti?.toFixed(2)}</td>
                     <td className="text-right tabular-nums">{formatCurrency(p.prezzo_medio)}</td>
