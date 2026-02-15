@@ -175,13 +175,6 @@ export default function Notizie() {
                   })}
                 </div>
               )}
-                          <span className="text-slate-500">{Math.round(daily.temperature_2m_min[idx + 1])}°</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           </motion.div>
         )}
