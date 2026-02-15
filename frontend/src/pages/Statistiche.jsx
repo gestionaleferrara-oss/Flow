@@ -402,8 +402,8 @@ export default function Statistiche() {
                   data={data?.topClienti || []}
                   cx="50%"
                   cy="50%"
-                  outerRadius={70}
-                  innerRadius={25}
+                  outerRadius={90}
+                  innerRadius={40}
                   dataKey="spesa"
                   nameKey="nome"
                   label={renderCustomizedLabel}
