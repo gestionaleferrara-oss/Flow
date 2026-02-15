@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Search, Plus, Eye, Edit2, Trash2 } from 'lucide-react';
+import { Search, Plus, Eye, Edit2, Trash2, Save, X, Phone, Mail, FileText } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,12 @@ export default function Clienti() {
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [analisi, setAnalisi] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [editFields, setEditFields] = useState({
+    whatsapp: '',
+    email: '',
+    note: ''
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadClienti();
@@ -42,12 +49,44 @@ export default function Clienti() {
 
   const viewAnalisi = async (cliente) => {
     setSelectedCliente(cliente);
+    setEditFields({
+      whatsapp: cliente.whatsapp || '',
+      email: cliente.email || '',
+      note: cliente.note || ''
+    });
     setShowModal(true);
     try {
       const response = await axios.get(`${API}/clienti/${cliente.id}/analisi`);
       setAnalisi(response.data);
     } catch (error) {
       console.error('Error loading analisi:', error);
+    }
+  };
+
+  const handleSaveClienteDetails = async () => {
+    if (!selectedCliente) return;
+    setSaving(true);
+    try {
+      await axios.put(`${API}/clienti/${selectedCliente.id}`, {
+        nome: selectedCliente.nome,
+        codice: selectedCliente.codice,
+        whatsapp: editFields.whatsapp,
+        email: editFields.email,
+        note: editFields.note
+      });
+      // Aggiorna la lista clienti
+      loadClienti();
+      // Aggiorna il cliente selezionato
+      setSelectedCliente({
+        ...selectedCliente,
+        whatsapp: editFields.whatsapp,
+        email: editFields.email,
+        note: editFields.note
+      });
+    } catch (error) {
+      console.error('Error saving cliente:', error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -132,6 +171,7 @@ export default function Clienti() {
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => viewAnalisi(cliente)}
                       className="action-btn"
                       title="Modifica"
                     >
@@ -159,9 +199,9 @@ export default function Clienti() {
         )}
       </div>
 
-      {/* Analisi Modal */}
+      {/* Analisi Modal con campi editabili */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-lg" data-testid="analisi-modal">
+        <DialogContent className="max-w-2xl" data-testid="analisi-modal">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl uppercase">
               Analisi Cliente: {selectedCliente?.nome}
@@ -169,38 +209,100 @@ export default function Clienti() {
           </DialogHeader>
           
           {analisi ? (
-            <div className="space-y-4 mt-4">
+            <div className="space-y-6 mt-4">
+              {/* Statistiche */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-muted rounded-sm">
+                <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground mb-1">Speso Ultimo Mese</p>
                   <p className="font-heading text-2xl font-bold text-primary">
                     {formatCurrency(analisi.totaleSpesoMese)}
                   </p>
                 </div>
-                <div className="p-4 bg-muted rounded-sm">
+                <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground mb-1">Ordini Ultimo Mese</p>
                   <p className="font-heading text-2xl font-bold">
                     {analisi.ordiniMese}
                   </p>
                 </div>
-                <div className="p-4 bg-muted rounded-sm">
+                <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground mb-1">Ultimo Ordine</p>
                   <p className="font-heading text-xl font-bold">
                     {analisi.ultimoOrdine}
                   </p>
                 </div>
-                <div className="p-4 bg-muted rounded-sm">
+                <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground mb-1">Media per Ordine</p>
                   <p className="font-heading text-2xl font-bold">
                     {formatCurrency(analisi.mediaOrdine)}
                   </p>
                 </div>
               </div>
-              <div className="p-4 bg-primary/10 rounded-sm">
-                <p className="text-sm text-muted-foreground mb-1">Prodotti Piu Acquistati</p>
+              
+              <div className="p-4 bg-primary/10 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-1">Prodotti Più Acquistati</p>
                 <p className="font-medium text-primary">
                   {analisi.prodottiPiuAcquistati || 'Nessun dato'}
                 </p>
+              </div>
+
+              {/* Campi Editabili */}
+              <div className="border-t border-border pt-4">
+                <h4 className="font-semibold mb-4 flex items-center gap-2">
+                  <Edit2 className="w-4 h-4" />
+                  Informazioni di Contatto
+                </h4>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-4 h-4 text-green-500 shrink-0" />
+                    <Input
+                      placeholder="WhatsApp (es. +39 123 456 7890)"
+                      value={editFields.whatsapp}
+                      onChange={(e) => setEditFields({ ...editFields, whatsapp: e.target.value })}
+                      className="flex-1"
+                      data-testid="edit-whatsapp"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-4 h-4 text-blue-500 shrink-0" />
+                    <Input
+                      placeholder="Email"
+                      type="email"
+                      value={editFields.email}
+                      onChange={(e) => setEditFields({ ...editFields, email: e.target.value })}
+                      className="flex-1"
+                      data-testid="edit-email"
+                    />
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <FileText className="w-4 h-4 text-amber-500 shrink-0 mt-3" />
+                    <Textarea
+                      placeholder="Note sul cliente..."
+                      value={editFields.note}
+                      onChange={(e) => setEditFields({ ...editFields, note: e.target.value })}
+                      className="flex-1 min-h-[80px]"
+                      data-testid="edit-note"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottoni */}
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowModal(false)}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Chiudi
+                </Button>
+                <Button
+                  onClick={handleSaveClienteDetails}
+                  disabled={saving}
+                  data-testid="save-cliente-btn"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {saving ? 'Salvataggio...' : 'Salva Modifiche'}
+                </Button>
               </div>
             </div>
           ) : (

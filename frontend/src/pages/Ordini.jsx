@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { motion } from 'framer-motion';
-import { Search, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, cn } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function Ordini() {
-  const [ordini, setOrdini] = useState([]);
+  const [ordiniGrouped, setOrdiniGrouped] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [expandedRows, setExpandedRows] = useState({});
   const perPage = 20;
 
   useEffect(() => {
@@ -22,6 +22,7 @@ export default function Ordini() {
   }, [search, page]);
 
   const loadOrdini = async () => {
+    setLoading(true);
     try {
       const params = new URLSearchParams();
       if (search) {
@@ -29,15 +30,45 @@ export default function Ordini() {
         params.append('prodotto', search);
       }
       params.append('skip', (page - 1) * perPage);
-      params.append('limit', perPage);
+      params.append('limit', 500); // Get more to group properly
       
       const response = await axios.get(`${API}/ordini?${params}`);
-      setOrdini(response.data);
+      
+      // Group ordini by fornitore + data
+      const grouped = {};
+      response.data.forEach(o => {
+        const key = `${o.fornitore_nome}_${o.data}`;
+        if (!grouped[key]) {
+          grouped[key] = {
+            id: key,
+            fornitore_nome: o.fornitore_nome,
+            data: o.data,
+            prodotti: [],
+            totale: 0
+          };
+        }
+        grouped[key].prodotti.push(o);
+        grouped[key].totale += Math.abs(o.totale || (o.quantita * o.prezzo_unitario) || 0);
+      });
+      
+      // Convert to array and sort by date desc
+      const groupedArray = Object.values(grouped)
+        .sort((a, b) => b.data.localeCompare(a.data))
+        .slice(0, perPage);
+      
+      setOrdiniGrouped(groupedArray);
     } catch (error) {
       console.error('Error loading ordini:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleExpand = (id) => {
+    setExpandedRows(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
   };
 
   if (loading) return <LoadingSpinner fullScreen />;
@@ -72,46 +103,101 @@ export default function Ordini() {
       </div>
 
       {/* Table */}
-      <div className="bg-card border border-border/50 rounded-sm overflow-hidden">
+      <div className="bg-card border border-border/50 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="data-table" data-testid="ordini-table">
             <thead>
               <tr>
+                <th className="w-12"></th>
                 <th>Data</th>
                 <th>Fornitore</th>
-                <th>Prodotto</th>
-                <th className="text-right">Q.ta</th>
-                <th className="text-right">Kg/pz</th>
-                <th className="text-right">Tot. Kg</th>
-                <th className="text-right">Prezzo</th>
-                <th className="text-right">Totale</th>
+                <th className="text-right">N. Prodotti</th>
+                <th className="text-right">Totale Giorno</th>
               </tr>
             </thead>
             <tbody>
-              {ordini.map((ordine, index) => (
-                <motion.tr
-                  key={ordine.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.02 }}
-                >
-                  <td className="tabular-nums">{formatDate(ordine.data)}</td>
-                  <td className="font-medium">{ordine.fornitore_nome}</td>
-                  <td>{ordine.prodotto_nome}</td>
-                  <td className="text-right tabular-nums">{ordine.quantita?.toLocaleString('it-IT')}</td>
-                  <td className="text-right tabular-nums">{ordine.kg_per_pezzo?.toFixed(2)}</td>
-                  <td className="text-right tabular-nums">{ordine.totale_kg?.toFixed(2)}</td>
-                  <td className="text-right tabular-nums">{formatCurrency(ordine.prezzo_unitario)}</td>
-                  <td className="text-right tabular-nums font-medium text-primary">
-                    {formatCurrency(ordine.totale)}
-                  </td>
-                </motion.tr>
-              ))}
+              {ordiniGrouped.map((gruppo, index) => {
+                const isExpanded = expandedRows[gruppo.id];
+                return (
+                  <>
+                    <tr
+                      key={gruppo.id}
+                      className={cn(
+                        "cursor-pointer transition-colors hover:bg-white/5",
+                        isExpanded && "bg-purple-500/10"
+                      )}
+                      onClick={() => toggleExpand(gruppo.id)}
+                      data-testid={`row-${index}`}
+                    >
+                      <td className="text-center">
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4 text-purple-400 inline" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-slate-500 inline" />
+                        )}
+                      </td>
+                      <td className="tabular-nums">{formatDate(gruppo.data)}</td>
+                      <td className="font-medium">{gruppo.fornitore_nome}</td>
+                      <td className="text-right">
+                        <span className="px-2 py-1 bg-slate-700/50 rounded-full text-xs">
+                          {gruppo.prodotti.length} {gruppo.prodotti.length === 1 ? 'prodotto' : 'prodotti'}
+                        </span>
+                      </td>
+                      <td className="text-right tabular-nums font-semibold text-purple-400">
+                        {formatCurrency(gruppo.totale)}
+                      </td>
+                    </tr>
+                    
+                    {/* Expanded row with product details */}
+                    {isExpanded && (
+                      <tr key={`${gruppo.id}-details`}>
+                        <td colSpan={5} className="p-0">
+                          <div className="bg-slate-900/50 border-t border-b border-white/5">
+                            <table className="w-full">
+                              <thead>
+                                <tr className="text-xs text-slate-500 uppercase">
+                                  <th className="pl-12 py-2 text-left font-medium">Prodotto</th>
+                                  <th className="py-2 text-right font-medium">Quantità</th>
+                                  <th className="py-2 text-right font-medium">Prezzo Unit.</th>
+                                  <th className="py-2 pr-4 text-right font-medium">Totale</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {gruppo.prodotti.map((prod, pIdx) => (
+                                  <tr 
+                                    key={pIdx} 
+                                    className="border-t border-white/5 text-sm"
+                                  >
+                                    <td className="pl-12 py-2 text-slate-300">{prod.prodotto_nome}</td>
+                                    <td className="py-2 text-right tabular-nums text-slate-400">
+                                      {Math.abs(prod.quantita || 0).toLocaleString('it-IT')}
+                                    </td>
+                                    <td className="py-2 text-right tabular-nums text-slate-400">
+                                      {formatCurrency(prod.prezzo_unitario)}
+                                    </td>
+                                    <td className="py-2 pr-4 text-right tabular-nums font-medium text-slate-200">
+                                      {formatCurrency(
+                                        (prod.quantita && prod.prezzo_unitario)
+                                          ? Math.abs(prod.quantita * prod.prezzo_unitario)
+                                          : Math.abs(prod.totale)
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        {ordini.length === 0 && (
+        {ordiniGrouped.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-icon">🛒</div>
             <p>Nessun acquisto trovato</p>
@@ -122,13 +208,16 @@ export default function Ordini() {
 
       {/* Pagination */}
       <div className="flex items-center justify-between mt-4">
-        <p className="text-sm text-muted-foreground">Pagina {page}</p>
+        <p className="text-sm text-muted-foreground">
+          Pagina {page} - Clicca su una riga per espandere e vedere i dettagli
+        </p>
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
+            data-testid="prev-page-btn"
           >
             <ChevronLeft className="w-4 h-4" /> Precedente
           </Button>
@@ -136,7 +225,8 @@ export default function Ordini() {
             variant="outline"
             size="sm"
             onClick={() => setPage(p => p + 1)}
-            disabled={ordini.length < perPage}
+            disabled={ordiniGrouped.length < perPage}
+            data-testid="next-page-btn"
           >
             Successiva <ChevronRight className="w-4 h-4" />
           </Button>
