@@ -8,7 +8,9 @@ export function cn(...inputs) {
 export function formatCurrency(value) {
   return new Intl.NumberFormat('it-IT', {
     style: 'currency',
-    currency: 'EUR'
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   }).format(Math.abs(value || 0));
 }
 
