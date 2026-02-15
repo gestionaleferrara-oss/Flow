@@ -12,7 +12,8 @@ import {
   Users,
   Package,
   ChevronRight,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
