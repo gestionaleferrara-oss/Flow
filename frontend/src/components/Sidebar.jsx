@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home, Upload, Package, Users, Truck, ShoppingCart,
   BarChart3, Newspaper, Sparkles, Zap
@@ -20,12 +20,9 @@ const navigation = [
   { name: 'Notizie', href: '/notizie', icon: Newspaper },
 ];
 
-const COLLAPSED_W = 76;
-const EXPANDED_W = 250;
-
 export default function Sidebar() {
-  const [expanded, setExpanded] = useState(false);
   const location = useLocation();
+  const [hoveredItem, setHoveredItem] = useState(null);
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -34,14 +31,11 @@ export default function Sidebar() {
   }, []);
 
   return (
-    <motion.aside
+    <aside
       data-testid="sidebar"
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
-      animate={{ width: expanded ? EXPANDED_W : COLLAPSED_W }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="fixed left-0 top-0 h-full z-50 flex flex-col overflow-hidden"
+      className="fixed left-0 top-0 h-full z-50 flex flex-col"
       style={{
+        width: 76,
         background: 'rgba(8, 12, 24, 0.65)',
         backdropFilter: 'blur(40px)',
         WebkitBackdropFilter: 'blur(40px)',
@@ -52,7 +46,7 @@ export default function Sidebar() {
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
 
       {/* Logo */}
-      <Link to="/" className="flex items-center gap-3 px-5 py-5 group shrink-0" data-testid="logo-link">
+      <Link to="/" className="flex items-center justify-center py-5 group shrink-0" data-testid="logo-link">
         <div className="relative shrink-0">
           <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 blur-sm 
             group-hover:blur-md transition-all duration-500" />
@@ -62,94 +56,92 @@ export default function Sidebar() {
             <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
           </div>
         </div>
-        <motion.div
-          animate={{ opacity: expanded ? 1 : 0, x: expanded ? 0 : -8 }}
-          transition={{ duration: 0.15, delay: expanded ? 0.05 : 0 }}
-          className="overflow-hidden whitespace-nowrap"
-        >
-          <h1 className="text-base font-bold tracking-tight text-white leading-none">Flusso</h1>
-          <p className="text-[9px] text-slate-500 uppercase tracking-[0.2em] font-medium mt-0.5">Business Hub</p>
-        </motion.div>
       </Link>
 
       <div className="mx-4 h-px bg-white/[0.04]" />
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto overflow-x-hidden">
+      <nav className="flex-1 px-2 py-3 space-y-1 overflow-y-auto overflow-x-visible">
         {navigation.map((item) => {
           const isActive = location.pathname === item.href;
+          const isHovered = hoveredItem === item.name;
           const Icon = item.icon;
 
           return (
-            <Link
-              key={item.name}
-              to={item.href}
-              data-testid={`nav-${item.name.toLowerCase().replace(/\s/g, '-')}`}
-              className={cn(
-                'relative flex items-center gap-3 rounded-lg transition-all duration-200 group/item',
-                expanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center',
-                isActive
-                  ? 'text-cyan-400'
-                  : 'text-slate-500 hover:text-slate-200'
-              )}
-            >
-              {/* Active background */}
-              {isActive && (
-                <motion.div
-                  layoutId="nav-active"
-                  className="absolute inset-0 rounded-lg bg-white/[0.07] border border-white/[0.08]"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                />
-              )}
-
-              {/* Left indicator */}
-              {isActive && (
-                <motion.div
-                  layoutId="nav-bar"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-cyan-400 
-                    shadow-[0_0_12px_rgba(34,211,238,0.7)]"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                />
-              )}
-
-              {/* Icon - zoom solo sull'icona hover */}
-              <motion.div
-                className="relative z-10 shrink-0"
-                whileHover={{ scale: 1.3 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+            <div key={item.name} className="relative">
+              <Link
+                to={item.href}
+                data-testid={`nav-${item.name.toLowerCase().replace(/\s/g, '-')}`}
+                onMouseEnter={() => setHoveredItem(item.name)}
+                onMouseLeave={() => setHoveredItem(null)}
+                className={cn(
+                  'relative flex items-center justify-center w-full rounded-lg py-3 transition-colors duration-200',
+                  isActive
+                    ? 'text-cyan-400'
+                    : 'text-slate-500 hover:text-slate-200'
+                )}
               >
-                <Icon size={22} className={cn(
-                  'transition-colors duration-200',
-                  isActive ? 'text-cyan-400' : 'group-hover/item:text-slate-200'
-                )} />
-              </motion.div>
+                {/* Active background */}
+                {isActive && (
+                  <motion.div
+                    layoutId="nav-active"
+                    className="absolute inset-0 rounded-lg bg-white/[0.07] border border-white/[0.08]"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )}
 
-              {/* Text - appare solo quando sidebar e' espansa */}
-              <motion.span
-                animate={{
-                  opacity: expanded ? 1 : 0,
-                  x: expanded ? 0 : -10,
-                  width: expanded ? 'auto' : 0,
-                }}
-                transition={{ duration: 0.15, delay: expanded ? 0.03 : 0 }}
-                className="relative z-10 text-[13px] font-medium whitespace-nowrap overflow-hidden"
-              >
-                {item.name}
-              </motion.span>
+                {/* Left indicator */}
+                {isActive && (
+                  <motion.div
+                    layoutId="nav-bar"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-cyan-400 
+                      shadow-[0_0_12px_rgba(34,211,238,0.7)]"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )}
 
-              {/* Badge */}
-              {item.badge && expanded && (
-                <motion.span
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.1 }}
-                  className="ml-auto relative z-10 px-1.5 py-0.5 text-[9px] font-bold bg-purple-500/25 
-                    text-purple-300 rounded-md border border-purple-500/20"
+                {/* Icon con zoom individuale */}
+                <motion.div
+                  className="relative z-10"
+                  animate={{ scale: isHovered ? 1.25 : 1 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 15 }}
                 >
-                  {item.badge}
-                </motion.span>
-              )}
-            </Link>
+                  <Icon size={22} className={cn(
+                    'transition-colors duration-200',
+                    isActive ? 'text-cyan-400' : ''
+                  )} />
+                </motion.div>
+              </Link>
+
+              {/* Floating label - appare solo sull'item hoverato */}
+              <AnimatePresence>
+                {isHovered && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -4, scale: 0.95 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: -4, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-[60] pointer-events-none"
+                  >
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg whitespace-nowrap
+                      bg-slate-900/95 border border-white/10 shadow-xl shadow-black/40 backdrop-blur-md">
+                      <span className={cn(
+                        "text-sm font-medium",
+                        isActive ? "text-cyan-400" : "text-slate-200"
+                      )}>
+                        {item.name}
+                      </span>
+                      {item.badge && (
+                        <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-500/25 
+                          text-purple-300 rounded-md border border-purple-500/20">
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           );
         })}
       </nav>
@@ -157,28 +149,12 @@ export default function Sidebar() {
       {/* Footer */}
       <div className="px-4 py-3 shrink-0">
         <div className="h-px bg-white/[0.04] mb-2" />
-        <div className={cn('flex items-center', expanded ? 'justify-between px-1' : 'justify-center')}>
+        <div className="flex items-center justify-center">
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <motion.span
-              animate={{ opacity: expanded ? 1 : 0, width: expanded ? 'auto' : 0 }}
-              transition={{ duration: 0.15 }}
-              className="text-[9px] text-emerald-500/70 whitespace-nowrap overflow-hidden"
-            >
-              Online
-            </motion.span>
           </div>
-          {expanded && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-[9px] text-slate-600"
-            >
-              {time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-            </motion.p>
-          )}
         </div>
       </div>
-    </motion.aside>
+    </aside>
   );
 }
