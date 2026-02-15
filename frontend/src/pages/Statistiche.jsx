@@ -9,13 +9,11 @@ import {
   PieChart,
   Pie,
   Cell,
-  Sector,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
   LineChart,
   Line
 } from 'recharts';
@@ -23,12 +21,9 @@ import {
   Euro,
   Package,
   Users,
-  TrendingUp,
-  TrendingDown,
   Filter,
   Calendar,
   RefreshCw,
-  ShoppingBag,
   Truck
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
@@ -40,75 +35,13 @@ import { formatCurrency, cn } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
-
-// Custom label renderer for pie chart - shows ONLY percentage always visible
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-  const RADIAN = Math.PI / 180;
-  const radius = outerRadius + 20;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-  
-  if (percent < 0.03) return null; // Hide labels for very small slices
-  
-  return (
-    <text 
-      x={x} 
-      y={y} 
-      fill="#e2e8f0" 
-      fontSize={12} 
-      fontWeight={600}
-      textAnchor={x > cx ? 'start' : 'end'} 
-      dominantBaseline="central"
-    >
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
-  );
-};
-
-// Custom active shape for hover - shows NAME + TOTAL SPENT with WHITE text
-const renderActiveShape = (props) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, nome, spesa } = props;
-  
-  return (
-    <g>
-      {/* Center text - NAME + TOTAL in WHITE */}
-      <text x={cx} y={cy - 12} textAnchor="middle" fill="#ffffff" fontSize={14} fontWeight={700}>
-        {nome}
-      </text>
-      <text x={cx} y={cy + 12} textAnchor="middle" fill="#ffffff" fontSize={14} fontWeight={600}>
-        {formatCurrency(spesa)}
-      </text>
-      {/* Expanded sector */}
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius + 10}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-      />
-      {/* Outer glow ring */}
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={outerRadius + 12}
-        outerRadius={outerRadius + 16}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-        opacity={0.3}
-      />
-    </g>
-  );
-};
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16'];
 
 export default function Statistiche() {
   const [data, setData] = useState(null);
   const [dataAcquisti, setDataAcquisti] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('vendite'); // 'vendite' or 'acquisti'
+  const [viewMode, setViewMode] = useState('vendite');
   const [filters, setFilters] = useState({
     prodotto: '',
     cliente: '',
@@ -118,19 +51,24 @@ export default function Statistiche() {
   });
   const [lists, setLists] = useState({ prodotti: [], clienti: [], fornitori: [] });
   const [showSuggestions, setShowSuggestions] = useState({ prodotto: false, cliente: false, fornitore: false });
-  const [activePieIndex, setActivePieIndex] = useState(-1);
   const [clientiTrend, setClientiTrend] = useState([]);
   const [fornitoriTrend, setFornitoriTrend] = useState([]);
 
-  // Check if any filter is active
   const hasActiveFilters = filters.prodotto || filters.cliente || filters.fornitore || filters.startDate || filters.endDate;
 
   useEffect(() => {
     loadLists();
-    loadStatistiche();
     loadClientiTrend();
     loadFornitoriTrend();
   }, []);
+
+  // Debounced filter loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadStatistiche();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [filters]);
 
   const loadLists = async () => {
     try {
@@ -156,11 +94,9 @@ export default function Statistiche() {
       if (filters.startDate) params.append('start_date', filters.startDate);
       if (filters.endDate) params.append('end_date', filters.endDate);
       
-      // Load vendite stats
       const paramsVendite = new URLSearchParams(params);
       if (filters.cliente) paramsVendite.append('cliente', filters.cliente);
       
-      // Load acquisti stats
       const paramsAcquisti = new URLSearchParams(params);
       if (filters.fornitore) paramsAcquisti.append('fornitore', filters.fornitore);
       
@@ -197,21 +133,27 @@ export default function Statistiche() {
   };
 
   const applyPreset = (preset) => {
-    const now = new Date();
+    const today = new Date();
     let startDate, endDate;
 
     switch (preset) {
       case 'last30':
-        startDate = new Date(now.setDate(now.getDate() - 30));
-        endDate = new Date();
+        endDate = new Date(today);
+        startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - 30);
         break;
       case 'currentMonth':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         break;
       case 'lastMonth':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+        break;
+      case 'last3Months':
+        endDate = new Date(today);
+        startDate = new Date(today);
+        startDate.setMonth(startDate.getMonth() - 3);
         break;
       default:
         return;
@@ -228,14 +170,17 @@ export default function Statistiche() {
     setFilters({ prodotto: '', cliente: '', fornitore: '', startDate: '', endDate: '' });
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadStatistiche();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [filters]);
-
   if (loading && !data) return <LoadingSpinner fullScreen />;
+
+  // Determine which period label to show
+  const getPeriodLabel = () => {
+    if (filters.startDate && filters.endDate) {
+      return `${filters.startDate} - ${filters.endDate}`;
+    }
+    if (filters.startDate) return `Dal ${filters.startDate}`;
+    if (filters.endDate) return `Fino al ${filters.endDate}`;
+    return 'Tutto il periodo';
+  };
 
   return (
     <PageWrapper>
@@ -283,79 +228,8 @@ export default function Statistiche() {
         </button>
       </div>
 
-      {/* KPI Cards - Conditional based on viewMode */}
-      {viewMode === 'vendite' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            label="Fatturato Mese"
-            value={data?.fatturatoMese || 0}
-            format="currency"
-            icon={Euro}
-            trend={data?.diffPercentuale > 0 ? 'up' : data?.diffPercentuale < 0 ? 'down' : 'neutral'}
-            trendValue={data?.diffPercentuale}
-            subtitle={data?.fatturatoMesePrec > 0 ? `Mese prec: ${formatCurrency(data.fatturatoMesePrec)}` : null}
-          />
-          
-          {hasActiveFilters && (
-            <>
-              <StatCard
-                label="Articoli Venduti"
-                value={data?.totaleArticoli || 0}
-                icon={Package}
-              />
-              <StatCard
-                label="Totale Venduto"
-                value={data?.totaleEuro || 0}
-                format="currency"
-                icon={ShoppingBag}
-              />
-            </>
-          )}
-          
-          <StatCard
-            label="Clienti Attivi"
-            value={data?.clientiAttivi || 0}
-            icon={Users}
-          />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            label="Speso Mese"
-            value={dataAcquisti?.spesoMese || 0}
-            format="currency"
-            icon={Euro}
-            trend={dataAcquisti?.diffPercentuale > 0 ? 'up' : dataAcquisti?.diffPercentuale < 0 ? 'down' : 'neutral'}
-            trendValue={dataAcquisti?.diffPercentuale}
-            subtitle={dataAcquisti?.spesoMesePrec > 0 ? `Mese prec: ${formatCurrency(dataAcquisti.spesoMesePrec)}` : null}
-          />
-          
-          {hasActiveFilters && (
-            <>
-              <StatCard
-                label="Articoli Acquistati"
-                value={dataAcquisti?.totaleArticoli || 0}
-                icon={Package}
-              />
-              <StatCard
-                label="Totale Speso"
-                value={dataAcquisti?.totaleEuro || 0}
-                format="currency"
-                icon={ShoppingBag}
-              />
-            </>
-          )}
-          
-          <StatCard
-            label="Fornitori Attivi"
-            value={dataAcquisti?.fornitoriAttivi || 0}
-            icon={Truck}
-          />
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="bg-muted p-4 rounded-lg mb-8">
+      {/* Filters FIRST - so user always sets period */}
+      <div className="bg-muted p-4 rounded-lg mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm font-medium uppercase tracking-wider">Filtri</span>
@@ -395,7 +269,7 @@ export default function Statistiche() {
             )}
           </div>
 
-          {/* Cliente or Fornitore based on viewMode */}
+          {/* Cliente or Fornitore */}
           {viewMode === 'vendite' ? (
             <div className="relative">
               <Input
@@ -452,7 +326,6 @@ export default function Statistiche() {
             </div>
           )}
 
-          {/* Date Range */}
           <Input
             type="date"
             value={filters.startDate}
@@ -467,7 +340,6 @@ export default function Statistiche() {
           />
         </div>
 
-        {/* Preset Buttons */}
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => applyPreset('last30')}>
             <Calendar className="w-4 h-4 mr-2" />
@@ -479,13 +351,61 @@ export default function Statistiche() {
           <Button variant="outline" size="sm" onClick={() => applyPreset('lastMonth')}>
             Mese Precedente
           </Button>
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            Pulisci Filtri
+          <Button variant="outline" size="sm" onClick={() => applyPreset('last3Months')}>
+            Ultimi 3 Mesi
           </Button>
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              Pulisci Filtri
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Charts - Conditional based on viewMode */}
+      {/* KPI Cards - Period-specific, NO cumulative totals */}
+      {viewMode === 'vendite' ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <StatCard
+            label="Fatturato Periodo"
+            value={data?.totaleEuro || 0}
+            format="currency"
+            icon={Euro}
+            subtitle={hasActiveFilters ? getPeriodLabel() : null}
+          />
+          <StatCard
+            label="Articoli Venduti"
+            value={data?.totaleArticoli || 0}
+            icon={Package}
+          />
+          <StatCard
+            label="Clienti Attivi"
+            value={data?.clientiAttivi || 0}
+            icon={Users}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <StatCard
+            label="Speso Periodo"
+            value={dataAcquisti?.totaleEuro || 0}
+            format="currency"
+            icon={Euro}
+            subtitle={hasActiveFilters ? getPeriodLabel() : null}
+          />
+          <StatCard
+            label="Articoli Acquistati"
+            value={dataAcquisti?.totaleArticoli || 0}
+            icon={Package}
+          />
+          <StatCard
+            label="Fornitori Attivi"
+            value={dataAcquisti?.fornitoriAttivi || 0}
+            icon={Truck}
+          />
+        </div>
+      )}
+
+      {/* Charts */}
       {viewMode === 'vendite' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Monthly Sales Chart */}
@@ -493,129 +413,124 @@ export default function Statistiche() {
             <h3 className="font-heading text-lg font-semibold uppercase mb-4">Andamento Vendite Mensili</h3>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data?.venditeMensili || []}>
-                  <defs>
-                  <linearGradient id="colorVendite" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
-                <XAxis dataKey="data" stroke="#71717A" fontSize={12} />
-                <YAxis stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-                <Tooltip
-                  contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A', color: '#e2e8f0' }}
-                  itemStyle={{ color: '#e2e8f0' }}
-                  labelStyle={{ color: '#e2e8f0' }}
-                  formatter={(value) => [formatCurrency(value), 'Vendite']}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="totale"
-                  stroke="#3B82F6"
-                  fillOpacity={1}
-                  fill="url(#colorVendite)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+                {(data?.venditeMensili || []).length > 1 ? (
+                  <AreaChart data={data?.venditeMensili || []}>
+                    <defs>
+                      <linearGradient id="colorVendite" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+                    <XAxis dataKey="data" stroke="#71717A" fontSize={12} />
+                    <YAxis stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                    <Tooltip
+                      contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
+                      formatter={(value) => [formatCurrency(value), 'Vendite']}
+                    />
+                    <Area type="monotone" dataKey="totale" stroke="#3B82F6" fillOpacity={1} fill="url(#colorVendite)" />
+                  </AreaChart>
+                ) : (
+                  <BarChart data={data?.venditeMensili || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+                    <XAxis dataKey="data" stroke="#71717A" fontSize={12} />
+                    <YAxis stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                    <Tooltip
+                      contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
+                      formatter={(value) => [formatCurrency(value), 'Vendite']}
+                    />
+                    <Bar dataKey="totale" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                )}
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
 
-        {/* Top Clienti Pie Chart - con tooltip al hover */}
-        <div className="bg-card border border-border/50 p-6 rounded-xl">
-          <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Clienti</h3>
-          <div className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data?.topClienti || []}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={120}
-                  innerRadius={50}
-                  dataKey="spesa"
-                  nameKey="nome"
-                  label={({ nome, percent }) => `${(percent * 100).toFixed(0)}%`}
-                  labelLine={{ stroke: '#64748b', strokeWidth: 1 }}
-                >
-                  {(data?.topClienti || []).map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
-                  itemStyle={{ color: '#ffffff' }}
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '4px' }}
-                  formatter={(value, name, props) => {
-                    const total = (data?.topClienti || []).reduce((sum, c) => sum + c.spesa, 0);
-                    const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                    return [`${formatCurrency(value)} (${percent}%)`, props.payload.nome];
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+          {/* Top Clienti Pie Chart */}
+          <div className="bg-card border border-border/50 p-6 rounded-xl">
+            <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Clienti</h3>
+            <div className="h-[300px]">
+              {(data?.topClienti || []).length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data?.topClienti || []}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={110}
+                      innerRadius={45}
+                      dataKey="spesa"
+                      nameKey="nome"
+                      label={({ percent }) => percent > 0.03 ? `${(percent * 100).toFixed(0)}%` : ''}
+                      labelLine={{ stroke: '#64748b', strokeWidth: 1 }}
+                    >
+                      {(data?.topClienti || []).map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
+                      formatter={(value, name, props) => [formatCurrency(value), props.payload.nome]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-slate-500">Nessun dato disponibile</div>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Clienti Trend - Last 7 days */}
-        <div className="bg-card border border-border/50 p-6 rounded-xl">
-          <h3 className="font-heading text-lg font-semibold uppercase mb-4">Trend Clienti Attivi (Ultimi 7 giorni)</h3>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={clientiTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
-                <XAxis 
-                  dataKey="giorno" 
-                  stroke="#71717A" 
-                  fontSize={11}
-                />
-                <YAxis stroke="#71717A" fontSize={12} />
-                <Tooltip
-                  contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff' }}
-                  itemStyle={{ color: '#ffffff' }}
-                  labelStyle={{ color: '#ffffff' }}
-                  formatter={(value) => [value, 'Clienti']}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="clienti" 
-                  stroke="#8B5CF6" 
-                  strokeWidth={3}
-                  dot={{ fill: '#8B5CF6', r: 5 }}
-                  activeDot={{ r: 8, fill: '#8B5CF6' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          {/* Clienti Trend */}
+          <div className="bg-card border border-border/50 p-6 rounded-xl">
+            <h3 className="font-heading text-lg font-semibold uppercase mb-4">Trend Clienti Attivi (Ultimi 7 giorni)</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={clientiTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+                  <XAxis dataKey="giorno" stroke="#71717A" fontSize={11} />
+                  <YAxis stroke="#71717A" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
+                    formatter={(value) => [value, 'Clienti']}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="clienti" 
+                    stroke="#8B5CF6" 
+                    strokeWidth={3}
+                    dot={{ fill: '#8B5CF6', r: 5 }}
+                    activeDot={{ r: 8, fill: '#8B5CF6' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
 
-        {/* Top Prodotti Chart - by Euro */}
-        <div className="bg-card border border-border/50 p-6 rounded-xl">
-          <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Prodotti per Fatturato</h3>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data?.topProdotti || []} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
-                <XAxis type="number" stroke="#71717A" fontSize={12} tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`} />
-                <YAxis 
-                  type="category" 
-                  dataKey="nome" 
-                  stroke="#71717A" 
-                  fontSize={11}
-                  width={120}
-                  tickFormatter={(v) => v?.length > 15 ? v.slice(0, 15) + '...' : v}
-                />
-                <Tooltip
-                  contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff' }}
-                  itemStyle={{ color: '#ffffff' }}
-                  labelStyle={{ color: '#ffffff' }}
-                  formatter={(value) => [formatCurrency(value), 'Fatturato']}
-                />
-                <Bar dataKey="totale_euro" fill="#10B981" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          {/* Top Prodotti */}
+          <div className="bg-card border border-border/50 p-6 rounded-xl">
+            <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Prodotti per Fatturato</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data?.topProdotti || []} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+                  <XAxis type="number" stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                  <YAxis 
+                    type="category" 
+                    dataKey="nome" 
+                    stroke="#71717A" 
+                    fontSize={11}
+                    width={120}
+                    tickFormatter={(v) => v?.length > 15 ? v.slice(0, 15) + '...' : v}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
+                    formatter={(value) => [formatCurrency(value), 'Fatturato']}
+                  />
+                  <Bar dataKey="totale_euro" fill="#10B981" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
         </div>
       ) : (
         /* Acquisti Charts */
@@ -625,30 +540,35 @@ export default function Statistiche() {
             <h3 className="font-heading text-lg font-semibold uppercase mb-4">Andamento Acquisti Mensili</h3>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dataAcquisti?.acquistiMensili || []}>
-                  <defs>
-                    <linearGradient id="colorAcquisti" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
-                  <XAxis dataKey="data" stroke="#71717A" fontSize={12} />
-                  <YAxis stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-                  <Tooltip
-                    contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A', color: '#e2e8f0' }}
-                    itemStyle={{ color: '#e2e8f0' }}
-                    labelStyle={{ color: '#e2e8f0' }}
-                    formatter={(value) => [formatCurrency(value), 'Acquisti']}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="totale"
-                    stroke="#3B82F6"
-                    fillOpacity={1}
-                    fill="url(#colorAcquisti)"
-                  />
-                </AreaChart>
+                {(dataAcquisti?.acquistiMensili || []).length > 1 ? (
+                  <AreaChart data={dataAcquisti?.acquistiMensili || []}>
+                    <defs>
+                      <linearGradient id="colorAcquisti" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+                    <XAxis dataKey="data" stroke="#71717A" fontSize={12} />
+                    <YAxis stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                    <Tooltip
+                      contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
+                      formatter={(value) => [formatCurrency(value), 'Acquisti']}
+                    />
+                    <Area type="monotone" dataKey="totale" stroke="#3B82F6" fillOpacity={1} fill="url(#colorAcquisti)" />
+                  </AreaChart>
+                ) : (
+                  <BarChart data={dataAcquisti?.acquistiMensili || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+                    <XAxis dataKey="data" stroke="#71717A" fontSize={12} />
+                    <YAxis stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                    <Tooltip
+                      contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
+                      formatter={(value) => [formatCurrency(value), 'Acquisti']}
+                    />
+                    <Bar dataKey="totale" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             </div>
           </div>
@@ -656,56 +576,48 @@ export default function Statistiche() {
           {/* Top Fornitori Pie Chart */}
           <div className="bg-card border border-border/50 p-6 rounded-xl">
             <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Fornitori</h3>
-            <div className="h-[350px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={dataAcquisti?.topFornitori || []}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={120}
-                    innerRadius={50}
-                    dataKey="spesa"
-                    nameKey="nome"
-                    label={({ nome, percent }) => `${(percent * 100).toFixed(0)}%`}
-                    labelLine={{ stroke: '#64748b', strokeWidth: 1 }}
-                  >
-                    {(dataAcquisti?.topFornitori || []).map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
-                    itemStyle={{ color: '#ffffff' }}
-                    labelStyle={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '4px' }}
-                    formatter={(value, name, props) => {
-                      const total = (dataAcquisti?.topFornitori || []).reduce((sum, f) => sum + f.spesa, 0);
-                      const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                      return [`${formatCurrency(value)} (${percent}%)`, props.payload.nome];
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="h-[300px]">
+              {(dataAcquisti?.topFornitori || []).length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={dataAcquisti?.topFornitori || []}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={110}
+                      innerRadius={45}
+                      dataKey="spesa"
+                      nameKey="nome"
+                      label={({ percent }) => percent > 0.03 ? `${(percent * 100).toFixed(0)}%` : ''}
+                      labelLine={{ stroke: '#64748b', strokeWidth: 1 }}
+                    >
+                      {(dataAcquisti?.topFornitori || []).map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
+                      formatter={(value, name, props) => [formatCurrency(value), props.payload.nome]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-slate-500">Nessun dato disponibile</div>
+              )}
             </div>
           </div>
 
-          {/* Fornitori Trend - Last 7 days */}
+          {/* Fornitori Trend */}
           <div className="bg-card border border-border/50 p-6 rounded-xl">
             <h3 className="font-heading text-lg font-semibold uppercase mb-4">Trend Fornitori Attivi (Ultimi 7 giorni)</h3>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={fornitoriTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
-                  <XAxis 
-                    dataKey="giorno" 
-                    stroke="#71717A" 
-                    fontSize={11}
-                  />
+                  <XAxis dataKey="giorno" stroke="#71717A" fontSize={11} />
                   <YAxis stroke="#71717A" fontSize={12} />
                   <Tooltip
-                    contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff' }}
-                    itemStyle={{ color: '#ffffff' }}
-                    labelStyle={{ color: '#ffffff' }}
+                    contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
                     formatter={(value) => [value, 'Fornitori']}
                   />
                   <Line 
@@ -721,14 +633,14 @@ export default function Statistiche() {
             </div>
           </div>
 
-          {/* Top Prodotti Acquistati Chart */}
+          {/* Top Prodotti Acquistati */}
           <div className="bg-card border border-border/50 p-6 rounded-xl">
             <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Prodotti Acquistati</h3>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={dataAcquisti?.topProdotti || []} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
-                  <XAxis type="number" stroke="#71717A" fontSize={12} tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`} />
+                  <XAxis type="number" stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
                   <YAxis 
                     type="category" 
                     dataKey="nome" 
@@ -738,9 +650,7 @@ export default function Statistiche() {
                     tickFormatter={(v) => v?.length > 15 ? v.slice(0, 15) + '...' : v}
                   />
                   <Tooltip
-                    contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff' }}
-                    itemStyle={{ color: '#ffffff' }}
-                    labelStyle={{ color: '#ffffff' }}
+                    contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
                     formatter={(value) => [formatCurrency(value), 'Speso']}
                   />
                   <Bar dataKey="totale_euro" fill="#3B82F6" radius={[0, 4, 4, 0]} />
