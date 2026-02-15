@@ -41,10 +41,10 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
-// Custom label renderer for pie chart - shows name + percentage always visible
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, nome }) => {
+// Custom label renderer for pie chart - shows ONLY percentage always visible
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
   const RADIAN = Math.PI / 180;
-  const radius = outerRadius + 30;
+  const radius = outerRadius + 20;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
   
@@ -55,27 +55,27 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
       x={x} 
       y={y} 
       fill="#e2e8f0" 
-      fontSize={11} 
-      fontWeight={500}
+      fontSize={12} 
+      fontWeight={600}
       textAnchor={x > cx ? 'start' : 'end'} 
       dominantBaseline="central"
     >
-      {`${nome?.slice(0, 12)}${nome?.length > 12 ? '..' : ''} (${(percent * 100).toFixed(0)}%)`}
+      {`${(percent * 100).toFixed(0)}%`}
     </text>
   );
 };
 
-// Custom active shape for hover - shows name + total spent with WHITE text
+// Custom active shape for hover - shows NAME + TOTAL SPENT with WHITE text
 const renderActiveShape = (props) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, nome, spesa } = props;
   
   return (
     <g>
-      {/* Center text - WHITE color for readability */}
-      <text x={cx} y={cy - 12} textAnchor="middle" fill="#ffffff" fontSize={14} fontWeight={600}>
-        {nome?.slice(0, 18)}
+      {/* Center text - NAME + TOTAL in WHITE */}
+      <text x={cx} y={cy - 12} textAnchor="middle" fill="#ffffff" fontSize={14} fontWeight={700}>
+        {nome}
       </text>
-      <text x={cx} y={cy + 10} textAnchor="middle" fill="#ffffff" fontSize={13} fontWeight={500}>
+      <text x={cx} y={cy + 12} textAnchor="middle" fill="#ffffff" fontSize={14} fontWeight={600}>
         {formatCurrency(spesa)}
       </text>
       {/* Expanded sector */}
