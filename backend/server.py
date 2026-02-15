@@ -1037,6 +1037,37 @@ async def get_statistiche_lists():
     }
 
 
+@api_router.get("/statistiche/clienti-trend")
+async def get_clienti_trend():
+    """Get daily unique clients for the last 7 days"""
+    
+    # Get last 7 days
+    today = datetime.now()
+    days = []
+    for i in range(6, -1, -1):
+        day = today - timedelta(days=i)
+        days.append(day.strftime("%Y-%m-%d"))
+    
+    trend_data = []
+    for day in days:
+        # Count unique clients for this day
+        vendite = await db.vendite.find({"data": day}, {"_id": 0, "cliente_nome": 1}).to_list(10000)
+        unique_clients = len(set(v.get('cliente_nome', '') for v in vendite if v.get('cliente_nome')))
+        
+        # Format day for display (e.g., "Lun 15")
+        day_date = datetime.strptime(day, "%Y-%m-%d")
+        day_names = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+        day_label = f"{day_names[day_date.weekday()]} {day_date.day}"
+        
+        trend_data.append({
+            "giorno": day_label,
+            "data": day,
+            "clienti": unique_clients
+        })
+    
+    return trend_data
+
+
 # ----- Dashboard Overview -----
 @api_router.get("/dashboard")
 async def get_dashboard():
