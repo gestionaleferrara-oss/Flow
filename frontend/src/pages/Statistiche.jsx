@@ -49,6 +49,7 @@ export default function Statistiche() {
   });
   const [lists, setLists] = useState({ prodotti: [], clienti: [] });
   const [showSuggestions, setShowSuggestions] = useState({ prodotto: false, cliente: false });
+  const [activePieIndex, setActivePieIndex] = useState(-1);
 
   useEffect(() => {
     loadLists();
