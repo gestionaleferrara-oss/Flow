@@ -808,6 +808,47 @@ async def update_prodotto(prodotto_id: str, data: Dict[str, Any]):
 
 @api_router.delete("/prodotti/{prodotto_id}")
 async def delete_prodotto(prodotto_id: str):
+
+
+@api_router.post("/prodotti/recalculate-quantities")
+async def recalculate_quantities():
+    """Recalculate all product quantities from sales/orders data"""
+    
+    # Get all vendite (SCARICO = vendita, decreases stock)
+    vendite = await db.vendite.find({}, {"_id": 0, "prodotto_nome": 1, "quantita": 1}).to_list(100000)
+    
+    # Get all ordini (CARICO = acquisto, increases stock)
+    ordini = await db.ordini.find({}, {"_id": 0, "prodotto_nome": 1, "quantita": 1}).to_list(100000)
+    
+    # Calculate net quantities per product
+    # CARICO (ordini) adds, SCARICO (vendite) subtracts
+    product_quantities = {}
+    
+    for o in ordini:
+        prod = o.get('prodotto_nome', '')
+        qty = abs(o.get('quantita', 0))
+        product_quantities[prod] = product_quantities.get(prod, 0) + qty
+    
+    for v in vendite:
+        prod = v.get('prodotto_nome', '')
+        qty = abs(v.get('quantita', 0))
+        product_quantities[prod] = product_quantities.get(prod, 0) - qty
+    
+    # Update all products
+    updated = 0
+    for prod_name, qty in product_quantities.items():
+        result = await db.prodotti.update_one(
+            {"nome": prod_name},
+            {"$set": {"quantita": qty}}
+        )
+        if result.modified_count > 0:
+            updated += 1
+    
+    return {
+        "success": True,
+        "products_updated": updated,
+        "total_products_calculated": len(product_quantities)
+    }
     result = await db.prodotti.delete_one({"id": prodotto_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Prodotto non trovato")
