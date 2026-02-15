@@ -19,8 +19,8 @@ export default function Fornitori() {
   const [editNote, setEditNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   
-  // Year selector
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  // Year selector - null means "not yet loaded", will be set from API response
+  const [selectedYear, setSelectedYear] = useState(null);
   const [availableYears, setAvailableYears] = useState([]);
   
   // Modal per prodotti fornitore
