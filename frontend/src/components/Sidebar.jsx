@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Home, Upload, Package, Users, Truck, ShoppingCart,
   BarChart3, Newspaper, Sparkles, Zap
@@ -33,7 +33,7 @@ export default function Sidebar() {
   return (
     <aside
       data-testid="sidebar"
-      className="fixed left-0 top-0 h-full z-50 flex flex-col"
+      className="fixed left-0 top-0 h-full z-50 flex flex-col overflow-visible"
       style={{
         width: 76,
         background: 'rgba(8, 12, 24, 0.65)',
@@ -68,30 +68,52 @@ export default function Sidebar() {
           const Icon = item.icon;
 
           return (
-            <div key={item.name} className="relative">
-              <Link
-                to={item.href}
-                data-testid={`nav-${item.name.toLowerCase().replace(/\s/g, '-')}`}
-                onMouseEnter={() => setHoveredItem(item.name)}
-                onMouseLeave={() => setHoveredItem(null)}
+            <Link
+              key={item.name}
+              to={item.href}
+              data-testid={`nav-${item.name.toLowerCase().replace(/\s/g, '-')}`}
+              onMouseEnter={() => setHoveredItem(item.name)}
+              onMouseLeave={() => setHoveredItem(null)}
+              className="relative block"
+            >
+              <motion.div
+                animate={{
+                  scale: isHovered ? 1.18 : 1,
+                  width: isHovered ? 200 : 56,
+                  paddingLeft: isHovered ? 14 : 0,
+                  paddingRight: isHovered ? 14 : 0,
+                }}
+                transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                 className={cn(
-                  'relative flex items-center justify-center w-full rounded-lg py-3 transition-colors duration-200',
-                  isActive
+                  'relative flex items-center rounded-xl py-2.5 mx-auto origin-left overflow-hidden',
+                  isHovered
+                    ? 'justify-start gap-3'
+                    : 'justify-center',
+                  isHovered
+                    ? 'bg-slate-800/90 border border-white/10 shadow-2xl shadow-cyan-500/10 backdrop-blur-xl'
+                    : '',
+                  isActive && !isHovered
                     ? 'text-cyan-400'
-                    : 'text-slate-500 hover:text-slate-200'
+                    : isHovered
+                      ? 'text-white'
+                      : 'text-slate-500'
                 )}
+                style={isHovered ? {
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(34,211,238,0.08)',
+                  zIndex: 60,
+                } : {}}
               >
-                {/* Active background */}
-                {isActive && (
+                {/* Active indicator (solo quando non hoverato) */}
+                {isActive && !isHovered && (
                   <motion.div
                     layoutId="nav-active"
-                    className="absolute inset-0 rounded-lg bg-white/[0.07] border border-white/[0.08]"
+                    className="absolute inset-0 rounded-xl bg-white/[0.07] border border-white/[0.08]"
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
 
-                {/* Left indicator */}
-                {isActive && (
+                {/* Left bar */}
+                {isActive && !isHovered && (
                   <motion.div
                     layoutId="nav-bar"
                     className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-cyan-400 
@@ -100,48 +122,46 @@ export default function Sidebar() {
                   />
                 )}
 
-                {/* Icon con zoom individuale */}
-                <motion.div
-                  className="relative z-10"
-                  animate={{ scale: isHovered ? 1.25 : 1 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-                >
-                  <Icon size={22} className={cn(
-                    'transition-colors duration-200',
-                    isActive ? 'text-cyan-400' : ''
-                  )} />
-                </motion.div>
-              </Link>
-
-              {/* Floating label - appare solo sull'item hoverato */}
-              <AnimatePresence>
+                {/* Glow accent quando hoverato */}
                 {isHovered && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -4, scale: 0.95 }}
-                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                    exit={{ opacity: 0, x: -4, scale: 0.95 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-[60] pointer-events-none"
-                  >
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg whitespace-nowrap
-                      bg-slate-900/95 border border-white/10 shadow-xl shadow-black/40 backdrop-blur-md">
-                      <span className={cn(
-                        "text-sm font-medium",
-                        isActive ? "text-cyan-400" : "text-slate-200"
-                      )}>
-                        {item.name}
-                      </span>
-                      {item.badge && (
-                        <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-500/25 
-                          text-purple-300 rounded-md border border-purple-500/20">
-                          {item.badge}
-                        </span>
-                      )}
-                    </div>
-                  </motion.div>
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-cyan-400 
+                    shadow-[0_0_16px_rgba(34,211,238,0.8)]" />
                 )}
-              </AnimatePresence>
-            </div>
+
+                {/* Icon */}
+                <div className="relative z-10 shrink-0">
+                  <Icon size={22} className={cn(
+                    'transition-colors duration-150',
+                    isHovered ? 'text-cyan-400' : isActive ? 'text-cyan-400' : ''
+                  )} />
+                </div>
+
+                {/* Text - appare solo nell'item hoverato */}
+                {isHovered && (
+                  <motion.span
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.12, delay: 0.04 }}
+                    className="relative z-10 text-sm font-semibold whitespace-nowrap"
+                  >
+                    {item.name}
+                  </motion.span>
+                )}
+
+                {/* Badge */}
+                {isHovered && item.badge && (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.6 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.08 }}
+                    className="ml-auto relative z-10 px-1.5 py-0.5 text-[9px] font-bold bg-purple-500/25 
+                      text-purple-300 rounded-md border border-purple-500/20"
+                  >
+                    {item.badge}
+                  </motion.span>
+                )}
+              </motion.div>
+            </Link>
           );
         })}
       </nav>
@@ -150,9 +170,7 @@ export default function Sidebar() {
       <div className="px-4 py-3 shrink-0">
         <div className="h-px bg-white/[0.04] mb-2" />
         <div className="flex items-center justify-center">
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-          </div>
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
         </div>
       </div>
     </aside>
