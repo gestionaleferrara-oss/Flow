@@ -24,16 +24,27 @@ export default function Sidebar() {
   const location = useLocation();
   const [hoveredItem, setHoveredItem] = useState(null);
   const [hoverPos, setHoverPos] = useState({ top: 0 });
-  const navRefs = useRef({});
+  const leaveTimer = useRef(null);
 
-  const handleHover = useCallback((name, el) => {
-    if (!el) return;
+  const enterItem = useCallback((name, el) => {
+    clearTimeout(leaveTimer.current);
     const rect = el.getBoundingClientRect();
     setHoverPos({ top: rect.top });
     setHoveredItem(name);
   }, []);
 
+  const leaveItem = useCallback(() => {
+    leaveTimer.current = setTimeout(() => setHoveredItem(null), 80);
+  }, []);
+
+  const keepHover = useCallback(() => {
+    clearTimeout(leaveTimer.current);
+  }, []);
+
+  useEffect(() => () => clearTimeout(leaveTimer.current), []);
+
   const hoveredData = hoveredItem ? navigation.find(n => n.name === hoveredItem) : null;
+  const HoveredIcon = hoveredData?.icon;
 
   return (
     <>
@@ -48,7 +59,6 @@ export default function Sidebar() {
           borderRight: '1px solid rgba(255,255,255,0.06)',
         }}
       >
-        {/* Top glow */}
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
 
         {/* Logo */}
@@ -63,7 +73,7 @@ export default function Sidebar() {
 
         <div className="mx-4 h-px bg-white/[0.04]" />
 
-        {/* Nav icons */}
+        {/* Nav */}
         <nav className="flex-1 px-2 py-3 space-y-1 overflow-y-auto">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
@@ -73,17 +83,16 @@ export default function Sidebar() {
             return (
               <div
                 key={item.name}
-                ref={el => navRefs.current[item.name] = el}
                 className="relative h-[44px]"
-                onMouseEnter={(e) => handleHover(item.name, e.currentTarget)}
-                onMouseLeave={() => setHoveredItem(null)}
+                onMouseEnter={(e) => enterItem(item.name, e.currentTarget)}
+                onMouseLeave={leaveItem}
               >
                 <Link
                   to={item.href}
                   data-testid={`nav-${item.name.toLowerCase().replace(/\s/g, '-')}`}
                   className={cn(
                     'flex items-center justify-center w-full h-full rounded-xl transition-colors duration-150',
-                    isActive ? 'text-cyan-400' : 'text-slate-500 hover:text-slate-200'
+                    isHovered ? 'text-cyan-400' : isActive ? 'text-cyan-400' : 'text-slate-500 hover:text-slate-200'
                   )}
                 >
                   {isActive && !isHovered && (
@@ -109,7 +118,6 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Footer */}
         <div className="px-4 py-3 shrink-0">
           <div className="h-px bg-white/[0.04] mb-2" />
           <div className="flex items-center justify-center">
@@ -118,39 +126,41 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* Overlay espanso — FIXED, fuori dalla sidebar */}
+      {/* Popup espanso — fixed position, fuori dal flusso sidebar */}
       <AnimatePresence>
-        {hoveredData && (
+        {hoveredData && HoveredIcon && (
           <motion.div
             key={hoveredData.name}
-            initial={{ scale: 0.8, opacity: 0 }}
+            initial={{ scale: 0.75, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.8, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 600, damping: 26 }}
-            className="fixed z-[80] pointer-events-none"
+            exit={{ scale: 0.75, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 650, damping: 28 }}
+            className="fixed z-[100]"
             style={{
               top: hoverPos.top,
-              left: 8,
-              originX: 0,
-              originY: 0.5,
+              left: 10,
+              transformOrigin: 'left center',
             }}
+            onMouseEnter={keepHover}
+            onMouseLeave={leaveItem}
           >
-            <div
-              className="flex items-center gap-3 h-[44px] px-4 pr-6 rounded-xl whitespace-nowrap pointer-events-auto
-                bg-[#0c1322]/95 border border-cyan-500/20 backdrop-blur-xl"
+            <Link
+              to={hoveredData.href}
+              className="flex items-center gap-3 h-[44px] px-4 pr-6 rounded-xl whitespace-nowrap
+                bg-[#0b1120] border border-cyan-500/25 backdrop-blur-xl"
               style={{
-                boxShadow: '0 10px 40px rgba(0,0,0,0.6), 0 0 30px rgba(34,211,238,0.1), inset 0 1px 0 rgba(255,255,255,0.08)',
+                boxShadow: '0 12px 48px rgba(0,0,0,0.7), 0 0 32px rgba(34,211,238,0.12), inset 0 1px 0 rgba(255,255,255,0.08)',
               }}
             >
               {/* Glow bar */}
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-cyan-400 shadow-[0_0_16px_rgba(34,211,238,0.8)]" />
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-cyan-400 shadow-[0_0_16px_rgba(34,211,238,0.9)]" />
 
-              <hoveredData.icon size={22} className="text-cyan-400 shrink-0" />
+              <HoveredIcon size={22} className="text-cyan-400 shrink-0" />
 
               <motion.span
-                initial={{ opacity: 0, x: -6 }}
+                initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.1, delay: 0.02 }}
+                transition={{ duration: 0.1, delay: 0.03 }}
                 className="text-sm font-semibold text-white"
               >
                 {hoveredData.name}
@@ -161,7 +171,7 @@ export default function Sidebar() {
                   {hoveredData.badge}
                 </span>
               )}
-            </div>
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>
