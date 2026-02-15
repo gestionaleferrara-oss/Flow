@@ -855,9 +855,12 @@ async def recalculate_quantities():
     }
 
 
-@api_router.get("/prodotti/{prodotto_nome}/analisi")
+@api_router.get("/prodotti/{prodotto_nome:path}/analisi")
 async def get_prodotto_analisi(prodotto_nome: str):
     """Get detailed analysis for a prodotto"""
+    # Decode URL-encoded product name (handle slashes in names)
+    from urllib.parse import unquote
+    prodotto_nome = unquote(prodotto_nome)
     vendite = await db.vendite.find({"prodotto_nome": prodotto_nome}, {"_id": 0}).to_list(1000)
     
     totale_venduto = sum(v.get('quantita', 0) for v in vendite)
