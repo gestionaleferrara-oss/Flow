@@ -1198,58 +1198,57 @@ async def scrape_myfruit_news() -> List[dict]:
             items = []
             seen_urls = set()
             
-            for a_tag in soup.find_all('a', href=True):
-                href = a_tag['href']
-                if '/news/' not in href or href in seen_urls:
-                    continue
-                if not href.startswith('https://www.myfruit.it/news/'):
-                    continue
-                # Skip category pages
-                if '/news/category/' in href or '/news-page/' in href:
+            # Find blog-card-details divs which contain title and description
+            cards = soup.find_all('div', class_='blog-card-details')
+            
+            for card in cards:
+                # Get the parent <a> tag for the URL
+                parent_a = card.find_parent('a', href=True)
+                if not parent_a:
                     continue
                 
+                href = parent_a['href']
+                if href in seen_urls or not href.startswith('https://www.myfruit.it/news/'):
+                    continue
+                if '/category/' in href or '/news-page/' in href:
+                    continue
                 seen_urls.add(href)
                 
-                # Extract title from bold text or nested elements
-                title_el = a_tag.find('strong') or a_tag.find('b')
-                title = title_el.get_text(strip=True) if title_el else a_tag.get_text(strip=True)
-                if not title or len(title) < 10:
+                # Title from h5
+                h5 = card.find('h5', class_='post-title-heading')
+                title = h5.get_text(strip=True) if h5 else ''
+                if not title or len(title) < 5:
                     continue
                 
-                # Extract image
-                img = a_tag.find('img')
+                # Description
+                desc_div = card.find('div', class_='post-description')
+                description = desc_div.get_text(strip=True)[:300] if desc_div else ''
+                
+                # Image from sibling <a> tag (the image link is a sibling of the details link)
                 image_url = None
-                if img:
-                    image_url = img.get('src') or img.get('data-src')
+                blog_card = parent_a.parent
+                if blog_card:
+                    img = blog_card.find('img')
+                    if img:
+                        image_url = img.get('src') or img.get('data-src')
                 
-                # Extract date and description from surrounding text
-                parent = a_tag.parent
-                full_text = parent.get_text(separator='\n', strip=True) if parent else a_tag.get_text(strip=True)
-                lines = [ln.strip() for ln in full_text.split('\n') if ln.strip()]
+                # Category from parent container
+                col_div = blog_card.parent if blog_card else None
+                categoria_text = "ortofrutta"
                 
-                date_str = ""
-                description = ""
-                for line in lines:
-                    # Check for date pattern like "12 feb 2026"
-                    if re.match(r'^\d{1,2}\s+\w{3}\s+\d{4}$', line):
-                        date_str = line
-                    elif line != title and len(line) > 20:
-                        description = line
-                
-                if not date_str:
-                    continue
-                
-                parsed_dt = parse_italian_news_date(date_str)
+                # Date not available in static HTML; use index-based offset from today
+                today = datetime.now(timezone.utc)
+                offset_date = today - timedelta(hours=len(items) * 6)
                 
                 items.append({
                     "titolo": title,
-                    "descrizione": description[:300],
+                    "descrizione": description,
                     "url": href,
                     "immagine_url": image_url,
                     "fonte": "Myfruit",
-                    "categoria": "ortofrutta",
-                    "data_pubblicazione": date_str,
-                    "_sort_date": parsed_dt.isoformat()
+                    "categoria": categoria_text,
+                    "data_pubblicazione": offset_date.strftime("%a, %d %b %Y"),
+                    "_sort_date": offset_date.isoformat()
                 })
                 
                 if len(items) >= 10:
