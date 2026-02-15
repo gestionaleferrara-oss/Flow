@@ -130,6 +130,60 @@ export default function Dashboard() {
         />
       </div>
 
+      {/* Search Prodotto - Analisi Prodotti */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="glass-card p-6 mb-8"
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-lg bg-emerald-500/10">
+            <Box className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-lg">Analisi Prodotti</h2>
+            <p className="text-sm text-muted-foreground">Cerca un prodotto per visualizzare statistiche dettagliate</p>
+          </div>
+        </div>
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Cerca prodotto..."
+            value={prodottoSearch}
+            onChange={(e) => {
+              setProdottoSearch(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+            className="pl-10"
+            data-testid="search-prodotto-dashboard"
+          />
+          {/* Suggestions dropdown */}
+          {showSuggestions && prodottoSearch && filteredProdotti.length > 0 && (
+            <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-lg mt-1 max-h-64 overflow-auto z-20 shadow-xl">
+              {filteredProdotti.map((p, i) => (
+                <div
+                  key={p.id || i}
+                  className="px-4 py-3 hover:bg-muted cursor-pointer text-sm flex items-center justify-between border-b border-border/50 last:border-0"
+                  onClick={() => viewProdottoAnalisi(p)}
+                  data-testid={`prodotto-suggestion-${i}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Package className="w-4 h-4 text-emerald-500" />
+                    <span className="font-medium">{p.nome}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    Qtà: {p.quantita?.toLocaleString('it-IT') || 0}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.div>
+
       {/* Quick Links */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
         <QuickLinkCard
