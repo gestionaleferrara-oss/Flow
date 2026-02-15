@@ -1,74 +1,93 @@
-# Flusso - Gestione Aziendale Ortofrutta
+# Flusso - Product Requirements Document
 
-## Descrizione
-Applicazione web full-stack per la gestione aziendale nel settore ortofrutticolo italiano. Migrazione da Google Apps Script a architettura moderna con funzionalità AI integrate.
+## Overview
+Flusso è un'applicazione web full-stack per la gestione aziendale, migrata da Google Apps Script a React/FastAPI/MongoDB.
 
-## Stack Tecnologico
-- **Frontend**: React.js, Tailwind CSS, Framer Motion, Recharts
-- **Backend**: FastAPI, Python
-- **Database**: MongoDB
-- **UI Components**: Shadcn/UI
-- **Font**: Plus Jakarta Sans (fintech style)
-- **AI**: OpenAI GPT-4o via Emergent LLM Key
+## Original Problem Statement
+L'utente vuole migrare un'applicazione Google Apps Script a un'applicazione web moderna con:
+- Import dati da CSV/XLSX
+- Gestione inventario (Magazzino)
+- Statistiche avanzate
+- News e prezzi di mercato
+- Funzionalità AI per suggerimenti e report
 
-## Funzionalità Implementate
+## Tech Stack
+- **Frontend:** React.js, Tailwind CSS, Axios, Recharts, react-markdown
+- **Backend:** FastAPI, Pandas, BeautifulSoup4, feedparser
+- **Database:** MongoDB
+- **AI/LLM:** emergentintegrations + Google Gemini Pro (Emergent LLM Key)
 
-### Core Features
-- [x] Upload CSV/XLSX per importazione dati vendite e acquisti
-- [x] Gestione automatica clienti, fornitori, prodotti
-- [x] Calcolo automatico quantità magazzino (CARICO/SCARICO)
-- [x] Dashboard con KPI, alert e suggerimenti AI
+## Core Features Implemented
 
-### Pagine
-- [x] **Dashboard**: Overview con statistiche, suggerimenti AI, ricerca prodotti, Centro Alert
-- [x] **Importa Dati**: Upload file CSV/XLSX
-- [x] **Magazzino**: Gestione prodotti con quantità e quantità minima editabile
-- [x] **Vendite**: Raggruppamento per cliente/data con righe espandibili
-- [x] **Clienti**: Lista con analisi dettagliata e campi editabili (WhatsApp, Email, Note)
-- [x] **Fornitori**: Gestione fornitori
-- [x] **Acquisti**: Raggruppamento per fornitore/data con righe espandibili
-- [x] **Statistiche**: Grafici vendite, top clienti, top prodotti, trend
-- [x] **Report AI**: Report automatici settimanali/mensili generati dall'AI
-- [x] **Notizie**: Feed RSS da fonti ortofrutta
+### Data Management
+- [x] Upload CSV/XLSX con auto-detect colonne
+- [x] Gestione Clienti con campi editabili (WhatsApp, Email, Note)
+- [x] Gestione Fornitori
+- [x] Gestione Prodotti/Magazzino
 
-### Funzionalità AI (15/02/2025)
-- [x] **Report AI Automatici**: Generazione report settimanali/mensili con GPT-4o
-- [x] **Suggerimenti AI**: Consigli personalizzati basati sui dati aziendali
-- [x] **Centro Alert**: Prodotti sotto scorta, clienti inattivi, prodotti in esaurimento
-- [x] **Analisi Prodotto**: Fatturato mensile, prezzo medio vendita, trend, clienti unici
+### Inventory (Magazzino)
+- [x] Visualizzazione stock con quantità importate
+- [x] Quantità minima editabile per alert riordino
+- [x] Scadenza editabile
+- [x] Filtri "Da Ordinare" e "In Scadenza"
+- [x] Colonne semplificate (rimossi Imballo, Kg/pz, Kg Rim.)
 
-## API Endpoints Principali
-- `POST /api/upload-csv` - Upload file dati
+### Sales & Purchases
+- [x] Vendite con vista raggruppata per cliente/data
+- [x] Acquisti (Ordini) con vista raggruppata per fornitore/data
+
+### Statistics
+- [x] Dashboard con KPI principali
+- [x] Grafici vendite mensili/giornaliere
+- [x] Top clienti e prodotti
+- [x] Trend clienti attivi
+
+### AI Features
+- [x] Suggerimento settimanale AI sulla dashboard
+- [x] Pulsante refresh suggerimento
+- [x] Report AI settimanali/mensili con Gemini Pro
+- [x] Eliminazione report AI (pulsante cestino)
+
+### Alerts & Notifications
+- [x] Centro Alert sulla dashboard
+- [x] Prodotti sotto scorta minima
+- [x] Clienti inattivi
+- [x] Prodotti in esaurimento
+
+### News & Market
+- [x] Aggregazione notizie da RSS
+- [x] Prezzi di mercato
+
+## Key API Endpoints
+- `GET/POST /api/clienti` - CRUD clienti
+- `GET/POST /api/prodotti` - CRUD prodotti
+- `GET /api/vendite` - Lista vendite
+- `GET /api/ordini` - Lista ordini/acquisti
+- `GET /api/statistiche` - Statistiche vendite
 - `GET /api/dashboard` - Dati dashboard
-- `GET /api/alerts` - Alert gestione (scorte, clienti, esaurimenti)
 - `GET /api/ai-suggestion` - Suggerimento AI settimanale
-- `POST /api/ai-suggestion/refresh` - Nuovo suggerimento AI
-- `GET /api/ai-reports` - Lista report AI
-- `POST /api/ai-reports/generate` - Genera nuovo report AI
-- `GET /api/clienti/{id}/analisi` - Analisi cliente
-- `GET /api/prodotti/{nome}/analisi` - Analisi prodotto con prezzo medio vendita
+- `POST /api/ai-suggestion/refresh` - Rigenera suggerimento
+- `GET /api/alerts` - Alert gestione
+- `GET/POST /api/ai-reports` - Report AI
+- `DELETE /api/ai-reports/{id}` - Elimina report AI
 
-## Credenziali
-- **EMERGENT_LLM_KEY**: Configurata in `/app/backend/.env` per generazione report AI
+## Database Collections
+- `clienti` - Anagrafica clienti
+- `fornitori` - Anagrafica fornitori
+- `prodotti` - Inventario prodotti
+- `vendite` - Transazioni vendita
+- `ordini` - Transazioni acquisto
+- `ai_suggestions` - Cache suggerimenti AI
+- `ai_reports` - Report AI generati
 
-## Backlog / Future Tasks
+## Known Issues (Low Priority)
+- Tooltip grafico a torta non interattivo in Stats.js
+- Scraper news non recupera immagini per alcune fonti
 
-### P1 - Alta Priorità
-- [ ] Fix tooltip grafico a torta (hover non funziona)
-- [ ] Fix scraper notizie per immagini ilcorriereortofrutticolo
+## Future Tasks (Backlog)
+- P2: Refactoring server.py in struttura modulare
+- P2: Gestione quantità negative inventario
+- P3: Revisione script originale Google Apps
 
-### P2 - Media Priorità
-- [ ] Refactoring server.py in struttura modulare (routes, services, models)
-- [ ] Notifiche WhatsApp per scorte basse
-- [ ] Esportazione report AI in PDF
-
-### P3 - Bassa Priorità
-- [ ] Esportazione dati in Excel
-- [ ] Backup automatico database
-- [ ] Dashboard mobile-responsive migliorata
-
-## Note Tecniche
-- I report AI vengono generati con GPT-4o e salvati nel database
-- Il suggerimento settimanale viene cachato per settimana
-- "SCARICO VENDUTO" è escluso da tutte le statistiche clienti
-- Font Plus Jakarta Sans per look professionale fintech
+---
+Last Updated: 2026-02-15
