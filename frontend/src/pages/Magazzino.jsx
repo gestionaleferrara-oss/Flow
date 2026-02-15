@@ -212,7 +212,19 @@ export default function Magazzino() {
                     <td className="text-right tabular-nums">{p.kg_rimanenti?.toFixed(2)}</td>
                     <td className="text-right tabular-nums">{formatCurrency(p.prezzo_medio)}</td>
                     <td className="text-right tabular-nums font-medium">{formatCurrency(p.valore_scorte)}</td>
-                    <td>{p.scadenza || '-'}</td>
+                    <td>
+                      {isEditing ? (
+                        <Input
+                          type="date"
+                          value={editData.scadenza || ''}
+                          onChange={(e) => setEditData({ ...editData, scadenza: e.target.value })}
+                          className="h-8 w-36"
+                          data-testid="edit-scadenza"
+                        />
+                      ) : (
+                        p.scadenza || '-'
+                      )}
+                    </td>
                     <td>
                       <span className={cn('flex items-center gap-1 text-sm', status.color)}>
                         {status.icon} {status.label}
