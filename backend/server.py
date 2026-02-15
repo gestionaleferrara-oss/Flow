@@ -1225,7 +1225,7 @@ async def scrape_myfruit_news() -> List[dict]:
                 # Extract date and description from surrounding text
                 parent = a_tag.parent
                 full_text = parent.get_text(separator='\n', strip=True) if parent else a_tag.get_text(strip=True)
-                lines = [l.strip() for l in full_text.split('\n') if l.strip()]
+                lines = [ln.strip() for ln in full_text.split('\n') if ln.strip()]
                 
                 date_str = ""
                 description = ""
