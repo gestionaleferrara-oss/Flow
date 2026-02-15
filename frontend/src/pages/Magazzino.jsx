@@ -192,8 +192,6 @@ export default function Magazzino() {
                     <td className="text-right tabular-nums text-slate-400">
                       {p.quantita?.toLocaleString('it-IT') || 0}
                     </td>
-                    <td className="text-right tabular-nums">{p.kg_per_pezzo?.toFixed(2) || '-'}</td>
-                    <td>{p.imballo || '-'}</td>
                     {/* Quantità Minima - MODIFICABILE */}
                     <td className="text-right tabular-nums bg-amber-500/5">
                       {isEditing ? (
@@ -214,7 +212,6 @@ export default function Magazzino() {
                         </span>
                       )}
                     </td>
-                    <td className="text-right tabular-nums">{p.kg_rimanenti?.toFixed(2) || '-'}</td>
                     <td className="text-right tabular-nums">{formatCurrency(p.prezzo_medio)}</td>
                     <td className="text-right tabular-nums font-medium">{formatCurrency(p.valore_scorte)}</td>
                     {/* Scadenza - MODIFICABILE */}
