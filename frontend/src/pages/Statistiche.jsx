@@ -370,7 +370,9 @@ export default function Statistiche() {
                   tickFormatter={(v) => v?.length > 20 ? v.slice(0, 20) + '...' : v}
                 />
                 <Tooltip
-                  contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A' }}
+                  contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A', color: '#e2e8f0' }}
+                  itemStyle={{ color: '#e2e8f0' }}
+                  labelStyle={{ color: '#e2e8f0' }}
                   formatter={(value) => [formatCurrency(value), 'Fatturato']}
                 />
                 <Bar dataKey="totale_euro" fill="#10B981" radius={[0, 4, 4, 0]} />
