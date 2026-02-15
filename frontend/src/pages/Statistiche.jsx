@@ -395,15 +395,15 @@ export default function Statistiche() {
         {/* Top Clienti Pie Chart - With name + percentage labels always visible */}
         <div className="bg-card border border-border/50 p-6 rounded-xl">
           <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Clienti</h3>
-          <div className="h-[300px]">
+          <div className="h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data?.topClienti || []}
                   cx="50%"
                   cy="50%"
-                  outerRadius={90}
-                  innerRadius={40}
+                  outerRadius={80}
+                  innerRadius={35}
                   dataKey="spesa"
                   nameKey="nome"
                   label={renderCustomizedLabel}
