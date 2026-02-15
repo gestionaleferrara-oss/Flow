@@ -61,6 +61,7 @@ export default function Notizie() {
   const [prezziMercati, setPrezziMercati] = useState([]);
   const [trends, setTrends] = useState([]);
   const [trendsLoading, setTrendsLoading] = useState(true);
+  const [tickerNews, setTickerNews] = useState([]);
   const [categorie, setCategorie] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState('all');
 
@@ -79,10 +80,14 @@ export default function Notizie() {
       setCategorie([...new Set(notizieRes.data.map(n => n.categoria))]);
     } catch (e) { console.error(e); } finally { setLoading(false); }
 
-    // Load trends separately (slower)
+    // Load trends and ticker separately (slower)
     try {
-      const trendsRes = await axios.get(`${API}/trends-frutta-secca`);
+      const [trendsRes, tickerRes] = await Promise.all([
+        axios.get(`${API}/trends-frutta-secca`),
+        axios.get(`${API}/ticker-news`)
+      ]);
       setTrends(trendsRes.data);
+      setTickerNews(tickerRes.data);
     } catch (e) { console.error(e); } finally { setTrendsLoading(false); }
   };
 
