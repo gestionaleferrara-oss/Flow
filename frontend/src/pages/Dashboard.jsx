@@ -8,18 +8,20 @@ import {
   Users,
   Package,
   AlertTriangle,
-  Calendar,
   ArrowUpRight,
   Upload,
   BarChart3,
   TrendingUp,
   TrendingDown,
   Search,
-  X,
   Box,
   Sparkles,
   Lightbulb,
-  RefreshCw
+  RefreshCw,
+  Clock,
+  UserX,
+  PackageX,
+  AlertCircle
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import StatCard from '@/components/StatCard';
@@ -48,11 +50,14 @@ export default function Dashboard() {
   const [loadingAnalisi, setLoadingAnalisi] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [loadingAi, setLoadingAi] = useState(false);
+  const [alerts, setAlerts] = useState(null);
+  const [loadingAlerts, setLoadingAlerts] = useState(true);
 
   useEffect(() => {
     loadDashboard();
     loadProdotti();
     loadAiSuggestion();
+    loadAlerts();
   }, []);
 
   const loadDashboard = async () => {
@@ -87,6 +92,30 @@ export default function Dashboard() {
     }
   };
 
+  const refreshAiSuggestion = async () => {
+    setLoadingAi(true);
+    try {
+      const response = await axios.post(`${API}/ai-suggestion/refresh`);
+      setAiSuggestion(response.data);
+    } catch (error) {
+      console.error('Error refreshing AI suggestion:', error);
+    } finally {
+      setLoadingAi(false);
+    }
+  };
+
+  const loadAlerts = async () => {
+    setLoadingAlerts(true);
+    try {
+      const response = await axios.get(`${API}/alerts`);
+      setAlerts(response.data);
+    } catch (error) {
+      console.error('Error loading alerts:', error);
+    } finally {
+      setLoadingAlerts(false);
+    }
+  };
+
   const viewProdottoAnalisi = async (prodotto) => {
     setSelectedProdotto(prodotto);
     setShowSearchModal(false);
@@ -109,6 +138,10 @@ export default function Dashboard() {
   ).slice(0, 12);
 
   if (loading) return <LoadingSpinner fullScreen />;
+
+  const totalAlerts = (alerts?.prodottiSottoScorta?.length || 0) + 
+                      (alerts?.clientiInattivi?.length || 0) + 
+                      (alerts?.prodottiInEsaurimento?.length || 0);
 
   return (
     <PageWrapper>
@@ -152,8 +185,8 @@ export default function Dashboard() {
           gradient="cyan"
         />
         <StatCard
-          label="Da Riordinare"
-          value={data?.prodottiOrdinare || 0}
+          label="Alert Attivi"
+          value={totalAlerts}
           icon={AlertTriangle}
           gradient="amber"
         />
@@ -167,7 +200,6 @@ export default function Dashboard() {
         className="mb-8"
       >
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-fuchsia-500/10 border border-purple-500/20">
-          {/* Decorative elements */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-violet-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
           
@@ -177,9 +209,22 @@ export default function Dashboard() {
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="font-semibold text-lg text-white">Suggerimento Settimanale</h3>
-                  <span className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded-full">AI</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-lg text-white">Suggerimento AI</h3>
+                    <span className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded-full">AI</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={refreshAiSuggestion}
+                    disabled={loadingAi}
+                    className="text-purple-300 hover:text-purple-200 hover:bg-purple-500/20"
+                    data-testid="refresh-ai-btn"
+                  >
+                    <RefreshCw className={cn("w-4 h-4 mr-1", loadingAi && "animate-spin")} />
+                    Nuovo
+                  </Button>
                 </div>
                 
                 {loadingAi ? (
@@ -196,14 +241,9 @@ export default function Dashboard() {
                     <p className="text-slate-300 text-sm leading-relaxed mb-3">
                       {aiSuggestion.suggestion.messaggio}
                     </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">
-                        Aggiornato: Settimana {aiSuggestion.week_key?.split('-W')[1] || ''}
-                      </span>
-                      <span className="px-3 py-1.5 text-xs bg-white/5 text-purple-300 rounded-lg border border-purple-500/20">
-                        {aiSuggestion.suggestion.azione}
-                      </span>
-                    </div>
+                    <span className="inline-block px-3 py-1.5 text-xs bg-white/5 text-purple-300 rounded-lg border border-purple-500/20">
+                      {aiSuggestion.suggestion.azione}
+                    </span>
                   </>
                 ) : (
                   <p className="text-slate-400 text-sm">
@@ -220,28 +260,28 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
         <QuickLinkCard
           title="Importa Dati"
-          description="Carica un file CSV o XLSX per importare vendite e aggiornare il magazzino"
+          description="Carica un file CSV o XLSX per importare vendite"
           href="/upload"
           icon={Upload}
           gradient="from-blue-500 to-blue-600"
         />
         <QuickLinkCard
           title="Visualizza Statistiche"
-          description="Analizza le vendite per periodo, prodotto e cliente"
+          description="Analizza le vendite per periodo e cliente"
           href="/statistiche"
           icon={BarChart3}
           gradient="from-purple-500 to-purple-600"
         />
         <QuickLinkCard
           title="Gestisci Magazzino"
-          description="Controlla le scorte e i prodotti da riordinare"
+          description="Controlla le scorte e i prodotti"
           href="/magazzino"
           icon={Package}
           gradient="from-emerald-500 to-emerald-600"
         />
       </div>
 
-      {/* Recent Activity */}
+      {/* Alert Gestione */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -250,67 +290,107 @@ export default function Dashboard() {
       >
         <div className="p-5 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/10">
-              <TrendingUp className="w-5 h-5 text-blue-400" />
+            <div className="p-2 rounded-lg bg-amber-500/10">
+              <AlertCircle className="w-5 h-5 text-amber-400" />
             </div>
-            <h2 className="font-semibold text-lg">Attività Recenti</h2>
+            <h2 className="font-semibold text-lg">Centro Alert</h2>
+            {totalAlerts > 0 && (
+              <span className="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-300 rounded-full">
+                {totalAlerts} alert
+              </span>
+            )}
           </div>
-          <Link 
-            to="/vendite" 
-            className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            Vedi tutte
-          </Link>
         </div>
-        <div className="divide-y divide-white/5">
-          {data?.attivitaRecenti?.length > 0 ? (
-            data.attivitaRecenti.map((item, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 + index * 0.05 }}
-                className="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/10 
-                    flex items-center justify-center border border-blue-500/20">
-                    <ShoppingCart className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-200">{item.descrizione}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {formatDate(item.data)}
-                      {item.prodotto && <span className="text-slate-600"> - {item.prodotto}</span>}
-                    </p>
-                  </div>
-                </div>
-                <span className="font-mono text-sm font-semibold text-emerald-400">
-                  {formatCurrency(item.valore)}
-                </span>
-              </motion.div>
-            ))
-          ) : (
-            <div className="p-12 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800/50 
-                flex items-center justify-center">
-                <Calendar className="w-8 h-8 text-slate-600" />
-              </div>
-              <p className="text-slate-400 font-medium">Nessuna attività recente</p>
-              <p className="text-sm text-slate-600 mt-1">
-                Importa dei dati per iniziare
-              </p>
-              <Link
-                to="/upload"
-                className="inline-flex items-center gap-2 mt-4 px-4 py-2 
-                  bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors"
-              >
-                <Upload className="w-4 h-4" />
-                Importa Dati
-              </Link>
+        
+        {loadingAlerts ? (
+          <div className="p-8 text-center">
+            <LoadingSpinner />
+          </div>
+        ) : totalAlerts === 0 ? (
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+              <Box className="w-8 h-8 text-emerald-500" />
             </div>
-          )}
-        </div>
+            <p className="text-emerald-400 font-medium">Tutto sotto controllo!</p>
+            <p className="text-sm text-slate-500 mt-1">Nessun alert attivo</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-white/5">
+            {/* Prodotti Sotto Scorta */}
+            <div className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <PackageX className="w-4 h-4 text-red-400" />
+                <span className="text-sm font-medium text-slate-300">Sotto Scorta</span>
+                <span className="ml-auto text-xs text-slate-500">{alerts?.prodottiSottoScorta?.length || 0}</span>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-auto">
+                {alerts?.prodottiSottoScorta?.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm py-1.5 px-2 rounded bg-white/[0.02] hover:bg-white/[0.04]">
+                    <span className="text-slate-400 truncate flex-1 mr-2">{p.nome}</span>
+                    <span className={cn(
+                      "font-mono text-xs",
+                      p.urgenza === 'alta' ? "text-red-400" : "text-amber-400"
+                    )}>
+                      {p.quantita}/{p.quantita_minima}
+                    </span>
+                  </div>
+                ))}
+                {(!alerts?.prodottiSottoScorta || alerts.prodottiSottoScorta.length === 0) && (
+                  <p className="text-xs text-slate-600 text-center py-2">Nessun prodotto sotto scorta</p>
+                )}
+              </div>
+            </div>
+
+            {/* Clienti Inattivi */}
+            <div className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <UserX className="w-4 h-4 text-orange-400" />
+                <span className="text-sm font-medium text-slate-300">Clienti Inattivi</span>
+                <span className="ml-auto text-xs text-slate-500">{alerts?.clientiInattivi?.length || 0}</span>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-auto">
+                {alerts?.clientiInattivi?.map((c, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm py-1.5 px-2 rounded bg-white/[0.02] hover:bg-white/[0.04]">
+                    <div className="truncate flex-1 mr-2">
+                      <span className="text-slate-400">{c.nome}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs text-slate-500">{c.giorni_inattivo}gg</span>
+                    </div>
+                  </div>
+                ))}
+                {(!alerts?.clientiInattivi || alerts.clientiInattivi.length === 0) && (
+                  <p className="text-xs text-slate-600 text-center py-2">Tutti i clienti attivi</p>
+                )}
+              </div>
+            </div>
+
+            {/* Prodotti In Esaurimento */}
+            <div className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-medium text-slate-300">In Esaurimento</span>
+                <span className="ml-auto text-xs text-slate-500">{alerts?.prodottiInEsaurimento?.length || 0}</span>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-auto">
+                {alerts?.prodottiInEsaurimento?.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm py-1.5 px-2 rounded bg-white/[0.02] hover:bg-white/[0.04]">
+                    <span className="text-slate-400 truncate flex-1 mr-2">{p.nome}</span>
+                    <span className={cn(
+                      "font-mono text-xs",
+                      p.giorni_rimanenti <= 7 ? "text-red-400" : "text-blue-400"
+                    )}>
+                      {p.giorni_rimanenti}gg
+                    </span>
+                  </div>
+                ))}
+                {(!alerts?.prodottiInEsaurimento || alerts.prodottiInEsaurimento.length === 0) && (
+                  <p className="text-xs text-slate-600 text-center py-2">Nessun prodotto in esaurimento</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* Modal Ricerca Prodotti */}
@@ -401,6 +481,12 @@ export default function Dashboard() {
                   <p className="text-xs text-muted-foreground">media 6 mesi</p>
                 </div>
                 <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Prezzo Medio Vendita</p>
+                  <p className="font-heading text-2xl font-bold text-blue-400">
+                    {formatCurrency(prodottoAnalisi.prezzoMedioVendita || 0)}
+                  </p>
+                </div>
+                <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground mb-1">Trend Vendite</p>
                   <div className="flex items-center gap-2">
                     {(prodottoAnalisi.trendPercentuale || 0) >= 0 ? (
@@ -419,19 +505,8 @@ export default function Dashboard() {
                 </div>
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground mb-1">Clienti Unici</p>
-                  <p className="font-heading text-2xl font-bold text-blue-400">
+                  <p className="font-heading text-2xl font-bold text-purple-400">
                     {prodottoAnalisi.clientiUnici || 0}
-                  </p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Giorni Esaurimento</p>
-                  <p className={cn(
-                    "font-heading text-2xl font-bold",
-                    typeof prodottoAnalisi.giorniEsaurimento === 'number' && prodottoAnalisi.giorniEsaurimento < 14 
-                      ? "text-red-400" 
-                      : "text-blue-400"
-                  )}>
-                    {prodottoAnalisi.giorniEsaurimento || 'N/A'}
                   </p>
                 </div>
               </div>
@@ -443,27 +518,44 @@ export default function Dashboard() {
                 </p>
               </div>
 
-              {/* Info prodotto corrente */}
-              {selectedProdotto && (
-                <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-                  <p className="text-sm text-muted-foreground mb-2">Stato Magazzino</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Quantità attuale:</span>
-                    <span className={cn(
-                      "font-mono font-bold",
-                      (selectedProdotto.quantita || 0) <= 0 ? "text-red-400" : "text-emerald-400"
+              {/* Info prodotto */}
+              <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                <p className="text-sm text-muted-foreground mb-2">Stato Magazzino</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-xs text-slate-500">Quantità</span>
+                    <p className={cn(
+                      "font-mono font-bold text-lg",
+                      (selectedProdotto?.quantita || 0) <= 0 ? "text-red-400" : "text-emerald-400"
                     )}>
-                      {selectedProdotto.quantita?.toLocaleString('it-IT') || 0}
-                    </span>
+                      {selectedProdotto?.quantita?.toLocaleString('it-IT') || 0}
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-sm">Vendita media mensile:</span>
-                    <span className="font-mono">
-                      {prodottoAnalisi.mediaMensile?.toLocaleString('it-IT') || 0} unità
-                    </span>
+                  <div>
+                    <span className="text-xs text-slate-500">Giorni Rimanenti</span>
+                    <p className={cn(
+                      "font-mono font-bold text-lg",
+                      typeof prodottoAnalisi.giorniEsaurimento === 'number' && prodottoAnalisi.giorniEsaurimento < 14 
+                        ? "text-red-400" 
+                        : "text-blue-400"
+                    )}>
+                      {prodottoAnalisi.giorniEsaurimento || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500">Vendita Media/Mese</span>
+                    <p className="font-mono text-slate-300">
+                      {prodottoAnalisi.mediaMensile?.toLocaleString('it-IT') || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500">Ultima Vendita</span>
+                    <p className="font-mono text-slate-300">
+                      {formatDate(prodottoAnalisi.ultimaVendita)}
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
