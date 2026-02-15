@@ -91,7 +91,7 @@ export default function Vendite() {
                   <td className="tabular-nums">{formatDate(vendita.data)}</td>
                   <td className="font-medium">{vendita.cliente_nome}</td>
                   <td>{vendita.prodotto_nome}</td>
-                  <td className="text-right tabular-nums">{vendita.quantita?.toLocaleString('it-IT')}</td>
+                  <td className="text-right tabular-nums">{Math.abs(vendita.quantita || 0).toLocaleString('it-IT')}</td>
                   <td className="text-right tabular-nums">{formatCurrency(vendita.prezzo_unitario)}</td>
                   <td className="text-right tabular-nums font-medium text-primary">
                     {formatCurrency(vendita.totale)}
