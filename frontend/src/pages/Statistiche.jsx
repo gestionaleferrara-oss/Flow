@@ -141,13 +141,7 @@ export default function Statistiche() {
       </PageHeader>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard
-          label="Totale Vendite"
-          value={data?.totaleEuro || 0}
-          format="currency"
-          icon={Euro}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <StatCard
           label="Fatturato Mese"
           value={data?.fatturatoMese || 0}
@@ -347,7 +341,9 @@ export default function Statistiche() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A' }}
+                  contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A', color: '#e2e8f0' }}
+                  itemStyle={{ color: '#e2e8f0' }}
+                  labelStyle={{ color: '#e2e8f0' }}
                   formatter={(value) => formatCurrency(value)}
                 />
               </PieChart>
