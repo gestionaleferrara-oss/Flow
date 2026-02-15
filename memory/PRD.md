@@ -1,45 +1,49 @@
-# Gestio - Business Manager PRD
+# Flusso - Gestione Aziendale
 
-## Original Problem Statement
-Migration of a Google Apps Script application to a modern full-stack web app (FastAPI + React + MongoDB). Key features: CSV/XLSX data import, automated customer/product/supplier creation, advanced statistics with filters, glassmorphism UI, news & market prices from Italian produce industry sources.
+## Problem Statement
+Migrazione di un'applicazione Google Apps Script a un'applicazione web full-stack moderna per la gestione aziendale di un'attività ortofrutticola.
 
-## Architecture
-- **Frontend:** React.js, Tailwind CSS, Recharts, Framer Motion, Shadcn UI
-- **Backend:** FastAPI (Python), Motor (async MongoDB), Pandas, feedparser, BeautifulSoup4
-- **Database:** MongoDB (collections: vendite, prodotti, clienti, fornitori, notizie)
-- **3rd Party:** RSS feeds (FreshPlaza, Corriere Ortofrutticolo), HTML scraping (Myfruit.it)
+## Core Requirements
+1. **Data Import**: Caricamento CSV/XLSX con vendite, automaticamente crea clienti/prodotti
+2. **Inventory Management (Magazzino)**: Visualizza stock con quantità minime editabili
+3. **Sales Tracking (Vendite)**: Storico vendite con dettaglio prodotti per cliente/giorno
+4. **Statistics Dashboard**: Grafici vendite mensili, top clienti, top prodotti
+5. **News Feed**: Notizie dal settore ortofrutticolo
 
-## What's Been Implemented
-- [x] Full-stack app with dashboard, vendite, clienti, prodotti, fornitori, statistiche, notizie pages
-- [x] CSV/XLSX file upload with batch processing (~21K rows)
-- [x] Statistics with filtering by date, product, customer
-- [x] Glassmorphism dark UI theme
-- [x] News from 3 Italian sources (FreshPlaza, Corriere Ortofrutticolo, Myfruit)
-- [x] Market prices with dynamic scraping from FreshPlaza
-- [x] Dashboard with growth % card, KPI cards, recent activity
-- [x] Top products by EUR value (not quantity)
-- [x] Chronological news sorting
-- [x] Pie chart with readable hover labels
-- [x] Calculated sale totals (qty * price) for accurate display
-- [x] OR-based search in vendite (search across cliente and prodotto)
-- [x] Single-parameter filters working correctly
+## Tech Stack
+- **Frontend**: React.js, Tailwind CSS, Recharts, Framer Motion
+- **Backend**: FastAPI, Python
+- **Database**: MongoDB
 
-## Bug Fixes (Feb 15, 2026)
-1. Fixed market price links (verified working Azure blob PDFs)
-2. Fixed news sources: replaced FreshPoint Magazine with Myfruit.it scraper
-3. Fixed news chronological sorting (newest first)
-4. Fixed pie chart hover labels (white text on dark background)
-5. Fixed sale total rounding (now calculates qty * price for display)
-6. Fixed single-parameter filter logic (OR-based search)
-7. Replaced "Ordini Mese" card with "Crescita Vendite" percentage
-8. Removed welcome/hero card from dashboard
+## Current Status: MVP Operational
 
-## Prioritized Backlog
-### P1
-- Full feature parity review with original Google Apps Script
+### Implemented Features
+- [x] Upload CSV/XLSX con parsing automatico
+- [x] Dashboard con KPI principali
+- [x] Grafico a torta Top Clienti con percentuali
+- [x] Grafico andamento vendite mensili
+- [x] Trend clienti attivi (ultimi 7 giorni)
+- [x] Magazzino con Q.tà importata (non editabile) e Q.tà Minima (editabile)
+- [x] Vendite raggruppate per cliente/giorno con espansione dettagli
+- [x] Calcolo automatico quantità prodotti da movimenti CARICO/SCARICO
+- [x] Esclusione "SCARICO VENDUTO" e "CLIENTE CORRISPETTIVI" dalle statistiche
+- [x] Font Quicksand e nome app "Flusso"
+- [x] Spinner soft senza testo
 
-### P2
-- Refactor server.py into modular structure (routes/, models/, services/)
-- Export data to Excel/PDF
-- Inventory management (reorder alerts)
-- Email notifications for low stock
+### Known Issues
+- Alcuni prodotti mostrano quantità negative (vendite > carichi nel DB)
+- Il tooltip del pie chart potrebbe non essere visibile in tutti i browser
+
+### API Endpoints
+- POST `/api/upload-csv` - Import dati
+- GET `/api/statistiche` - KPI e grafici
+- GET `/api/statistiche/clienti-trend` - Trend clienti 7 giorni
+- GET `/api/prodotti` - Lista prodotti con filtri
+- POST `/api/prodotti/recalculate-quantities` - Ricalcola quantità
+- PUT `/api/prodotti/{id}` - Aggiorna Q.tà Minima/Scadenza
+- GET `/api/vendite` - Lista vendite raggruppate
+
+## Backlog (P2)
+- [ ] Migliorare scraping immagini notizie
+- [ ] Refactoring server.py in moduli
+- [ ] Report esportabili
