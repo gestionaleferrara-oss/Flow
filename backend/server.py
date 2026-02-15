@@ -758,7 +758,7 @@ async def update_fornitore_note(fornitore_id: str, data: Dict[str, Any]):
 
 @api_router.get("/fornitori/{fornitore_nome}/prodotti")
 async def get_fornitore_prodotti(fornitore_nome: str):
-    """Get all products purchased from a specific fornitore"""
+    """Get all products purchased from a specific fornitore - ultimo mese o ultimo mese disponibile"""
     from urllib.parse import unquote
     fornitore_nome = unquote(fornitore_nome)
     
@@ -768,9 +768,53 @@ async def get_fornitore_prodotti(fornitore_nome: str):
         {"_id": 0, "prodotto_nome": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1, "data": 1}
     ).to_list(10000)
     
-    # Aggregate by product
+    if not ordini:
+        return {
+            "fornitore": fornitore_nome,
+            "prodotti": [],
+            "totale_prodotti": 0,
+            "totale_speso": 0,
+            "mese_riferimento": "N/A"
+        }
+    
+    # Trova l'ultimo mese con ordini
+    now = datetime.now()
+    this_month_start = now.replace(day=1).strftime("%Y-%m-%d")
+    
+    # Prova prima il mese corrente
+    ordini_mese = [o for o in ordini if o.get('data', '') >= this_month_start]
+    
+    if ordini_mese:
+        mesi_it = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                  'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+        mese_riferimento = f"{mesi_it[now.month - 1]} {now.year}"
+    else:
+        # Trova l'ultimo mese con ordini
+        mesi_con_ordini = {}
+        for o in ordini:
+            data = o.get('data', '')[:7]  # YYYY-MM
+            if data:
+                if data not in mesi_con_ordini:
+                    mesi_con_ordini[data] = []
+                mesi_con_ordini[data].append(o)
+        
+        if mesi_con_ordini:
+            ultimo_mese = max(mesi_con_ordini.keys())
+            ordini_mese = mesi_con_ordini[ultimo_mese]
+            try:
+                mese_dt = datetime.strptime(ultimo_mese, "%Y-%m")
+                mesi_it = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                          'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+                mese_riferimento = f"{mesi_it[mese_dt.month - 1]} {mese_dt.year}"
+            except:
+                mese_riferimento = ultimo_mese
+        else:
+            ordini_mese = []
+            mese_riferimento = "N/A"
+    
+    # Aggregate by product (solo per il mese selezionato)
     prodotti_map = {}
-    for o in ordini:
+    for o in ordini_mese:
         prod_nome = o.get('prodotto_nome', '')
         if prod_nome not in prodotti_map:
             prodotti_map[prod_nome] = {
@@ -798,7 +842,8 @@ async def get_fornitore_prodotti(fornitore_nome: str):
         "fornitore": fornitore_nome,
         "prodotti": prodotti_list,
         "totale_prodotti": len(prodotti_list),
-        "totale_speso": sum(p['totale_speso'] for p in prodotti_list)
+        "totale_speso": sum(p['totale_speso'] for p in prodotti_list),
+        "mese_riferimento": mese_riferimento
     }
 
 
