@@ -98,10 +98,11 @@ export default function Dashboard() {
           gradient="blue"
         />
         <StatCard
-          label="Ordini Mese"
-          value={data?.ordiniMese || 0}
-          icon={ShoppingCart}
-          gradient="purple"
+          label="Crescita Vendite"
+          value={data?.crescitaPercentuale || 0}
+          format="percent"
+          icon={data?.crescitaPercentuale >= 0 ? TrendingUp : TrendingDown}
+          gradient={data?.crescitaPercentuale >= 0 ? 'emerald' : 'pink'}
         />
         <StatCard
           label="Nuovi Clienti"
