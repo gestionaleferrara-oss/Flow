@@ -1031,7 +1031,8 @@ async def get_prodotto_analisi_acquisti(prodotto_nome: str):
             "fornitoriUnici": 0,
             "fornitoriPrincipali": "Nessuno",
             "prezzoMedioAcquisto": 0,
-            "numOrdini": 0
+            "ordiniUltimoMese": 0,
+            "meseRiferimento": "N/A"
         }
     
     ultimo_acquisto = max([o.get('data', '') for o in ordini], default='N/A')
@@ -1049,18 +1050,49 @@ async def get_prodotto_analisi_acquisti(prodotto_nome: str):
     prezzi_acquisto = [o.get('prezzo_unitario', 0) for o in ordini if o.get('prezzo_unitario', 0) > 0]
     prezzo_medio_acquisto = sum(prezzi_acquisto) / len(prezzi_acquisto) if prezzi_acquisto else 0
     
+    # Ordini ultimo mese (o ultimo mese disponibile se il mese corrente è vuoto)
+    this_month_start = now.replace(day=1).strftime("%Y-%m-%d")
+    ordini_this_month = [o for o in ordini if o.get('data', '') >= this_month_start]
+    
+    if ordini_this_month:
+        # Usa il mese corrente
+        ordini_ultimo_mese = len(ordini_this_month)
+        mese_riferimento = now.strftime("%B %Y")
+    else:
+        # Trova l'ultimo mese con ordini
+        mesi_con_ordini = {}
+        for o in ordini:
+            data = o.get('data', '')[:7]  # YYYY-MM
+            if data:
+                mesi_con_ordini[data] = mesi_con_ordini.get(data, 0) + 1
+        
+        if mesi_con_ordini:
+            ultimo_mese = max(mesi_con_ordini.keys())
+            ordini_ultimo_mese = mesi_con_ordini[ultimo_mese]
+            # Format mese_riferimento
+            try:
+                from datetime import datetime as dt
+                mese_dt = dt.strptime(ultimo_mese, "%Y-%m")
+                mesi_it = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                          'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+                mese_riferimento = f"{mesi_it[mese_dt.month - 1]} {mese_dt.year}"
+            except:
+                mese_riferimento = ultimo_mese
+        else:
+            ordini_ultimo_mese = 0
+            mese_riferimento = "N/A"
+    
     # Trend acquisti (confronto ultimo mese vs mese precedente)
     last_month_start = (now.replace(day=1) - timedelta(days=1)).replace(day=1).strftime("%Y-%m-%d")
     last_month_end = (now.replace(day=1) - timedelta(days=1)).strftime("%Y-%m-%d")
-    this_month_start = now.replace(day=1).strftime("%Y-%m-%d")
     
-    ordini_last_month = sum(abs(o.get('totale', 0)) for o in ordini if last_month_start <= o.get('data', '') <= last_month_end)
-    ordini_this_month = sum(abs(o.get('totale', 0)) for o in ordini if o.get('data', '') >= this_month_start)
+    ordini_last_month_tot = sum(abs(o.get('totale', 0)) for o in ordini if last_month_start <= o.get('data', '') <= last_month_end)
+    ordini_this_month_tot = sum(abs(o.get('totale', 0)) for o in ordini if o.get('data', '') >= this_month_start)
     
-    if ordini_last_month > 0:
-        trend_percentuale = round(((ordini_this_month - ordini_last_month) / ordini_last_month) * 100, 1)
+    if ordini_last_month_tot > 0:
+        trend_percentuale = round(((ordini_this_month_tot - ordini_last_month_tot) / ordini_last_month_tot) * 100, 1)
     else:
-        trend_percentuale = 100 if ordini_this_month > 0 else 0
+        trend_percentuale = 100 if ordini_this_month_tot > 0 else 0
     
     # Top fornitori
     fornitori_count = {}
@@ -1083,7 +1115,8 @@ async def get_prodotto_analisi_acquisti(prodotto_nome: str):
         "fornitoriUnici": fornitori_unici,
         "fornitoriPrincipali": fornitori_str,
         "prezzoMedioAcquisto": round(prezzo_medio_acquisto, 2),
-        "numOrdini": len(ordini)
+        "ordiniUltimoMese": ordini_ultimo_mese,
+        "meseRiferimento": mese_riferimento
     }
 
 
