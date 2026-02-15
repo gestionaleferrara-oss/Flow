@@ -129,12 +129,20 @@ export default function Statistiche() {
     loadLists();
     loadStatistiche();
     loadClientiTrend();
+    loadFornitoriTrend();
   }, []);
 
   const loadLists = async () => {
     try {
-      const response = await axios.get(`${API}/statistiche/lists`);
-      setLists(response.data);
+      const [venditeRes, acquistiRes] = await Promise.all([
+        axios.get(`${API}/statistiche/lists`),
+        axios.get(`${API}/statistiche/acquisti/lists`)
+      ]);
+      setLists({
+        prodotti: venditeRes.data.prodotti,
+        clienti: venditeRes.data.clienti,
+        fornitori: acquistiRes.data.fornitori
+      });
     } catch (error) {
       console.error('Error loading lists:', error);
     }
@@ -145,12 +153,24 @@ export default function Statistiche() {
     try {
       const params = new URLSearchParams();
       if (filters.prodotto) params.append('prodotto', filters.prodotto);
-      if (filters.cliente) params.append('cliente', filters.cliente);
       if (filters.startDate) params.append('start_date', filters.startDate);
       if (filters.endDate) params.append('end_date', filters.endDate);
       
-      const response = await axios.get(`${API}/statistiche?${params}`);
-      setData(response.data);
+      // Load vendite stats
+      const paramsVendite = new URLSearchParams(params);
+      if (filters.cliente) paramsVendite.append('cliente', filters.cliente);
+      
+      // Load acquisti stats
+      const paramsAcquisti = new URLSearchParams(params);
+      if (filters.fornitore) paramsAcquisti.append('fornitore', filters.fornitore);
+      
+      const [venditeRes, acquistiRes] = await Promise.all([
+        axios.get(`${API}/statistiche?${paramsVendite}`),
+        axios.get(`${API}/statistiche/acquisti?${paramsAcquisti}`)
+      ]);
+      
+      setData(venditeRes.data);
+      setDataAcquisti(acquistiRes.data);
     } catch (error) {
       console.error('Error loading statistiche:', error);
     } finally {
@@ -164,6 +184,15 @@ export default function Statistiche() {
       setClientiTrend(response.data);
     } catch (error) {
       console.error('Error loading clienti trend:', error);
+    }
+  };
+
+  const loadFornitoriTrend = async () => {
+    try {
+      const response = await axios.get(`${API}/statistiche/fornitori-trend`);
+      setFornitoriTrend(response.data);
+    } catch (error) {
+      console.error('Error loading fornitori trend:', error);
     }
   };
 
