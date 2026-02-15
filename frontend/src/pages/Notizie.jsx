@@ -184,8 +184,8 @@ export default function Notizie() {
             </motion.div>
           )}
 
-          {/* TICKER NOTIZIE FLASH */}
-          {notizie.length > 0 && (
+          {/* TICKER NOTIZIE FLASH — da fonti esterne diverse */}
+          {tickerNews.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -202,18 +202,19 @@ export default function Notizie() {
                   <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#0d1117] to-transparent z-10" />
                   <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#0d1117] to-transparent z-10" />
                   <div className="ticker-scroll flex items-center gap-6 whitespace-nowrap">
-                    {notizie.slice(0, 10).map((n, i) => (
+                    {tickerNews.map((n, i) => (
                       <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-cyan-400 transition-colors shrink-0">
                         <span className="w-1 h-1 rounded-full bg-cyan-500/60 shrink-0" />
+                        <span className="text-[9px] text-slate-600 font-semibold uppercase">{n.fonte}</span>
                         <span className="font-medium">{n.titolo}</span>
                       </a>
                     ))}
-                    {/* Duplicato per loop continuo */}
-                    {notizie.slice(0, 10).map((n, i) => (
+                    {tickerNews.map((n, i) => (
                       <a key={`dup-${i}`} href={n.url} target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-cyan-400 transition-colors shrink-0">
                         <span className="w-1 h-1 rounded-full bg-cyan-500/60 shrink-0" />
+                        <span className="text-[9px] text-slate-600 font-semibold uppercase">{n.fonte}</span>
                         <span className="font-medium">{n.titolo}</span>
                       </a>
                     ))}
