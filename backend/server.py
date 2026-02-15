@@ -718,30 +718,40 @@ async def delete_fornitore(fornitore_id: str):
 @api_router.get("/fornitori-with-stats")
 async def get_fornitori_with_stats(
     search: Optional[str] = None,
+    anno: Optional[int] = None,
     limit: int = 100,
     skip: int = 0
 ):
-    """Get fornitori with calculated fatturato from ordini"""
+    """Get fornitori with calculated fatturato from ordini, filterable by year"""
     query = {}
     if search:
         query["nome"] = {"$regex": search, "$options": "i"}
     
     fornitori = await db.fornitori.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
     
-    # Get all ordini to calculate fatturato per fornitore
-    ordini = await db.ordini.find({}, {"_id": 0, "fornitore_nome": 1, "totale": 1}).to_list(100000)
+    # Filter ordini by year if specified
+    ordini_query = {}
+    if anno:
+        ordini_query["data"] = {"$gte": f"{anno}-01-01", "$lte": f"{anno}-12-31"}
     
-    # Calculate fatturato per fornitore
+    ordini = await db.ordini.find(ordini_query, {"_id": 0, "fornitore_nome": 1, "totale": 1, "prezzo_unitario": 1, "quantita": 1}).to_list(100000)
+    
+    # Calculate fatturato per fornitore (using prezzo * quantità for accuracy)
     fatturato_map = {}
     for o in ordini:
         fornitore_nome = o.get('fornitore_nome', '')
-        fatturato_map[fornitore_nome] = fatturato_map.get(fornitore_nome, 0) + abs(o.get('totale', 0))
+        totale = abs(o.get('quantita', 0) * o.get('prezzo_unitario', 0))
+        fatturato_map[fornitore_nome] = fatturato_map.get(fornitore_nome, 0) + totale
     
     # Add calculated fatturato to each fornitore
     for f in fornitori:
         f['fatturato_totale'] = round(fatturato_map.get(f.get('nome', ''), 0), 2)
     
-    return fornitori
+    # Get available years from all ordini
+    all_dates = await db.ordini.distinct("data")
+    anni_disponibili = sorted(set(d[:4] for d in all_dates if d and len(d) >= 4), reverse=True)
+    
+    return {"fornitori": fornitori, "anni_disponibili": anni_disponibili}
 
 
 @api_router.put("/fornitori/{fornitore_id}/note")
