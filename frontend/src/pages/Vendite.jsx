@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, X, AlertTriangle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -141,11 +141,12 @@ export default function Vendite() {
               {venditeGrouped.map((gruppo, index) => {
                 const isExpanded = expandedRows[gruppo.id];
                 return (
-                  <motion.tbody key={gruppo.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: index * 0.02 }}>
+                  <React.Fragment key={gruppo.id}>
                     <tr
                       className={cn("cursor-pointer transition-colors hover:bg-white/5", isExpanded && "bg-blue-500/10")}
                       onClick={() => toggleExpand(gruppo.id)}
                       data-testid={`row-${index}`}
+                      style={{ animation: `fadeIn 0.3s ease ${index * 0.02}s both` }}
                     >
                       <td className="text-center">
                         {isExpanded ? <ChevronUp className="w-4 h-4 text-blue-400 inline" /> : <ChevronDown className="w-4 h-4 text-slate-500 inline" />}
@@ -195,7 +196,7 @@ export default function Vendite() {
                         </td>
                       </tr>
                     )}
-                  </motion.tbody>
+                  </React.Fragment>
                 );
               })}
             </tbody>

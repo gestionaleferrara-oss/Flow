@@ -271,19 +271,21 @@ export default function Statistiche() {
         </div>
       )}
 
-      {/* KPI Cards */}
-      {viewMode === 'vendite' ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <StatCard label="Fatturato Periodo" value={data?.totaleEuro || 0} format="currency" icon={Euro} />
-          <StatCard label="Articoli Venduti" value={data?.totaleArticoli || 0} icon={Package} />
-          <StatCard label="Clienti Attivi" value={data?.clientiAttivi || 0} icon={Users} />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <StatCard label="Speso Periodo" value={dataAcquisti?.totaleEuro || 0} format="currency" icon={Euro} />
-          <StatCard label="Articoli Acquistati" value={dataAcquisti?.totaleArticoli || 0} icon={Package} />
-          <StatCard label="Fornitori Attivi" value={dataAcquisti?.fornitoriAttivi || 0} icon={Truck} />
-        </div>
+      {/* KPI Cards - solo con filtri attivi */}
+      {hasActiveFilters && (
+        viewMode === 'vendite' ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" data-testid="kpi-cards-vendite">
+            <StatCard label="Fatturato Periodo" value={data?.totaleEuro || 0} format="currency" icon={Euro} />
+            <StatCard label="Articoli Venduti" value={data?.totaleArticoli || 0} icon={Package} />
+            <StatCard label="Clienti Attivi" value={data?.clientiAttivi || 0} icon={Users} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" data-testid="kpi-cards-acquisti">
+            <StatCard label="Speso Periodo" value={dataAcquisti?.totaleEuro || 0} format="currency" icon={Euro} />
+            <StatCard label="Articoli Acquistati" value={dataAcquisti?.totaleArticoli || 0} icon={Package} />
+            <StatCard label="Fornitori Attivi" value={dataAcquisti?.fornitoriAttivi || 0} icon={Truck} />
+          </div>
+        )
       )}
 
       {/* Charts */}
