@@ -948,6 +948,9 @@ async def create_prodotto(data: ProdottoCreate):
 
 @api_router.put("/prodotti/{prodotto_id}")
 async def update_prodotto(prodotto_id: str, data: Dict[str, Any]):
+    # Clamp quantity to 0 minimum if being set
+    if 'quantita' in data and data['quantita'] is not None:
+        data['quantita'] = max(0, float(data['quantita']))
     result = await db.prodotti.update_one(
         {"id": prodotto_id},
         {"$set": data}
