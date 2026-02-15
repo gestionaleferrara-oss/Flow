@@ -660,10 +660,13 @@ export default function Dashboard() {
                   <p className="text-sm text-muted-foreground mb-2">Storico Acquisti</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <span className="text-xs text-slate-500">Totale Ordini</span>
+                      <span className="text-xs text-slate-500">Ordini Ultimo Mese</span>
                       <p className="font-mono font-bold text-lg text-blue-400">
-                        {prodottoAnalisiAcquisti.numOrdini || 0}
+                        {prodottoAnalisiAcquisti.ordiniUltimoMese || 0}
                       </p>
+                      <span className="text-xs text-slate-500">
+                        {prodottoAnalisiAcquisti.meseRiferimento || ''}
+                      </span>
                     </div>
                     <div>
                       <span className="text-xs text-slate-500">Ultimo Acquisto</span>
