@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Search, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
@@ -13,24 +13,38 @@ export default function Ordini() {
   const [ordiniGrouped, setOrdiniGrouped] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [expandedRows, setExpandedRows] = useState({});
   const perPage = 20;
+  const isInitialLoad = useRef(true);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     loadOrdini();
-  }, [search, page]);
+  }, [debouncedSearch, page]);
 
   const loadOrdini = async () => {
-    setLoading(true);
+    // Only show full loading on initial load
+    if (isInitialLoad.current) {
+      setLoading(true);
+    }
+    
     try {
       const params = new URLSearchParams();
-      if (search) {
-        params.append('fornitore', search);
-        params.append('prodotto', search);
+      if (debouncedSearch) {
+        params.append('fornitore', debouncedSearch);
+        params.append('prodotto', debouncedSearch);
       }
       params.append('skip', (page - 1) * perPage);
-      params.append('limit', 500); // Get more to group properly
+      params.append('limit', 500);
       
       const response = await axios.get(`${API}/ordini?${params}`);
       
@@ -48,10 +62,11 @@ export default function Ordini() {
           };
         }
         grouped[key].prodotti.push(o);
-        grouped[key].totale += Math.abs(o.totale || (o.quantita * o.prezzo_unitario) || 0);
+        // Calcola totale come prezzo * quantità
+        const prodTotale = Math.abs((o.quantita || 0) * (o.prezzo_unitario || 0));
+        grouped[key].totale += prodTotale;
       });
       
-      // Convert to array and sort by date desc
       const groupedArray = Object.values(grouped)
         .sort((a, b) => b.data.localeCompare(a.data))
         .slice(0, perPage);
@@ -61,6 +76,7 @@ export default function Ordini() {
       console.error('Error loading ordini:', error);
     } finally {
       setLoading(false);
+      isInitialLoad.current = false;
     }
   };
 
