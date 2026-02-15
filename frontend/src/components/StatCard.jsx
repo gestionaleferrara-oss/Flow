@@ -32,7 +32,7 @@ export default function StatCard({
   const formattedValue = format === 'currency' 
     ? formatCurrency(value) 
     : typeof value === 'number' 
-      ? value.toLocaleString('it-IT')
+      ? Math.abs(value).toLocaleString('it-IT')
       : value;
 
   const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
