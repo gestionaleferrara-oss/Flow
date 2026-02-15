@@ -24,8 +24,7 @@ export default function Vendite() {
     try {
       const params = new URLSearchParams();
       if (search) {
-        params.append('cliente', search);
-        params.append('prodotto', search);
+        params.append('search', search);
       }
       params.append('skip', (page - 1) * perPage);
       params.append('limit', perPage);
