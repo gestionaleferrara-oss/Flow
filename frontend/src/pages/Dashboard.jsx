@@ -12,8 +12,7 @@ import {
   ArrowUpRight,
   Upload,
   BarChart3,
-  TrendingUp,
-  TrendingDown
+  TrendingUp
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import StatCard from '@/components/StatCard';
