@@ -71,7 +71,7 @@ export default function Dashboard() {
               Gestisci il tuo business con facilità
             </h2>
             <p className="text-slate-400 max-w-md">
-              Importa i tuoi dati CSV, monitora le vendite e analizza le statistiche in tempo reale.
+              Importa i tuoi dati CSV o XLSX, monitora le vendite e analizza le statistiche in tempo reale.
             </p>
           </div>
           <div className="hidden lg:flex items-center gap-4">
@@ -82,7 +82,7 @@ export default function Dashboard() {
                 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
             >
               <Upload className="w-5 h-5" />
-              Importa CSV
+              Importa Dati
             </Link>
           </div>
         </div>
@@ -120,8 +120,8 @@ export default function Dashboard() {
       {/* Quick Links */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
         <QuickLinkCard
-          title="Importa Dati CSV"
-          description="Carica un file CSV per importare vendite e aggiornare il magazzino"
+          title="Importa Dati"
+          description="Carica un file CSV o XLSX per importare vendite e aggiornare il magazzino"
           href="/upload"
           icon={Upload}
           gradient="from-blue-500 to-blue-600"
@@ -204,7 +204,7 @@ export default function Dashboard() {
                   bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors"
               >
                 <Upload className="w-4 h-4" />
-                Importa CSV
+                Importa Dati
               </Link>
             </div>
           )}
