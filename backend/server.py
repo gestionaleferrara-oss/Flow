@@ -1269,18 +1269,22 @@ async def refresh_notizie():
 
 @api_router.get("/notizie")
 async def get_notizie(limit: int = 50, categoria: Optional[str] = None):
-    """Get news, optionally filtered by category"""
+    """Get news, optionally filtered by category, sorted chronologically"""
     query = {}
     if categoria and categoria != "all":
         query["categoria"] = categoria
     
-    notizie = await db.notizie.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    notizie = await db.notizie.find(query, {"_id": 0}).sort("sort_date", -1).limit(limit).to_list(limit)
     
     # If no news, try to fetch them
     if len(notizie) == 0:
         count = await refresh_notizie()
         logger.info(f"Refreshed {count} news articles")
-        notizie = await db.notizie.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+        notizie = await db.notizie.find(query, {"_id": 0}).sort("sort_date", -1).limit(limit).to_list(limit)
+    
+    # Remove internal sort_date from response
+    for n in notizie:
+        n.pop('sort_date', None)
     
     return notizie
 
