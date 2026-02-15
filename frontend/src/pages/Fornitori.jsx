@@ -42,8 +42,13 @@ export default function Fornitori() {
       const qs = params.toString() ? `?${params.toString()}` : '';
       const response = await axios.get(`${API}/fornitori-with-stats${qs}`);
       setFornitori(response.data.fornitori || []);
-      if (response.data.anni_disponibili?.length > 0) {
-        setAvailableYears(response.data.anni_disponibili);
+      const anni = response.data.anni_disponibili || [];
+      if (anni.length > 0) {
+        setAvailableYears(anni);
+        // On first load, set to the most recent year
+        if (!selectedYear) {
+          setSelectedYear(Number(anni[0]));
+        }
       }
     } catch (error) {
       console.error('Error loading fornitori:', error);
