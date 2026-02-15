@@ -616,7 +616,140 @@ export default function Statistiche() {
             </ResponsiveContainer>
           </div>
         </div>
-      </div>
+        </div>
+      ) : (
+        /* Acquisti Charts */
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Monthly Purchases Chart */}
+          <div className="bg-card border border-border/50 p-6 rounded-xl">
+            <h3 className="font-heading text-lg font-semibold uppercase mb-4">Andamento Acquisti Mensili</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={dataAcquisti?.acquistiMensili || []}>
+                  <defs>
+                    <linearGradient id="colorAcquisti" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+                  <XAxis dataKey="data" stroke="#71717A" fontSize={12} />
+                  <YAxis stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                  <Tooltip
+                    contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A', color: '#e2e8f0' }}
+                    itemStyle={{ color: '#e2e8f0' }}
+                    labelStyle={{ color: '#e2e8f0' }}
+                    formatter={(value) => [formatCurrency(value), 'Acquisti']}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="totale"
+                    stroke="#3B82F6"
+                    fillOpacity={1}
+                    fill="url(#colorAcquisti)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Top Fornitori Pie Chart */}
+          <div className="bg-card border border-border/50 p-6 rounded-xl">
+            <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Fornitori</h3>
+            <div className="h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={dataAcquisti?.topFornitori || []}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={120}
+                    innerRadius={50}
+                    dataKey="spesa"
+                    nameKey="nome"
+                    label={({ nome, percent }) => `${(percent * 100).toFixed(0)}%`}
+                    labelLine={{ stroke: '#64748b', strokeWidth: 1 }}
+                  >
+                    {(dataAcquisti?.topFornitori || []).map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff', borderRadius: '8px' }}
+                    itemStyle={{ color: '#ffffff' }}
+                    labelStyle={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '4px' }}
+                    formatter={(value, name, props) => {
+                      const total = (dataAcquisti?.topFornitori || []).reduce((sum, f) => sum + f.spesa, 0);
+                      const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                      return [`${formatCurrency(value)} (${percent}%)`, props.payload.nome];
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Fornitori Trend - Last 7 days */}
+          <div className="bg-card border border-border/50 p-6 rounded-xl">
+            <h3 className="font-heading text-lg font-semibold uppercase mb-4">Trend Fornitori Attivi (Ultimi 7 giorni)</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={fornitoriTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+                  <XAxis 
+                    dataKey="giorno" 
+                    stroke="#71717A" 
+                    fontSize={11}
+                  />
+                  <YAxis stroke="#71717A" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff' }}
+                    itemStyle={{ color: '#ffffff' }}
+                    labelStyle={{ color: '#ffffff' }}
+                    formatter={(value) => [value, 'Fornitori']}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="fornitori" 
+                    stroke="#3B82F6" 
+                    strokeWidth={3}
+                    dot={{ fill: '#3B82F6', r: 5 }}
+                    activeDot={{ r: 8, fill: '#3B82F6' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Top Prodotti Acquistati Chart */}
+          <div className="bg-card border border-border/50 p-6 rounded-xl">
+            <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Prodotti Acquistati</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dataAcquisti?.topProdotti || []} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+                  <XAxis type="number" stroke="#71717A" fontSize={12} tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`} />
+                  <YAxis 
+                    type="category" 
+                    dataKey="nome" 
+                    stroke="#71717A" 
+                    fontSize={11}
+                    width={120}
+                    tickFormatter={(v) => v?.length > 15 ? v.slice(0, 15) + '...' : v}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff' }}
+                    itemStyle={{ color: '#ffffff' }}
+                    labelStyle={{ color: '#ffffff' }}
+                    formatter={(value) => [formatCurrency(value), 'Speso']}
+                  />
+                  <Bar dataKey="totale_euro" fill="#3B82F6" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
     </PageWrapper>
   );
 }
