@@ -1224,6 +1224,103 @@ async def get_vendite_count():
     return {"count": count}
 
 
+@api_router.delete("/vendite/bulk-delete")
+async def bulk_delete_vendite(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    delete_all: bool = False
+):
+    """Delete vendite by date range or all"""
+    if delete_all:
+        result = await db.vendite.delete_many({})
+        return {"deleted": result.deleted_count, "message": f"Eliminate {result.deleted_count} vendite"}
+    
+    if not start_date and not end_date:
+        raise HTTPException(status_code=400, detail="Specifica un periodo o seleziona 'Tutto'")
+    
+    query = {}
+    if start_date:
+        query.setdefault("data", {})["$gte"] = start_date
+    if end_date:
+        query.setdefault("data", {})["$lte"] = end_date
+    
+    result = await db.vendite.delete_many(query)
+    return {"deleted": result.deleted_count, "message": f"Eliminate {result.deleted_count} vendite"}
+
+
+@api_router.get("/statistiche/export")
+async def export_statistiche(
+    formato: str = "csv",
+    tipo: str = "vendite",
+    prodotto: Optional[str] = None,
+    cliente: Optional[str] = None,
+    fornitore: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    """Export statistics data as CSV or Excel"""
+    from fastapi.responses import StreamingResponse
+    import openpyxl
+    
+    collection = db.vendite if tipo == "vendite" else db.ordini
+    entity_field = "cliente_nome" if tipo == "vendite" else "fornitore_nome"
+    
+    query = {}
+    if prodotto:
+        query["prodotto_nome"] = {"$regex": prodotto, "$options": "i"}
+    if cliente and tipo == "vendite":
+        query["cliente_nome"] = {"$regex": cliente, "$options": "i"}
+    if fornitore and tipo == "acquisti":
+        query["fornitore_nome"] = {"$regex": fornitore, "$options": "i"}
+    if start_date:
+        query.setdefault("data", {})["$gte"] = start_date
+    if end_date:
+        query.setdefault("data", {})["$lte"] = end_date
+    
+    records = await collection.find(query, {"_id": 0}).sort("data", -1).to_list(100000)
+    
+    headers = ["Data", "Prodotto", entity_field.replace("_nome", "").title(), "Quantita", "Prezzo Unitario", "Totale"]
+    rows = []
+    for r in records:
+        rows.append([
+            r.get("data", ""),
+            r.get("prodotto_nome", ""),
+            r.get(entity_field, ""),
+            abs(r.get("quantita", 0)),
+            r.get("prezzo_unitario", 0),
+            round(abs(r.get("quantita", 0) * r.get("prezzo_unitario", 0)), 2)
+        ])
+    
+    if formato == "excel":
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = tipo.title()
+        ws.append(headers)
+        for row in rows:
+            ws.append(row)
+        
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename=flusso_{tipo}.xlsx"}
+        )
+    else:
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(headers)
+        writer.writerows(rows)
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=flusso_{tipo}.csv"}
+        )
+
+
 # ----- Ordini -----
 @api_router.get("/ordini")
 async def get_ordini(
