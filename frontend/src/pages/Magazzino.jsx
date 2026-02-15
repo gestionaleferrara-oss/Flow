@@ -10,15 +10,31 @@ import {
   Check,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  CircleCheck,
+  CircleAlert,
+  CircleX
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { cn, formatCurrency, getStatusBadge } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const StatusIcon = ({ stato }) => {
+  switch (stato) {
+    case 'disponibile':
+      return <CircleCheck className="w-4 h-4 text-emerald-500" />;
+    case 'ordinare':
+      return <CircleAlert className="w-4 h-4 text-amber-500" />;
+    case 'non_disponibile':
+      return <CircleX className="w-4 h-4 text-red-500" />;
+    default:
+      return null;
+  }
+};
 
 export default function Magazzino() {
   const [prodotti, setProdotti] = useState([]);
@@ -43,7 +59,6 @@ export default function Magazzino() {
       if (filter) params.append('filter_type', filter);
       params.append('skip', (page - 1) * perPage);
       params.append('limit', perPage);
-      
       const response = await axios.get(`${API}/prodotti?${params}`);
       setProdotti(response.data);
     } catch (error) {
@@ -62,9 +77,10 @@ export default function Magazzino() {
     }
   };
 
-  const handleEditMinima = (prodotto) => {
+  const handleEdit = (prodotto) => {
     setEditingId(prodotto.id);
-    setEditData({ 
+    setEditData({
+      quantita: Math.max(0, prodotto.quantita || 0),
       quantita_minima: prodotto.quantita_minima || 0,
       scadenza: prodotto.scadenza || ''
     });
@@ -72,9 +88,9 @@ export default function Magazzino() {
 
   const handleSave = async () => {
     try {
-      // Only update quantita_minima and scadenza - NOT quantita (comes from imports)
       await axios.put(`${API}/prodotti/${editingId}`, {
-        quantita_minima: editData.quantita_minima,
+        quantita: Math.max(0, parseFloat(editData.quantita) || 0),
+        quantita_minima: parseFloat(editData.quantita_minima) || 0,
         scadenza: editData.scadenza
       });
       setEditingId(null);
@@ -117,10 +133,7 @@ export default function Magazzino() {
             <Input
               placeholder="Cerca prodotto..."
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="pl-10"
               data-testid="search-input"
             />
@@ -132,8 +145,8 @@ export default function Magazzino() {
           data-testid="filter-ordinare"
           className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-lg transition-all',
-            filter === 'ordinare' 
-              ? 'bg-amber-500/20 text-amber-500 ring-1 ring-amber-500' 
+            filter === 'ordinare'
+              ? 'bg-amber-500/20 text-amber-500 ring-1 ring-amber-500'
               : 'bg-card hover:bg-muted'
           )}
         >
@@ -147,8 +160,8 @@ export default function Magazzino() {
           data-testid="filter-scadenza"
           className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-lg transition-all',
-            filter === 'scadenza' 
-              ? 'bg-purple-500/20 text-purple-500 ring-1 ring-purple-500' 
+            filter === 'scadenza'
+              ? 'bg-purple-500/20 text-purple-500 ring-1 ring-purple-500'
               : 'bg-card hover:bg-muted'
           )}
         >
@@ -164,21 +177,21 @@ export default function Magazzino() {
           <table className="data-table" data-testid="magazzino-table">
             <thead>
               <tr>
+                <th></th>
                 <th>Prodotto</th>
-                <th className="text-right">Q.tà (importata)</th>
-                <th className="text-right bg-amber-500/5">Q.tà Minima</th>
+                <th className="text-right">Quantita</th>
+                <th className="text-right bg-amber-500/5">Q.ta Min.</th>
                 <th className="text-right">Prezzo</th>
                 <th className="text-right">Valore</th>
                 <th>Scadenza</th>
-                <th>Stato</th>
                 <th className="w-24"></th>
               </tr>
             </thead>
             <tbody>
               {prodotti.map((p, index) => {
                 const isEditing = editingId === p.id;
-                const status = getStatusBadge(p.stato);
-                
+                const qty = Math.max(0, p.quantita || 0);
+
                 return (
                   <motion.tr
                     key={p.id}
@@ -187,34 +200,51 @@ export default function Magazzino() {
                     transition={{ delay: index * 0.02 }}
                     data-testid={`row-${p.id}`}
                   >
-                    <td className="font-medium">{p.nome}</td>
-                    {/* Quantità - NON MODIFICABILE - viene dai dati importati */}
-                    <td className="text-right tabular-nums text-slate-400">
-                      {p.quantita?.toLocaleString('it-IT') || 0}
+                    <td className="w-10 text-center">
+                      <StatusIcon stato={p.stato} />
                     </td>
-                    {/* Quantità Minima - MODIFICABILE */}
+                    <td className="font-medium">{p.nome}</td>
+                    {/* Quantita - EDITABLE, never negative */}
+                    <td className="text-right tabular-nums">
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editData.quantita}
+                          onChange={(e) => setEditData({ ...editData, quantita: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          className="h-8 w-24 text-right"
+                          data-testid="edit-quantita"
+                        />
+                      ) : (
+                        <span className={cn(qty === 0 && 'text-red-400')}>
+                          {qty.toLocaleString('it-IT')}
+                        </span>
+                      )}
+                    </td>
+                    {/* Quantita Minima - EDITABLE */}
                     <td className="text-right tabular-nums bg-amber-500/5">
                       {isEditing ? (
                         <Input
                           type="number"
-                          value={editData.quantita_minima || 0}
+                          min="0"
+                          value={editData.quantita_minima}
                           onChange={(e) => setEditData({ ...editData, quantita_minima: parseFloat(e.target.value) || 0 })}
                           className="h-8 w-20 text-right"
                           data-testid="edit-quantita-minima"
                         />
                       ) : (
                         <span className={cn(
-                          p.quantita_minima > 0 && p.quantita <= p.quantita_minima 
-                            ? 'text-amber-400 font-semibold' 
+                          p.quantita_minima > 0 && qty <= p.quantita_minima
+                            ? 'text-amber-400 font-semibold'
                             : 'text-slate-400'
                         )}>
-                          {p.quantita_minima?.toLocaleString('it-IT') || '0'}
+                          {(p.quantita_minima || 0).toLocaleString('it-IT')}
                         </span>
                       )}
                     </td>
                     <td className="text-right tabular-nums">{formatCurrency(p.prezzo_medio)}</td>
-                    <td className="text-right tabular-nums font-medium">{formatCurrency(p.valore_scorte)}</td>
-                    {/* Scadenza - MODIFICABILE */}
+                    <td className="text-right tabular-nums font-medium">{formatCurrency(qty * (p.prezzo_medio || 0))}</td>
+                    {/* Scadenza - EDITABLE */}
                     <td>
                       {isEditing ? (
                         <Input
@@ -225,39 +255,26 @@ export default function Magazzino() {
                           data-testid="edit-scadenza"
                         />
                       ) : (
-                        p.scadenza || '-'
+                        <span className="text-slate-400">{p.scadenza || '-'}</span>
                       )}
-                    </td>
-                    <td>
-                      <span className={cn('flex items-center gap-1 text-sm', status.color)}>
-                        {status.icon} {status.label}
-                      </span>
                     </td>
                     <td>
                       <div className="table-actions justify-end">
                         {isEditing ? (
                           <>
-                            <button
-                              onClick={handleSave}
-                              className="action-btn"
-                              data-testid="save-btn"
-                            >
+                            <button onClick={handleSave} className="action-btn" data-testid="save-btn">
                               <Check className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={handleCancel}
-                              className="action-btn delete"
-                              data-testid="cancel-btn"
-                            >
+                            <button onClick={handleCancel} className="action-btn delete" data-testid="cancel-btn">
                               <X className="w-4 h-4" />
                             </button>
                           </>
                         ) : (
                           <button
-                            onClick={() => handleEditMinima(p)}
+                            onClick={() => handleEdit(p)}
                             className="action-btn"
                             data-testid="edit-btn"
-                            title="Modifica Q.tà Minima e Scadenza"
+                            title="Modifica"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -273,44 +290,21 @@ export default function Magazzino() {
 
         {prodotti.length === 0 && (
           <div className="empty-state">
-            <div className="empty-state-icon">📦</div>
+            <Package className="w-12 h-12 mx-auto text-slate-600 mb-3" />
             <p>Nessun prodotto trovato</p>
-            <p className="text-sm">Importa dei dati o aggiungi un nuovo prodotto</p>
           </div>
         )}
       </div>
 
-      {/* Legend */}
-      <div className="mt-4 p-3 bg-slate-800/30 rounded-lg text-xs text-slate-500">
-        <strong>Nota:</strong> La colonna "Q.tà (importata)" viene aggiornata automaticamente dai file caricati. 
-        Puoi modificare solo la "Q.tà Minima" e la "Scadenza" per gestire gli avvisi di riordino.
-      </div>
-
       {/* Pagination */}
       <div className="flex items-center justify-between mt-4">
-        <p className="text-sm text-muted-foreground">
-          Pagina {page}
-        </p>
+        <p className="text-sm text-muted-foreground">Pagina {page}</p>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            data-testid="prev-page"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Precedente
+          <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} data-testid="prev-page">
+            <ChevronLeft className="w-4 h-4" /> Precedente
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(p => p + 1)}
-            disabled={prodotti.length < perPage}
-            data-testid="next-page"
-          >
-            Successiva
-            <ChevronRight className="w-4 h-4" />
+          <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={prodotti.length < perPage} data-testid="next-page">
+            Successiva <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
