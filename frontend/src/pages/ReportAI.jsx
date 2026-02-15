@@ -61,6 +61,25 @@ export default function ReportAI() {
     }
   };
 
+  const deleteReport = async (reportId, e) => {
+    e.stopPropagation();
+    if (!window.confirm('Sei sicuro di voler eliminare questo report?')) return;
+    
+    try {
+      await axios.delete(`${API}/ai-reports/${reportId}`);
+      // Update local state
+      setReports(reports.filter(r => r.id !== reportId));
+      // If the deleted report was selected, clear selection or select another
+      if (selectedReport?.id === reportId) {
+        const remaining = reports.filter(r => r.id !== reportId);
+        setSelectedReport(remaining.length > 0 ? remaining[0] : null);
+      }
+    } catch (error) {
+      console.error('Error deleting report:', error);
+      alert('Errore durante l\'eliminazione del report.');
+    }
+  };
+
   if (loading) return <LoadingSpinner fullScreen />;
 
   return (
