@@ -228,7 +228,7 @@ export default function Notizie() {
             </div>
             <div>
               <h3 className="text-xs font-semibold text-white">Trend Frutta Secca</h3>
-              <p className="text-[10px] text-slate-500">Google Trends Italia</p>
+              <p className="text-[10px] text-slate-500">Google Trends Italia — ultimi 3 mesi</p>
             </div>
           </div>
 
