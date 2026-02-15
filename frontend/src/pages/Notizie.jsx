@@ -121,63 +121,103 @@ export default function Notizie() {
       {/* === TOP: 3 widget in riga === */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8 items-start">
 
-        {/* 1. METEO */}
-        {cw && w && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl overflow-hidden border border-white/[0.08] p-5 relative"
-            style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
-            data-testid="weather-widget"
-          >
-            <div className={cn('absolute inset-0 rounded-2xl bg-gradient-to-br opacity-40', w.bg)} />
-            <div className="relative z-10">
-              <div className="flex items-center gap-1.5 mb-2">
-                <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="text-xs font-medium text-slate-400">Bologna</span>
-                <span className="text-[10px] text-slate-600 ml-auto">
-                  {new Date().toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-4xl">{w.icon}</span>
-                <div>
-                  <p className="text-3xl font-extrabold tracking-tight text-white leading-none">{Math.round(cw.temperature)}°</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{w.label}</p>
+        {/* 1. METEO + TICKER */}
+        <div className="flex flex-col gap-4">
+          {cw && w && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl overflow-hidden border border-white/[0.08] p-5 relative"
+              style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
+              data-testid="weather-widget"
+            >
+              <div className={cn('absolute inset-0 rounded-2xl bg-gradient-to-br opacity-40', w.bg)} />
+              <div className="relative z-10">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="text-xs font-medium text-slate-400">Bologna</span>
+                  <span className="text-[10px] text-slate-600 ml-auto">
+                    {new Date().toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </span>
                 </div>
-                <div className="ml-auto flex flex-col gap-0.5 text-[11px] text-slate-500">
-                  <div className="flex items-center gap-1.5"><Wind className="w-3 h-3 text-sky-400" />{Math.round(cw.windspeed)} km/h</div>
-                  {daily && <>
-                    <div className="flex items-center gap-1.5"><Thermometer className="w-3 h-3 text-red-400" />Max {Math.round(daily.temperature_2m_max[0])}°</div>
-                    <div className="flex items-center gap-1.5"><Thermometer className="w-3 h-3 text-blue-400" />Min {Math.round(daily.temperature_2m_min[0])}°</div>
-                  </>}
-                </div>
-              </div>
 
-              {/* 6-day forecast */}
-              {daily && (
-                <div className="grid grid-cols-6 gap-1">
-                  {daily.time.slice(1, 7).map((date, idx) => {
-                    const dw = getW(daily.weathercode[idx + 1]);
-                    return (
-                      <div key={date} className="flex flex-col items-center py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.05]">
-                        <p className="text-[8px] uppercase font-semibold text-slate-600 tracking-wider">
-                          {new Date(date).toLocaleDateString('it-IT', { weekday: 'short' })}
-                        </p>
-                        <span className="text-base my-0.5">{dw.icon}</span>
-                        <div className="flex gap-0.5 text-[9px]">
-                          <span className="font-semibold text-white">{Math.round(daily.temperature_2m_max[idx + 1])}°</span>
-                          <span className="text-slate-500">{Math.round(daily.temperature_2m_min[idx + 1])}°</span>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-4xl">{w.icon}</span>
+                  <div>
+                    <p className="text-3xl font-extrabold tracking-tight text-white leading-none">{Math.round(cw.temperature)}°</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{w.label}</p>
+                  </div>
+                  <div className="ml-auto flex flex-col gap-0.5 text-[11px] text-slate-500">
+                    <div className="flex items-center gap-1.5"><Wind className="w-3 h-3 text-sky-400" />{Math.round(cw.windspeed)} km/h</div>
+                    {daily && <>
+                      <div className="flex items-center gap-1.5"><Thermometer className="w-3 h-3 text-red-400" />Max {Math.round(daily.temperature_2m_max[0])}°</div>
+                      <div className="flex items-center gap-1.5"><Thermometer className="w-3 h-3 text-blue-400" />Min {Math.round(daily.temperature_2m_min[0])}°</div>
+                    </>}
+                  </div>
+                </div>
+
+                {daily && (
+                  <div className="grid grid-cols-6 gap-1">
+                    {daily.time.slice(1, 7).map((date, idx) => {
+                      const dw = getW(daily.weathercode[idx + 1]);
+                      return (
+                        <div key={date} className="flex flex-col items-center py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.05]">
+                          <p className="text-[8px] uppercase font-semibold text-slate-600 tracking-wider">
+                            {new Date(date).toLocaleDateString('it-IT', { weekday: 'short' })}
+                          </p>
+                          <span className="text-base my-0.5">{dw.icon}</span>
+                          <div className="flex gap-0.5 text-[9px]">
+                            <span className="font-semibold text-white">{Math.round(daily.temperature_2m_max[idx + 1])}°</span>
+                            <span className="text-slate-500">{Math.round(daily.temperature_2m_min[idx + 1])}°</span>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* TICKER NOTIZIE FLASH */}
+          {notizie.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="rounded-xl overflow-hidden border border-white/[0.08] relative"
+              style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}
+              data-testid="news-ticker"
+            >
+              <div className="flex items-center gap-2 px-3 py-2">
+                <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-red-500/20 text-red-400 rounded border border-red-500/20 animate-pulse">
+                  Live
+                </span>
+                <div className="overflow-hidden flex-1 relative">
+                  <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#0d1117] to-transparent z-10" />
+                  <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#0d1117] to-transparent z-10" />
+                  <div className="ticker-scroll flex items-center gap-6 whitespace-nowrap">
+                    {notizie.slice(0, 10).map((n, i) => (
+                      <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-cyan-400 transition-colors shrink-0">
+                        <span className="w-1 h-1 rounded-full bg-cyan-500/60 shrink-0" />
+                        <span className="font-medium">{n.titolo}</span>
+                      </a>
+                    ))}
+                    {/* Duplicato per loop continuo */}
+                    {notizie.slice(0, 10).map((n, i) => (
+                      <a key={`dup-${i}`} href={n.url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-cyan-400 transition-colors shrink-0">
+                        <span className="w-1 h-1 rounded-full bg-cyan-500/60 shrink-0" />
+                        <span className="font-medium">{n.titolo}</span>
+                      </a>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
-          </motion.div>
-        )}
+              </div>
+            </motion.div>
+          )}
+        </div>
 
         {/* 2. LISTINI MERCATO */}
         <motion.div
