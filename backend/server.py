@@ -2441,6 +2441,74 @@ async def get_meteo(lat: float = 44.4949, lon: float = 11.3426):
 
 
 
+# ----- Ticker News (fonti esterne diverse) -----
+@api_router.get("/ticker-news")
+async def get_ticker_news():
+    """Get fresh news from Google News RSS for fruit & dried fruit sector"""
+    import asyncio
+    
+    # Check cache (1 hour TTL)
+    cache = await db.cache.find_one({"key": "ticker_news"}, {"_id": 0})
+    if cache:
+        from datetime import timezone as tz
+        cached_at = cache.get("cached_at")
+        if cached_at:
+            if cached_at.tzinfo is None:
+                cached_at = cached_at.replace(tzinfo=tz.utc)
+            if (datetime.now(tz.utc) - cached_at).total_seconds() < 3600:
+                return cache.get("data", [])
+    
+    def fetch_ticker():
+        import feedparser
+        
+        google_feeds = [
+            "https://news.google.com/rss/search?q=frutta+secca+mercato+italia&hl=it&gl=IT&ceid=IT:it",
+            "https://news.google.com/rss/search?q=ortofrutta+prezzi+mercato&hl=it&gl=IT&ceid=IT:it",
+        ]
+        
+        seen_titles = set()
+        items = []
+        
+        for feed_url in google_feeds:
+            try:
+                d = feedparser.parse(feed_url)
+                for entry in d.entries[:15]:
+                    title = entry.get("title", "").strip()
+                    # Rimuovi il suffisso " - NomeFonte" aggiunto da Google News
+                    clean_title = title.rsplit(" - ", 1)[0].strip() if " - " in title else title
+                    
+                    if clean_title.lower() in seen_titles:
+                        continue
+                    seen_titles.add(clean_title.lower())
+                    
+                    source = entry.get("source", {}).get("title", "")
+                    link = entry.get("link", "")
+                    published = entry.get("published", "")
+                    
+                    items.append({
+                        "titolo": clean_title,
+                        "fonte": source,
+                        "url": link,
+                        "data": published,
+                    })
+            except Exception as e:
+                logger.error(f"Error fetching ticker feed: {e}")
+        
+        return items[:20]
+    
+    loop = asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, fetch_ticker)
+    
+    from datetime import timezone as tz
+    await db.cache.update_one(
+        {"key": "ticker_news"},
+        {"$set": {"key": "ticker_news", "data": data, "cached_at": datetime.now(tz.utc)}},
+        upsert=True
+    )
+    
+    return data
+
+
 # ----- Google Trends Frutta Secca -----
 @api_router.get("/trends-frutta-secca")
 async def get_trends_frutta_secca():
