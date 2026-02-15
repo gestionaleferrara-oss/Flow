@@ -952,13 +952,13 @@ async def get_statistiche(
     
     top_clienti = [{"nome": k, "spesa": v} for k, v in sorted(clienti_fatturato.items(), key=lambda x: x[1], reverse=True)[:10]]
     
-    # Top prodotti
-    prodotti_quantita = {}
+    # Top prodotti - aggregate by total euros, not quantity
+    prodotti_totale = {}
     for v in vendite:
         prod = v.get('prodotto_nome', '')
-        prodotti_quantita[prod] = prodotti_quantita.get(prod, 0) + abs(v.get('quantita', 0))
+        prodotti_totale[prod] = prodotti_totale.get(prod, 0) + abs(v.get('totale', 0))
     
-    top_prodotti = [{"nome": k, "quantita": v} for k, v in sorted(prodotti_quantita.items(), key=lambda x: x[1], reverse=True)[:10]]
+    top_prodotti = [{"nome": k, "totale_euro": round(v, 2)} for k, v in sorted(prodotti_totale.items(), key=lambda x: x[1], reverse=True)[:10]]
     
     return {
         "totaleEuro": totale_euro,
