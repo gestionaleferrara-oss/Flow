@@ -29,7 +29,7 @@ Migrazione di un'applicazione Google Apps Script verso un'app web full-stack mod
 - Stato con icone
 
 ### Vendite
-- Lista vendite raggruppabili/espandibili (fix: rimosso motion.tbody annidato)
+- Lista vendite raggruppabili/espandibili (fix: React.Fragment)
 - Ricerca con debounce
 - Totali calcolati come prezzo x quantita
 - Cancellazione vendite (per periodo o tutte)
@@ -49,7 +49,7 @@ Migrazione di un'applicazione Google Apps Script verso un'app web full-stack mod
 
 ### Statistiche
 - Switch Vendite/Clienti - Acquisti/Fornitori
-- Filtri: prodotto, cliente/fornitore, date, preset (30gg, mese corrente, mese precedente, 3 mesi)
+- Filtri: prodotto, cliente/fornitore, date, preset
 - KPI visibili SOLO con almeno un filtro attivo
 - Grafici: AreaChart/BarChart, PieChart, HBarChart
 - Export CSV/Excel
@@ -58,16 +58,19 @@ Migrazione di un'applicazione Google Apps Script verso un'app web full-stack mod
 - Generazione report con Gemini Pro
 - Lista report salvati con eliminazione
 
-### Notizie
+### Notizie & Mercati (REDESIGNED 15 Feb 2026)
+- Widget meteo premium: temp attuale, vento, min/max, previsioni 6 giorni con icone
+- Listini mercato: card con icone MapPin, animazioni stagger, links PDF
+- Hero article full-width con layout 50/50 immagine/testo
+- Griglia magazine-style con zoom hover, badge fonte, date italiano
+- Filtri categoria con conteggio
 - Feed RSS (FreshPlaza, Corriere Ortofrutticolo, MyFruit)
-- Widget meteo Bologna
-- Widget prezzi mercati ingrosso
 
 ## Sidebar
 - Solo icone (76px fissi)
-- Hover su singolo item: popup con zoom icona+testo (effetto wow)
+- Hover su singolo item: popup fixed con zoom icona+testo (effetto wow)
 - Glow cyan, ombra, animazione spring framer-motion
-- Footer con indicatore online
+- Anti-flicker con delay timer su mouseLeave
 
 ## Integrazioni 3rd Party
 - `feedparser` + `beautifulsoup4`: RSS e scraping notizie
@@ -87,13 +90,12 @@ Migrazione di un'applicazione Google Apps Script verso un'app web full-stack mod
 
 ## Issue Note
 - **Prezzi nel DB**: Possibile arrotondamento durante import CSV. Fix temporaneo: frontend ricalcola prezzo x quantita
-- **Pie chart tooltip**: Funzionante con Tooltip di recharts standard
-- **News scraper immagini**: Funzionante per MyFruit, problemi intermittenti con altri feed
+- **Pie chart tooltip**: Bug ricorrente
+- **News scraper immagini**: Funzionante per MyFruit, problemi con altri feed
 
-## Completato (15 Feb 2026)
-- Fix tabella Vendite (rimosso motion.tbody annidato, usato React.Fragment)
-- Sidebar effetto wow: solo icone, hover mostra popup zoomato con icona+testo su singolo item
-- KPI Statistiche visibili solo con filtri attivi
+## Completato
+- 15 Feb 2026: Fix tabella Vendite, Sidebar effetto wow, KPI Statistiche condizionali
+- 15 Feb 2026: Redesign completo pagina Notizie & Mercati (meteo, listini, hero, griglia)
 
 ## Backlog Prioritizzato
 - P1: Fix totali prezzi errati durante import CSV/XLSX (backend)
