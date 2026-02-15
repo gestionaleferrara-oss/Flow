@@ -13,6 +13,7 @@ import Fornitori from "@/pages/Fornitori";
 import Ordini from "@/pages/Ordini";
 import Statistiche from "@/pages/Statistiche";
 import Notizie from "@/pages/Notizie";
+import ReportAI from "@/pages/ReportAI";
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
             <Route path="/ordini" element={<Ordini />} />
             <Route path="/statistiche" element={<Statistiche />} />
             <Route path="/notizie" element={<Notizie />} />
+            <Route path="/report-ai" element={<ReportAI />} />
           </Routes>
         </main>
         <Toaster 
