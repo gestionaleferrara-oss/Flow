@@ -1014,6 +1014,79 @@ async def get_prodotto_analisi(prodotto_nome: str):
     }
 
 
+@api_router.get("/prodotti/{prodotto_nome:path}/analisi-acquisti")
+async def get_prodotto_analisi_acquisti(prodotto_nome: str):
+    """Get detailed purchase analysis for a prodotto (from ordini/fornitori)"""
+    from urllib.parse import unquote
+    prodotto_nome = unquote(prodotto_nome)
+    
+    ordini = await db.ordini.find({"prodotto_nome": prodotto_nome}, {"_id": 0}).to_list(10000)
+    
+    if not ordini:
+        return {
+            "spesoMensile": 0,
+            "mediaMensile": 0,
+            "ultimoAcquisto": "N/A",
+            "trendPercentuale": 0,
+            "fornitoriUnici": 0,
+            "fornitoriPrincipali": "Nessuno",
+            "prezzoMedioAcquisto": 0,
+            "numOrdini": 0
+        }
+    
+    ultimo_acquisto = max([o.get('data', '') for o in ordini], default='N/A')
+    
+    # Monthly average (last 6 months)
+    now = datetime.now()
+    six_months_ago = (now - timedelta(days=180)).strftime("%Y-%m-%d")
+    recent_ordini = [o for o in ordini if o.get('data', '') >= six_months_ago]
+    media_mensile = sum(abs(o.get('quantita', 0)) for o in recent_ordini) / 6 if recent_ordini else 0
+    
+    # Speso mensile medio
+    speso_mensile = sum(abs(o.get('totale', 0)) for o in recent_ordini) / 6 if recent_ordini else 0
+    
+    # Prezzo medio di acquisto
+    prezzi_acquisto = [o.get('prezzo_unitario', 0) for o in ordini if o.get('prezzo_unitario', 0) > 0]
+    prezzo_medio_acquisto = sum(prezzi_acquisto) / len(prezzi_acquisto) if prezzi_acquisto else 0
+    
+    # Trend acquisti (confronto ultimo mese vs mese precedente)
+    last_month_start = (now.replace(day=1) - timedelta(days=1)).replace(day=1).strftime("%Y-%m-%d")
+    last_month_end = (now.replace(day=1) - timedelta(days=1)).strftime("%Y-%m-%d")
+    this_month_start = now.replace(day=1).strftime("%Y-%m-%d")
+    
+    ordini_last_month = sum(abs(o.get('totale', 0)) for o in ordini if last_month_start <= o.get('data', '') <= last_month_end)
+    ordini_this_month = sum(abs(o.get('totale', 0)) for o in ordini if o.get('data', '') >= this_month_start)
+    
+    if ordini_last_month > 0:
+        trend_percentuale = round(((ordini_this_month - ordini_last_month) / ordini_last_month) * 100, 1)
+    else:
+        trend_percentuale = 100 if ordini_this_month > 0 else 0
+    
+    # Top fornitori
+    fornitori_count = {}
+    for o in ordini:
+        fornitore = o.get('fornitore_nome', '')
+        if fornitore:
+            fornitori_count[fornitore] = fornitori_count.get(fornitore, 0) + abs(o.get('quantita', 0))
+    
+    top_fornitori = sorted(fornitori_count.items(), key=lambda x: x[1], reverse=True)[:3]
+    fornitori_str = ', '.join([f[0] for f in top_fornitori]) if top_fornitori else 'Nessuno'
+    
+    # Numero fornitori unici
+    fornitori_unici = len(set(o.get('fornitore_nome', '') for o in ordini if o.get('fornitore_nome', '')))
+    
+    return {
+        "spesoMensile": round(speso_mensile, 2),
+        "mediaMensile": round(media_mensile, 2),
+        "ultimoAcquisto": ultimo_acquisto,
+        "trendPercentuale": trend_percentuale,
+        "fornitoriUnici": fornitori_unici,
+        "fornitoriPrincipali": fornitori_str,
+        "prezzoMedioAcquisto": round(prezzo_medio_acquisto, 2),
+        "numOrdini": len(ordini)
+    }
+
+
 # ----- Vendite -----
 @api_router.get("/vendite")
 async def get_vendite(
