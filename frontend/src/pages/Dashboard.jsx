@@ -21,7 +21,8 @@ import {
   Clock,
   UserX,
   PackageX,
-  AlertCircle
+  AlertCircle,
+  Truck
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import StatCard from '@/components/StatCard';
