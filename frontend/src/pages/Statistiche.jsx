@@ -309,9 +309,33 @@ export default function Statistiche() {
                   outerRadius={100}
                   dataKey="spesa"
                   nameKey="nome"
-                  label={({ nome, percent }) => `${nome?.slice(0,10)}... (${(percent*100).toFixed(0)}%)`}
+                  label={({ cx, cy, midAngle, innerRadius, outerRadius, nome, percent }) => {
+                    const RADIAN = Math.PI / 180;
+                    const radius = outerRadius + 20;
+                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                    return (
+                      <text x={x} y={y} fill="#e2e8f0" fontSize={12} fontWeight={500}
+                        textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
+                        {`${nome?.slice(0,12)} (${(percent*100).toFixed(0)}%)`}
+                      </text>
+                    );
+                  }}
                   labelLine={false}
-                  style={{ fill: '#e2e8f0', fontSize: 12, fontWeight: 500 }}
+                  activeShape={({ cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, nome, spesa }) => {
+                    return (
+                      <g>
+                        <text x={cx} y={cy - 10} textAnchor="middle" fill="#f1f5f9" fontSize={14} fontWeight={600}>
+                          {nome?.slice(0, 18)}
+                        </text>
+                        <text x={cx} y={cy + 12} textAnchor="middle" fill="#94a3b8" fontSize={12}>
+                          {formatCurrency(spesa)}
+                        </text>
+                        <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 6}
+                          startAngle={startAngle} endAngle={endAngle} fill={fill} />
+                      </g>
+                    );
+                  }}
                 >
                   {(data?.topClienti || []).map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
