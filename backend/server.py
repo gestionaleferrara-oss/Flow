@@ -927,18 +927,143 @@ async def get_dashboard():
 
 
 # ----- Notizie -----
-@api_router.get("/notizie", response_model=List[Notizia])
-async def get_notizie(limit: int = 20):
-    notizie = await db.notizie.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+
+async def fetch_rss_feed(source: dict) -> List[dict]:
+    """Fetch and parse an RSS feed"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(source["url"], follow_redirects=True)
+            if response.status_code != 200:
+                return []
+            
+            root = ET.fromstring(response.content)
+            items = []
+            
+            # Standard RSS format
+            for item in root.findall('.//item')[:10]:
+                title = item.find('title')
+                link = item.find('link')
+                description = item.find('description')
+                pub_date = item.find('pubDate')
+                
+                # Try to extract image
+                image_url = None
+                enclosure = item.find('enclosure')
+                if enclosure is not None and enclosure.get('type', '').startswith('image'):
+                    image_url = enclosure.get('url')
+                
+                # Try media:content
+                media_content = item.find('.//{http://search.yahoo.com/mrss/}content')
+                if media_content is not None and not image_url:
+                    image_url = media_content.get('url')
+                
+                # Parse description for image if still none
+                desc_text = description.text if description is not None else ''
+                if not image_url and desc_text:
+                    soup = BeautifulSoup(desc_text, 'html.parser')
+                    img = soup.find('img')
+                    if img and img.get('src'):
+                        image_url = img.get('src')
+                    desc_text = soup.get_text()[:200]
+                
+                items.append({
+                    "titolo": title.text if title is not None else "Senza titolo",
+                    "descrizione": desc_text[:300] if desc_text else "",
+                    "url": link.text if link is not None else "",
+                    "immagine_url": image_url,
+                    "fonte": source["name"],
+                    "categoria": source["categoria"],
+                    "data_pubblicazione": pub_date.text[:20] if pub_date is not None else ""
+                })
+            
+            return items
+    except Exception as e:
+        logger.error(f"Error fetching RSS from {source['name']}: {e}")
+        return []
+
+
+async def refresh_notizie():
+    """Fetch news from all RSS sources and update database"""
+    all_news = []
+    
+    tasks = [fetch_rss_feed(source) for source in RSS_SOURCES]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    for result in results:
+        if isinstance(result, list):
+            all_news.extend(result)
+    
+    # Clear old news and insert new ones
+    if all_news:
+        await db.notizie.delete_many({})
+        for news in all_news:
+            notizia = Notizia(**news)
+            await db.notizie.insert_one(serialize_doc(notizia.model_dump()))
+    
+    return len(all_news)
+
+
+@api_router.get("/notizie")
+async def get_notizie(limit: int = 50, categoria: Optional[str] = None):
+    """Get news, optionally filtered by category"""
+    query = {}
+    if categoria and categoria != "all":
+        query["categoria"] = categoria
+    
+    notizie = await db.notizie.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    # If no news, try to fetch them
+    if len(notizie) == 0:
+        count = await refresh_notizie()
+        logger.info(f"Refreshed {count} news articles")
+        notizie = await db.notizie.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    
     return notizie
 
 
-@api_router.post("/notizie", response_model=Notizia)
+@api_router.post("/notizie/refresh")
+async def trigger_refresh_notizie(background_tasks: BackgroundTasks):
+    """Manually trigger a news refresh"""
+    background_tasks.add_task(refresh_notizie)
+    return {"message": "Aggiornamento notizie avviato in background"}
+
+
+@api_router.get("/notizie/categorie")
+async def get_categorie_notizie():
+    """Get unique news categories"""
+    categorie = await db.notizie.distinct("categoria")
+    return categorie
+
+
+@api_router.post("/notizie")
 async def create_notizia(data: NotiziaCreate):
     notizia = Notizia(**data.model_dump())
     doc = serialize_doc(notizia.model_dump())
     await db.notizie.insert_one(doc)
     return notizia
+
+
+# ----- Prezzi Mercati -----
+@api_router.get("/prezzi-mercati")
+async def get_prezzi_mercati():
+    """Get list of market price links"""
+    return MARKET_PRICE_LINKS
+
+
+# ----- Meteo (usando Open-Meteo API gratuita) -----
+@api_router.get("/meteo")
+async def get_meteo(lat: float = 44.4949, lon: float = 11.3426):
+    """Get weather data for a location (default: Bologna)"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as http_client:
+            url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=Europe/Rome"
+            response = await http_client.get(url)
+            if response.status_code == 200:
+                return response.json()
+            return {"error": "Dati meteo non disponibili"}
+    except Exception as e:
+        logger.error(f"Error fetching weather: {e}")
+        return {"error": str(e)}
 
 
 # Include the router in the main app
