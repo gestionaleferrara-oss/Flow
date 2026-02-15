@@ -166,10 +166,7 @@ export default function Magazzino() {
               <tr>
                 <th>Prodotto</th>
                 <th className="text-right">Q.tà (importata)</th>
-                <th className="text-right">Kg/pz</th>
-                <th>Imballo</th>
                 <th className="text-right bg-amber-500/5">Q.tà Minima</th>
-                <th className="text-right">Kg Rim.</th>
                 <th className="text-right">Prezzo</th>
                 <th className="text-right">Valore</th>
                 <th>Scadenza</th>
