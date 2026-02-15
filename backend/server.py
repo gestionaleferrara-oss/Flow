@@ -1062,6 +1062,47 @@ async def get_dashboard():
 
 # ----- Notizie -----
 
+def parse_rss_date(date_str: str) -> datetime:
+    """Parse RSS date string to datetime for sorting"""
+    if not date_str:
+        return datetime(2000, 1, 1, tzinfo=timezone.utc)
+    from email.utils import parsedate_to_datetime
+    try:
+        return parsedate_to_datetime(date_str)
+    except Exception:
+        pass
+    # Fallback: try common formats
+    for fmt in ["%a, %d %b %Y %H:%M:%S %z", "%a, %d %b %Y %H:%M:%S", "%Y-%m-%dT%H:%M:%S"]:
+        try:
+            return datetime.strptime(date_str.strip(), fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return datetime(2000, 1, 1, tzinfo=timezone.utc)
+
+
+ITALIAN_MONTHS = {
+    'gen': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+    'mag': '05', 'giu': '06', 'lug': '07', 'ago': '08',
+    'set': '09', 'ott': '10', 'nov': '11', 'dic': '12',
+}
+
+
+def parse_italian_news_date(date_str: str) -> datetime:
+    """Parse Italian date like '12 feb 2026' to datetime"""
+    if not date_str:
+        return datetime(2000, 1, 1, tzinfo=timezone.utc)
+    parts = date_str.strip().split()
+    if len(parts) >= 3:
+        day = parts[0].zfill(2)
+        month = ITALIAN_MONTHS.get(parts[1][:3].lower(), '01')
+        year = parts[2]
+        try:
+            return datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+    return datetime(2000, 1, 1, tzinfo=timezone.utc)
+
+
 async def fetch_rss_feed(source: dict) -> List[dict]:
     """Fetch and parse an RSS feed"""
     try:
@@ -1073,25 +1114,21 @@ async def fetch_rss_feed(source: dict) -> List[dict]:
             root = ET.fromstring(response.content)
             items = []
             
-            # Standard RSS format
             for item in root.findall('.//item')[:10]:
                 title = item.find('title')
                 link = item.find('link')
                 description = item.find('description')
                 pub_date = item.find('pubDate')
                 
-                # Try to extract image
                 image_url = None
                 enclosure = item.find('enclosure')
                 if enclosure is not None and enclosure.get('type', '').startswith('image'):
                     image_url = enclosure.get('url')
                 
-                # Try media:content
                 media_content = item.find('.//{http://search.yahoo.com/mrss/}content')
                 if media_content is not None and not image_url:
                     image_url = media_content.get('url')
                 
-                # Parse description for image if still none
                 desc_text = description.text if description is not None else ''
                 if not image_url and desc_text:
                     soup = BeautifulSoup(desc_text, 'html.parser')
@@ -1100,6 +1137,9 @@ async def fetch_rss_feed(source: dict) -> List[dict]:
                         image_url = img.get('src')
                     desc_text = soup.get_text()[:200]
                 
+                pub_date_str = pub_date.text if pub_date is not None else ""
+                parsed_dt = parse_rss_date(pub_date_str)
+                
                 items.append({
                     "titolo": title.text if title is not None else "Senza titolo",
                     "descrizione": desc_text[:300] if desc_text else "",
@@ -1107,7 +1147,8 @@ async def fetch_rss_feed(source: dict) -> List[dict]:
                     "immagine_url": image_url,
                     "fonte": source["name"],
                     "categoria": source["categoria"],
-                    "data_pubblicazione": pub_date.text[:20] if pub_date is not None else ""
+                    "data_pubblicazione": pub_date_str[:25] if pub_date_str else "",
+                    "_sort_date": parsed_dt.isoformat()
                 })
             
             return items
@@ -1116,23 +1157,112 @@ async def fetch_rss_feed(source: dict) -> List[dict]:
         return []
 
 
+async def scrape_myfruit_news() -> List[dict]:
+    """Scrape news from myfruit.it (no RSS available)"""
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as http_client:
+            resp = await http_client.get(
+                MYFRUIT_NEWS_URL,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            )
+            if resp.status_code != 200:
+                logger.warning(f"Myfruit scrape failed: HTTP {resp.status_code}")
+                return []
+            
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            items = []
+            seen_urls = set()
+            
+            for a_tag in soup.find_all('a', href=True):
+                href = a_tag['href']
+                if '/news/' not in href or href in seen_urls:
+                    continue
+                if not href.startswith('https://www.myfruit.it/news/'):
+                    continue
+                # Skip category pages
+                if '/news/category/' in href or '/news-page/' in href:
+                    continue
+                
+                seen_urls.add(href)
+                
+                # Extract title from bold text or nested elements
+                title_el = a_tag.find('strong') or a_tag.find('b')
+                title = title_el.get_text(strip=True) if title_el else a_tag.get_text(strip=True)
+                if not title or len(title) < 10:
+                    continue
+                
+                # Extract image
+                img = a_tag.find('img')
+                image_url = None
+                if img:
+                    image_url = img.get('src') or img.get('data-src')
+                
+                # Extract date and description from surrounding text
+                parent = a_tag.parent
+                full_text = parent.get_text(separator='\n', strip=True) if parent else a_tag.get_text(strip=True)
+                lines = [l.strip() for l in full_text.split('\n') if l.strip()]
+                
+                date_str = ""
+                description = ""
+                for line in lines:
+                    # Check for date pattern like "12 feb 2026"
+                    if re.match(r'^\d{1,2}\s+\w{3}\s+\d{4}$', line):
+                        date_str = line
+                    elif line != title and len(line) > 20:
+                        description = line
+                
+                if not date_str:
+                    continue
+                
+                parsed_dt = parse_italian_news_date(date_str)
+                
+                items.append({
+                    "titolo": title,
+                    "descrizione": description[:300],
+                    "url": href,
+                    "immagine_url": image_url,
+                    "fonte": "Myfruit",
+                    "categoria": "ortofrutta",
+                    "data_pubblicazione": date_str,
+                    "_sort_date": parsed_dt.isoformat()
+                })
+                
+                if len(items) >= 10:
+                    break
+            
+            logger.info(f"Myfruit: scraped {len(items)} articles")
+            return items
+    except Exception as e:
+        logger.error(f"Error scraping Myfruit: {e}")
+        return []
+
+
 async def refresh_notizie():
-    """Fetch news from all RSS sources and update database"""
+    """Fetch news from all sources and update database"""
     all_news = []
     
+    # Fetch RSS feeds + myfruit scrape in parallel
     tasks = [fetch_rss_feed(source) for source in RSS_SOURCES]
+    tasks.append(scrape_myfruit_news())
     results = await asyncio.gather(*tasks, return_exceptions=True)
     
     for result in results:
         if isinstance(result, list):
             all_news.extend(result)
     
+    # Sort chronologically (newest first) using the parsed sort date
+    all_news.sort(key=lambda x: x.get('_sort_date', ''), reverse=True)
+    
     # Clear old news and insert new ones
     if all_news:
         await db.notizie.delete_many({})
         for news in all_news:
+            # Remove internal sort key before storing
+            sort_date = news.pop('_sort_date', '')
             notizia = Notizia(**news)
-            await db.notizie.insert_one(serialize_doc(notizia.model_dump()))
+            doc = serialize_doc(notizia.model_dump())
+            doc['sort_date'] = sort_date
+            await db.notizie.insert_one(doc)
     
     return len(all_news)
 
