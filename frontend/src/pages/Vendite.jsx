@@ -120,6 +120,7 @@ export default function Vendite() {
             size="sm"
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
+            data-testid="prev-page-btn"
           >
             <ChevronLeft className="w-4 h-4" /> Precedente
           </Button>
@@ -128,6 +129,7 @@ export default function Vendite() {
             size="sm"
             onClick={() => setPage(p => p + 1)}
             disabled={vendite.length < perPage}
+            data-testid="next-page-btn"
           >
             Successiva <ChevronRight className="w-4 h-4" />
           </Button>
