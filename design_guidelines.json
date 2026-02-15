@@ -1,0 +1,175 @@
+{
+  "identity": {
+    "name": "E1",
+    "archetype": "The Anti-AI Designer",
+    "mission": "Create a distinct, high-performance Italian business dashboard that breaks the 'generic SaaS' mold.",
+    "principles": [
+      "Fusion over Imitation: Mix finance precision with high-contrast Swiss aesthetics.",
+      "Emotion First: The dashboard should feel 'Authoritative' and 'Precise'.",
+      "Content is King: Data density without clutter. Every pixel must earn its keep.",
+      "Negative Space: Use spacing to group logic, not just for decoration.",
+      "Contrast: High contrast for readability in dark mode. No muddy greys."
+    ]
+  },
+  "typography": {
+    "primary_font": "Manrope",
+    "secondary_font": "Barlow Condensed",
+    "mono_font": "JetBrains Mono",
+    "usage": {
+      "headings": "Barlow Condensed, font-weight: 700/800, uppercase for section titles, tracking-tight",
+      "body": "Manrope, font-weight: 400/500, tracking-normal",
+      "data_tables": "Manrope, font-feature-settings: 'tnum' on (tabular nums)",
+      "code_values": "JetBrains Mono, text-xs"
+    },
+    "installation": "Import via Google Fonts in index.css: @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');"
+  },
+  "colors": {
+    "theme": "dark",
+    "palette": {
+      "background": "#050505",
+      "foreground": "#FFFFFF",
+      "card": "#0A0A0A",
+      "card_foreground": "#FFFFFF",
+      "primary": "#3B82F6",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#27272A",
+      "secondary_foreground": "#E4E4E7",
+      "muted": "#18181B",
+      "muted_foreground": "#A1A1AA",
+      "accent": "#F59E0B",
+      "accent_foreground": "#000000",
+      "destructive": "#EF4444",
+      "destructive_foreground": "#FFFFFF",
+      "border": "#27272A",
+      "input": "#27272A",
+      "ring": "#3B82F6"
+    },
+    "gradients": {
+      "tracing_beam": "linear-gradient(90deg, transparent, #3B82F6, transparent)",
+      "glass_surface": "linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.0))"
+    },
+    "utility_classes": {
+      "glass_panel": "bg-black/40 backdrop-blur-xl border border-white/10 shadow-xl",
+      "neon_border": "border border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.3)]",
+      "active_item": "bg-blue-500/10 text-blue-400 border-l-2 border-blue-500"
+    }
+  },
+  "layout_system": {
+    "grid_strategy": "Bento Grid Mode B (High Density)",
+    "container_padding": "p-4 md:p-8 lg:p-12",
+    "gap_size": "gap-4 md:gap-6",
+    "modes": {
+      "dashboard": {
+        "columns": "grid-cols-1 md:grid-cols-4 lg:grid-cols-12",
+        "spans": {
+          "kpi": "col-span-1 md:col-span-2 lg:col-span-3",
+          "main_chart": "col-span-1 md:col-span-4 lg:col-span-8 row-span-2",
+          "list_feed": "col-span-1 md:col-span-4 lg:col-span-4 row-span-2"
+        }
+      }
+    }
+  },
+  "components": {
+    "library": "shadcn/ui",
+    "style_overrides": {
+      "global_radius": "rounded-none md:rounded-sm",
+      "buttons": "uppercase tracking-wider font-bold text-xs h-10 px-6",
+      "inputs": "bg-transparent border-b border-input border-t-0 border-x-0 rounded-none focus:ring-0 focus:border-primary px-0 transition-colors",
+      "cards": "bg-card border border-border/50 shadow-none relative overflow-hidden",
+      "dialogs": "bg-[#050505] border border-border",
+      "tables": "compact, text-sm, border-collapse, header uppercase text-muted-foreground text-xs tracking-wider"
+    },
+    "required_components": [
+      "button", "input", "card", "dialog", "table", "select", "dropdown-menu", 
+      "tabs", "avatar", "badge", "scroll-area", "sheet", "sonner", "calendar", "popover"
+    ]
+  },
+  "motion": {
+    "library": "framer-motion",
+    "preferences": {
+      "reduced_motion": "respect-user-settings",
+      "default_transition": { "type": "spring", "stiffness": 260, "damping": 20 },
+      "hover_scale": 1.02,
+      "page_transition": {
+        "initial": { "opacity": 0, "y": 10 },
+        "animate": { "opacity": 1, "y": 0 },
+        "exit": { "opacity": 0, "y": -10 }
+      }
+    },
+    "specific_effects": {
+      "tracing_border": "Use for active upload zones or focused inputs",
+      "stagger_list": "Stagger children by 0.05s for table rows and list items"
+    }
+  },
+  "page_strategies": {
+    "home_dashboard": {
+      "title": "Panoramica",
+      "layout": "Bento Grid",
+      "key_elements": [
+        "KPI Cards (Vendite, Ordini, Nuovi Clienti)",
+        "Sales Trend Chart (Area Chart)",
+        "Recent Activity List"
+      ]
+    },
+    "csv_upload": {
+      "title": "Importazione Dati",
+      "layout": "Centered Focus",
+      "key_elements": [
+        "Drag & Drop Zone (Large, dashed border, animated)",
+        "Progress Stepper",
+        "Data Preview Table (Editable)",
+        "Conflict Resolution Modal"
+      ],
+      "visual_style": "Tracing Beam effect on the drop zone when dragging."
+    },
+    "inventory": {
+      "title": "Magazzino",
+      "layout": "Full Width Data Grid",
+      "key_elements": [
+        "Advanced Filter Bar (Top)",
+        "Dense Data Table (Main)",
+        "Quick Edit Drawer (Side)"
+      ]
+    },
+    "news_ai": {
+      "title": "Notizie & AI",
+      "layout": "Masonry / Editorial",
+      "key_elements": [
+        "AI Insight Cards (Neon borders)",
+        "News Feed (Typography focused)"
+      ]
+    }
+  },
+  "visual_enhancers": {
+    "icons": {
+      "library": "lucide-react",
+      "style": "Stroke width 1.5px, size 18px or 20px"
+    },
+    "textures": {
+      "noise": "Add a subtle fixed noise overlay at 2-3% opacity to the entire app body for a premium feel."
+    },
+    "empty_states": "Use ASCII art or minimal geometric outlines instead of generic illustrations."
+  },
+  "implementation_instructions": {
+    "step_1": "Install dependencies: `npm install framer-motion lucide-react clsx tailwind-merge recharts date-fns` (or yarn equivalent)",
+    "step_2": "Initialize Shadcn/UI structure (manually or via CLI if available). Ensure `lib/utils.js` exists.",
+    "step_3": "Create basic UI components (Button, Card, Input) with the specified overrides.",
+    "step_4": "Implement the `Layout` component with Sidebar/Navigation.",
+    "step_5": "Build pages sequentially: Dashboard -> CSV Upload -> Inventory -> Others.",
+    "step_6": "Apply the 'Performance Pro' color theme in `tailwind.config.js` and `index.css`.",
+    "step_7": "Ensure all text is in Italian."
+  },
+  "universal_guidelines": {
+    "do_not": [
+      "Use gradients for text.",
+      "Use rounded-xl or rounded-2xl (stick to rounded-sm or rounded-md).",
+      "Center text in tables (align left for text, right for numbers).",
+      "Use generic 'Lorem Ipsum' - use realistic Italian business data."
+    ],
+    "must_do": [
+      "Add `data-testid` to all interactive elements.",
+      "Ensure contrast ratios meet APCA standards.",
+      "Use `sonner` for all notifications."
+    ]
+  }
+}
