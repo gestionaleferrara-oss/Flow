@@ -311,6 +311,7 @@ export default function Statistiche() {
                   nameKey="nome"
                   label={({ nome, percent }) => `${nome?.slice(0,10)}... (${(percent*100).toFixed(0)}%)`}
                   labelLine={false}
+                  style={{ fill: '#e2e8f0', fontSize: 12, fontWeight: 500 }}
                 >
                   {(data?.topClienti || []).map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
