@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Importa CSV', href: '/upload', icon: Upload },
+  { name: 'Importa Dati', href: '/upload', icon: Upload },
   { name: 'Magazzino', href: '/magazzino', icon: Package },
   { name: 'Vendite', href: '/vendite', icon: BarChart3 },
   { name: 'Clienti', href: '/clienti', icon: Users },
