@@ -18,6 +18,9 @@ function App() {
   return (
     <BrowserRouter>
       <div className="app-container">
+        {/* Noise texture overlay */}
+        <div className="noise-overlay" />
+        
         <Sidebar />
         <main className="main-content">
           <Routes>
@@ -37,9 +40,10 @@ function App() {
           position="bottom-right"
           toastOptions={{
             style: {
-              background: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
-              color: 'hsl(var(--foreground))'
+              background: 'rgba(15, 23, 42, 0.9)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: 'white'
             }
           }}
         />
