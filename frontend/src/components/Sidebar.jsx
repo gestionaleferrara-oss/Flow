@@ -95,10 +95,10 @@ export default function Sidebar() {
             <div>
               <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-300 
                 bg-clip-text text-transparent">
-                GESTIO
+                Flusso
               </h1>
               <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-medium">
-                Business Manager
+                Gestione Aziendale
               </p>
             </div>
           </Link>
@@ -168,8 +168,8 @@ export default function Sidebar() {
                 <Sparkles className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-xs font-medium text-slate-400">Gestio v2.0</p>
-                <p className="text-[10px] text-slate-600">Premium Analytics</p>
+                <p className="text-xs font-medium text-slate-400">Flusso v2.0</p>
+                <p className="text-[10px] text-slate-600">Smart Business</p>
               </div>
             </div>
           </div>
