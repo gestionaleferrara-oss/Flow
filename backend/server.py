@@ -1390,6 +1390,187 @@ async def get_ai_suggestion():
     return result
 
 
+@api_router.post("/ai-suggestion/refresh")
+async def refresh_ai_suggestion():
+    """Force regenerate AI suggestion (ignores cache)"""
+    import random
+    
+    now = datetime.now()
+    
+    # Gather business data for analysis
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    
+    # Get all vendite for the last 90 days
+    ninety_days_ago = (now - timedelta(days=90)).strftime("%Y-%m-%d")
+    vendite = await db.vendite.find({"data": {"$gte": ninety_days_ago}}, {"_id": 0}).to_list(10000)
+    vendite = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    
+    # Get products and clients
+    prodotti = await db.prodotti.find({}, {"_id": 0}).to_list(1000)
+    
+    # All suggestions pool
+    all_suggestions = []
+    
+    # 1. Top selling products
+    prodotti_revenue = {}
+    for v in vendite:
+        prod = v.get('prodotto_nome', '')
+        prodotti_revenue[prod] = prodotti_revenue.get(prod, 0) + abs(v.get('totale', 0))
+    top_products = sorted(prodotti_revenue.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    if top_products:
+        for i, (prod, rev) in enumerate(top_products[:3]):
+            all_suggestions.append({
+                "tipo": "prodotto_star",
+                "titolo": f"Prodotto Top #{i+1}",
+                "messaggio": f"'{prod}' genera molto fatturato. Negozia prezzi migliori o aumenta il margine.",
+                "azione": "Contatta fornitore"
+            })
+    
+    # 2. Low stock products
+    low_stock = [p for p in prodotti if p.get('quantita', 0) > 0 and p.get('quantita_minima', 0) > 0 and p.get('quantita', 0) <= p.get('quantita_minima', 0)]
+    if low_stock:
+        for p in low_stock[:2]:
+            all_suggestions.append({
+                "tipo": "riordino",
+                "titolo": "Scorta Bassa",
+                "messaggio": f"'{p.get('nome', '')}' è sotto la quantità minima. Riordina per evitare rotture.",
+                "azione": "Ordina subito"
+            })
+    
+    # 3. Inactive clients
+    thirty_days_ago = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    recent_clients = set(v.get('cliente_nome', '') for v in vendite if v.get('data', '') >= thirty_days_ago)
+    all_clients = set(v.get('cliente_nome', '') for v in vendite)
+    inactive_clients = list(all_clients - recent_clients)
+    
+    if inactive_clients:
+        sample_inactive = random.sample(inactive_clients, min(3, len(inactive_clients)))
+        all_suggestions.append({
+            "tipo": "clienti_dormienti",
+            "titolo": "Clienti Inattivi",
+            "messaggio": f"Ricontatta: {', '.join(sample_inactive)}. Non ordinano da 30+ giorni.",
+            "azione": "Invia offerta"
+        })
+    
+    # 4. Marketing suggestions
+    marketing_tips = [
+        {"titolo": "WhatsApp Marketing", "messaggio": "Invia il listino settimanale via WhatsApp ai tuoi clienti migliori.", "azione": "Crea broadcast"},
+        {"titolo": "Promozione Bundle", "messaggio": "Crea pacchetti di prodotti complementari per aumentare lo scontrino medio.", "azione": "Definisci bundle"},
+        {"titolo": "Programma Fedeltà", "messaggio": "Premia i clienti più fedeli con sconti progressivi sul volume.", "azione": "Imposta sconti"},
+        {"titolo": "Consegna Gratuita", "messaggio": "Offri consegna gratuita sopra una certa soglia per incentivare ordini più grandi.", "azione": "Definisci soglia"},
+        {"titolo": "Stagionalità", "messaggio": "Promuovi prodotti di stagione con margini migliori.", "azione": "Aggiorna listino"},
+    ]
+    for tip in marketing_tips:
+        all_suggestions.append({"tipo": "marketing", **tip})
+    
+    # Pick a random suggestion
+    if all_suggestions:
+        main_suggestion = random.choice(all_suggestions)
+    else:
+        main_suggestion = marketing_tips[0]
+    
+    return {
+        "week_key": f"refresh-{now.isoformat()}",
+        "generated_at": now.isoformat(),
+        "suggestion": main_suggestion,
+        "all_suggestions": random.sample(all_suggestions, min(3, len(all_suggestions))) if all_suggestions else [main_suggestion]
+    }
+
+
+# ----- Alert Gestione -----
+@api_router.get("/alerts")
+async def get_management_alerts():
+    """Get management alerts: low stock, inactive clients, expiring products"""
+    now = datetime.now()
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    
+    alerts = {
+        "prodottiSottoScorta": [],
+        "clientiInattivi": [],
+        "prodottiInEsaurimento": []
+    }
+    
+    # 1. Products below minimum quantity
+    prodotti = await db.prodotti.find({}, {"_id": 0}).to_list(1000)
+    for p in prodotti:
+        quantita = p.get('quantita', 0)
+        quantita_min = p.get('quantita_minima', 0)
+        if quantita_min > 0 and quantita <= quantita_min:
+            alerts["prodottiSottoScorta"].append({
+                "nome": p.get('nome', ''),
+                "quantita": quantita,
+                "quantita_minima": quantita_min,
+                "urgenza": "alta" if quantita <= 0 else "media"
+            })
+    
+    # Sort by urgency
+    alerts["prodottiSottoScorta"].sort(key=lambda x: (0 if x['urgenza'] == 'alta' else 1, x['quantita']))
+    alerts["prodottiSottoScorta"] = alerts["prodottiSottoScorta"][:8]
+    
+    # 2. Inactive clients (no orders in 30+ days but had orders before)
+    ninety_days_ago = (now - timedelta(days=90)).strftime("%Y-%m-%d")
+    thirty_days_ago = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    
+    vendite = await db.vendite.find({"data": {"$gte": ninety_days_ago}}, {"_id": 0}).to_list(10000)
+    vendite = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    
+    # Get clients with last order date
+    client_last_order = {}
+    client_total = {}
+    for v in vendite:
+        cliente = v.get('cliente_nome', '')
+        if cliente:
+            data = v.get('data', '')
+            if cliente not in client_last_order or data > client_last_order[cliente]:
+                client_last_order[cliente] = data
+            client_total[cliente] = client_total.get(cliente, 0) + abs(v.get('totale', 0))
+    
+    for cliente, last_order in client_last_order.items():
+        if last_order < thirty_days_ago:
+            days_inactive = (now - datetime.strptime(last_order, "%Y-%m-%d")).days
+            alerts["clientiInattivi"].append({
+                "nome": cliente,
+                "ultimo_ordine": last_order,
+                "giorni_inattivo": days_inactive,
+                "fatturato_90gg": round(client_total.get(cliente, 0), 2)
+            })
+    
+    # Sort by value (highest spending inactive clients first)
+    alerts["clientiInattivi"].sort(key=lambda x: -x['fatturato_90gg'])
+    alerts["clientiInattivi"] = alerts["clientiInattivi"][:8]
+    
+    # 3. Products running out soon (based on consumption rate)
+    six_months_ago = (now - timedelta(days=180)).strftime("%Y-%m-%d")
+    vendite_6m = await db.vendite.find({"data": {"$gte": six_months_ago}}, {"_id": 0}).to_list(10000)
+    
+    prodotto_consumption = {}
+    for v in vendite_6m:
+        prod = v.get('prodotto_nome', '')
+        prodotto_consumption[prod] = prodotto_consumption.get(prod, 0) + abs(v.get('quantita', 0))
+    
+    for p in prodotti:
+        nome = p.get('nome', '')
+        quantita = p.get('quantita', 0)
+        if quantita > 0 and nome in prodotto_consumption:
+            monthly_consumption = prodotto_consumption[nome] / 6
+            if monthly_consumption > 0:
+                days_left = int(quantita / monthly_consumption * 30)
+                if days_left <= 14:
+                    alerts["prodottiInEsaurimento"].append({
+                        "nome": nome,
+                        "quantita": quantita,
+                        "consumo_mensile": round(monthly_consumption, 0),
+                        "giorni_rimanenti": days_left
+                    })
+    
+    # Sort by days remaining
+    alerts["prodottiInEsaurimento"].sort(key=lambda x: x['giorni_rimanenti'])
+    alerts["prodottiInEsaurimento"] = alerts["prodottiInEsaurimento"][:8]
+    
+    return alerts
+
+
 # ----- Notizie -----
 
 def parse_rss_date(date_str: str) -> datetime:
