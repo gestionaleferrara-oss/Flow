@@ -446,6 +446,7 @@ async def upload_csv(file: UploadFile = File(...)):
         'vendite_created': 0,
         'ordini_created': 0,
         'rows_processed': 0,
+        'columns_detected': {},
         'errors': []
     }
     
@@ -469,9 +470,14 @@ async def upload_csv(file: UploadFile = File(...)):
         # Parse CSV
         csv_reader = csv.DictReader(io.StringIO(text_content), delimiter=delimiter)
         
+        # Auto-detect columns from headers
+        headers = csv_reader.fieldnames or []
+        col_mapping = auto_detect_columns(headers)
+        stats['columns_detected'] = {k: v for k, v in col_mapping.items() if v is not None}
+        
         for row in csv_reader:
             try:
-                await process_csv_row(row, stats)
+                await process_csv_row(row, stats, col_mapping)
                 stats['rows_processed'] += 1
             except Exception as e:
                 stats['errors'].append(f"Riga {stats['rows_processed'] + 1}: {str(e)}")
