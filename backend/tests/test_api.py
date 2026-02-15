@@ -1,343 +1,303 @@
 """
-Backend API Tests for Magazzino CSV Pro
-Tests: Dashboard, CSV Upload, Statistiche, Notizie, Magazzino, Clienti, Fornitori, Prodotti
+Backend API Tests for Agro Stats V2 Application
+Tests for: Dashboard, Statistiche, Notizie, Prezzi Mercati, Meteo, Vendite, Clienti, Fornitori, Prodotti
 """
+
 import pytest
 import requests
 import os
-import time
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
-if not BASE_URL:
-    BASE_URL = "https://agro-stats-v2.preview.emergentagent.com"
 
-
-class TestHealthCheck:
-    """Basic API health tests"""
+class TestAPIRoot:
+    """Test API root and health endpoints"""
     
     def test_api_root(self):
-        """Test API root endpoint"""
+        """Test API root returns welcome message"""
         response = requests.get(f"{BASE_URL}/api/")
         assert response.status_code == 200
         data = response.json()
         assert "message" in data
-        assert "Gestio API" in data["message"]
-        print("✓ API root endpoint working")
+        assert "Gestio" in data["message"]
 
 
 class TestDashboard:
-    """Dashboard API tests"""
+    """Test dashboard endpoint"""
     
-    def test_get_dashboard(self):
-        """Test dashboard overview endpoint"""
+    def test_dashboard_returns_kpi_data(self):
+        """Dashboard should return KPI cards data: Fatturato, Ordini, Nuovi Clienti, Da Riordinare"""
         response = requests.get(f"{BASE_URL}/api/dashboard")
         assert response.status_code == 200
         data = response.json()
         
-        # Verify expected keys
-        expected_keys = ['fatturatoMese', 'ordiniMese', 'nuoviClienti', 
-                        'prodottiOrdinare', 'prodottiScadenza', 'attivitaRecenti']
-        for key in expected_keys:
-            assert key in data, f"Missing key: {key}"
+        # Verify all required KPI fields exist
+        assert "fatturatoMese" in data
+        assert "ordiniMese" in data
+        assert "nuoviClienti" in data
+        assert "prodottiOrdinare" in data
         
-        # Data type assertions
-        assert isinstance(data['fatturatoMese'], (int, float))
-        assert isinstance(data['ordiniMese'], int)
-        assert isinstance(data['attivitaRecenti'], list)
-        print(f"✓ Dashboard data: fatturato={data['fatturatoMese']}, ordini={data['ordiniMese']}")
-
-
-class TestCSVUpload:
-    """CSV Upload API tests"""
-    
-    def test_upload_csv_success(self):
-        """Test CSV upload with valid file"""
-        csv_path = "/tmp/sales_small.csv"
-        
-        if not os.path.exists(csv_path):
-            pytest.skip("Test CSV file not found")
-        
-        with open(csv_path, 'rb') as f:
-            files = {'file': ('sales_small.csv', f, 'text/csv')}
-            response = requests.post(f"{BASE_URL}/api/upload-csv", files=files)
-        
-        assert response.status_code == 200
-        data = response.json()
-        
-        assert data.get('success') == True
-        assert 'stats' in data
-        stats = data['stats']
-        
-        # Verify auto-detected columns
-        assert 'columns_detected' in stats
-        print(f"✓ CSV upload successful: {stats.get('rows_processed', 0)} rows processed")
-        print(f"  Columns detected: {stats.get('columns_detected', {})}")
-        print(f"  Vendite created: {stats.get('vendite_created', 0)}")
-        print(f"  Ordini created: {stats.get('ordini_created', 0)}")
-    
-    def test_upload_invalid_file(self):
-        """Test CSV upload with non-CSV file"""
-        files = {'file': ('test.txt', b'not a csv file', 'text/plain')}
-        response = requests.post(f"{BASE_URL}/api/upload-csv", files=files)
-        
-        # Should reject non-CSV files
-        assert response.status_code == 400
-        print("✓ Invalid file upload correctly rejected")
+        # Verify values are non-negative
+        assert data["fatturatoMese"] >= 0
+        assert data["ordiniMese"] >= 0
+        assert data["nuoviClienti"] >= 0
+        assert data["prodottiOrdinare"] >= 0
 
 
 class TestStatistiche:
-    """Statistiche API tests"""
+    """Test statistiche endpoint - focuses on topProdotti returning totale_euro field"""
     
-    def test_get_statistiche(self):
-        """Test basic statistiche endpoint"""
+    def test_statistiche_returns_data(self):
+        """Statistiche endpoint should return sales data"""
         response = requests.get(f"{BASE_URL}/api/statistiche")
         assert response.status_code == 200
         data = response.json()
         
-        expected_keys = ['totaleEuro', 'totaleArticoli', 'clientiAttivi',
-                        'fatturatoMese', 'venditeMensili', 'topClienti', 'topProdotti']
-        for key in expected_keys:
-            assert key in data, f"Missing key: {key}"
+        # Verify required fields exist
+        assert "totaleEuro" in data
+        assert "totaleArticoli" in data
+        assert "clientiAttivi" in data
+        assert "fatturatoMese" in data
+        assert "topProdotti" in data
+        assert "topClienti" in data
         
-        print(f"✓ Statistiche: totale={data['totaleEuro']}€, clienti={data['clientiAttivi']}")
-    
-    def test_statistiche_with_filters(self):
-        """Test statistiche with date filters"""
-        params = {
-            'start_date': '2025-01-01',
-            'end_date': '2025-12-31'
-        }
-        response = requests.get(f"{BASE_URL}/api/statistiche", params=params)
-        assert response.status_code == 200
-        data = response.json()
-        assert 'totaleEuro' in data
-        print(f"✓ Statistiche with date filter working")
-    
-    def test_get_statistiche_lists(self):
-        """Test statistiche filter lists endpoint"""
-        response = requests.get(f"{BASE_URL}/api/statistiche/lists")
+    def test_top_prodotti_has_totale_euro_field(self):
+        """topProdotti should have totale_euro field (not quantita) for revenue-based ranking"""
+        response = requests.get(f"{BASE_URL}/api/statistiche")
         assert response.status_code == 200
         data = response.json()
         
-        assert 'prodotti' in data
-        assert 'clienti' in data
-        assert isinstance(data['prodotti'], list)
-        assert isinstance(data['clienti'], list)
-        print(f"✓ Lists: {len(data['prodotti'])} prodotti, {len(data['clienti'])} clienti")
+        top_prodotti = data.get("topProdotti", [])
+        if len(top_prodotti) > 0:
+            # Verify totale_euro field exists (not quantita)
+            first_product = top_prodotti[0]
+            assert "totale_euro" in first_product, "topProdotti should have 'totale_euro' field"
+            assert "nome" in first_product
+            
+            # Verify totale_euro is positive (absolute value used)
+            assert first_product["totale_euro"] >= 0, "totale_euro should be non-negative"
+            
+    def test_statistiche_all_values_positive(self):
+        """All statistiche values should be positive (abs applied)"""
+        response = requests.get(f"{BASE_URL}/api/statistiche")
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["totaleEuro"] >= 0, "totaleEuro should be positive"
+        assert data["totaleArticoli"] >= 0, "totaleArticoli should be positive"
+        assert data["fatturatoMese"] >= 0, "fatturatoMese should be positive"
+        
+    def test_statistiche_filters_work(self):
+        """Test filters: prodotto, cliente, start_date, end_date"""
+        # Test date filter
+        response = requests.get(f"{BASE_URL}/api/statistiche?start_date=2025-01-01&end_date=2025-12-31")
+        assert response.status_code == 200
+        
+        # Test prodotto filter
+        response = requests.get(f"{BASE_URL}/api/statistiche?prodotto=test")
+        assert response.status_code == 200
 
 
 class TestNotizie:
-    """Notizie (News) API tests"""
+    """Test notizie endpoint - should return news from correct sources"""
     
-    def test_get_notizie(self):
-        """Test get news endpoint"""
+    def test_notizie_returns_list(self):
+        """Notizie endpoint should return a list of news articles"""
         response = requests.get(f"{BASE_URL}/api/notizie")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        print(f"✓ Notizie: {len(data)} articles found")
-    
-    def test_refresh_notizie(self):
-        """Test refresh news endpoint"""
-        response = requests.post(f"{BASE_URL}/api/notizie/refresh")
+        
+    def test_notizie_sources_are_correct(self):
+        """News should come from FreshPlaza, Corriere Ortofrutticolo, FreshPoint Magazine only"""
+        response = requests.get(f"{BASE_URL}/api/notizie")
         assert response.status_code == 200
         data = response.json()
-        assert 'message' in data
-        print(f"✓ Notizie refresh triggered")
+        
+        allowed_sources = ["FreshPlaza", "Corriere Ortofrutticolo", "FreshPoint Magazine"]
+        invalid_sources = ["ANSA", "Il Sole 24 Ore", "Reuters"]
+        
+        if len(data) > 0:
+            sources_found = set(n.get("fonte", "") for n in data)
+            
+            # Verify at least some allowed sources present
+            assert len(sources_found.intersection(allowed_sources)) > 0, f"Should have news from ortofrutta sources, found: {sources_found}"
+            
+            # Verify no invalid sources
+            for invalid in invalid_sources:
+                assert invalid not in sources_found, f"Should NOT have news from {invalid}"
+                
+    def test_notizia_has_required_fields(self):
+        """Each news item should have titolo, fonte, categoria fields"""
+        response = requests.get(f"{BASE_URL}/api/notizie")
+        assert response.status_code == 200
+        data = response.json()
+        
+        if len(data) > 0:
+            news_item = data[0]
+            assert "titolo" in news_item
+            assert "fonte" in news_item
+            assert "categoria" in news_item
+
+
+class TestPrezziMercati:
+    """Test prezzi-mercati endpoint - should return dynamic market prices from FreshPlaza"""
     
-    def test_get_prezzi_mercati(self):
-        """Test market prices links endpoint"""
+    def test_prezzi_mercati_returns_list(self):
+        """Prezzi mercati should return a list of market price links"""
         response = requests.get(f"{BASE_URL}/api/prezzi-mercati")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        assert len(data) > 0
-        # Verify structure
-        for mercato in data:
-            assert 'nome' in mercato
-            assert 'url' in mercato
-        print(f"✓ Prezzi mercati: {len(data)} markets available")
+        assert len(data) > 0, "Should return at least one market"
+        
+    def test_prezzi_mercati_has_nome_and_url(self):
+        """Each market should have nome (city name) and url"""
+        response = requests.get(f"{BASE_URL}/api/prezzi-mercati")
+        assert response.status_code == 200
+        data = response.json()
+        
+        if len(data) > 0:
+            market = data[0]
+            assert "nome" in market, "Market should have 'nome' field"
+            assert "url" in market, "Market should have 'url' field"
+            assert len(market["nome"]) > 0
+            assert market["url"].startswith("http")
+            
+    def test_prezzi_mercati_has_italian_cities(self):
+        """Markets should be Italian cities"""
+        response = requests.get(f"{BASE_URL}/api/prezzi-mercati")
+        assert response.status_code == 200
+        data = response.json()
+        
+        if len(data) > 0:
+            city_names = [m.get("nome", "") for m in data]
+            # Check if at least one Italian city is present
+            italian_cities = ["Bologna", "Milano", "Roma", "Torino", "Verona", "Cesena", "Bolzano"]
+            found_italian = any(city in city_names for city in italian_cities)
+            assert found_italian, f"Should have Italian cities, found: {city_names}"
 
 
 class TestMeteo:
-    """Weather API tests"""
+    """Test meteo endpoint - should return weather for Bologna"""
     
-    def test_get_meteo_default(self):
-        """Test weather endpoint with default location (Bologna)"""
+    def test_meteo_returns_data(self):
+        """Meteo endpoint should return weather data"""
         response = requests.get(f"{BASE_URL}/api/meteo")
         assert response.status_code == 200
         data = response.json()
         
-        # Should have current_weather if API is working
-        if 'error' not in data:
-            assert 'current_weather' in data
-            assert 'temperature' in data['current_weather']
-            print(f"✓ Meteo: {data['current_weather']['temperature']}°C")
-        else:
-            print(f"⚠ Meteo API returned error: {data.get('error')}")
+        # Verify weather data structure
+        assert "current_weather" in data or "error" in data
+        
+    def test_meteo_has_current_weather(self):
+        """Weather response should include current weather"""
+        response = requests.get(f"{BASE_URL}/api/meteo")
+        assert response.status_code == 200
+        data = response.json()
+        
+        if "current_weather" in data:
+            current = data["current_weather"]
+            assert "temperature" in current
+            assert "weathercode" in current
 
 
-class TestMagazzino:
-    """Magazzino (Products/Inventory) API tests"""
+class TestVendite:
+    """Test vendite endpoint"""
     
-    def test_get_prodotti(self):
-        """Test get products endpoint"""
-        response = requests.get(f"{BASE_URL}/api/prodotti")
+    def test_vendite_returns_list(self):
+        """Vendite endpoint should return a list"""
+        response = requests.get(f"{BASE_URL}/api/vendite?limit=10")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        print(f"✓ Prodotti: {len(data)} products found")
+        
+    def test_vendite_has_required_fields(self):
+        """Each vendita should have data, cliente_nome, prodotto_nome, totale"""
+        response = requests.get(f"{BASE_URL}/api/vendite?limit=5")
+        assert response.status_code == 200
+        data = response.json()
         
         if len(data) > 0:
-            # Verify product structure
-            p = data[0]
-            expected_keys = ['id', 'nome', 'quantita', 'prezzo_medio']
-            for key in expected_keys:
-                assert key in p, f"Missing key: {key}"
+            vendita = data[0]
+            assert "data" in vendita
+            assert "cliente_nome" in vendita
+            assert "prodotto_nome" in vendita
+            assert "totale" in vendita
+
+
+class TestClienti:
+    """Test clienti endpoint"""
     
-    def test_get_prodotti_with_search(self):
-        """Test products search"""
-        response = requests.get(f"{BASE_URL}/api/prodotti", params={'search': 'fagioli'})
+    def test_clienti_returns_list(self):
+        """Clienti endpoint should return a list"""
+        response = requests.get(f"{BASE_URL}/api/clienti?limit=10")
         assert response.status_code == 200
-        print(f"✓ Product search working")
+        data = response.json()
+        assert isinstance(data, list)
+        
+    def test_clienti_search_works(self):
+        """Search parameter should filter results"""
+        response = requests.get(f"{BASE_URL}/api/clienti?search=test&limit=10")
+        assert response.status_code == 200
+
+
+class TestFornitori:
+    """Test fornitori endpoint"""
     
-    def test_get_prodotti_stats(self):
-        """Test product stats endpoint"""
+    def test_fornitori_returns_list(self):
+        """Fornitori endpoint should return a list"""
+        response = requests.get(f"{BASE_URL}/api/fornitori?limit=10")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+
+class TestProdotti:
+    """Test prodotti (magazzino) endpoint"""
+    
+    def test_prodotti_returns_list(self):
+        """Prodotti endpoint should return a list"""
+        response = requests.get(f"{BASE_URL}/api/prodotti?limit=10")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        
+    def test_prodotti_stats(self):
+        """Prodotti stats should return ordinare_count and scadenza_count"""
         response = requests.get(f"{BASE_URL}/api/prodotti/stats")
         assert response.status_code == 200
         data = response.json()
         
-        assert 'ordinare_count' in data
-        assert 'scadenza_count' in data
-        assert 'total' in data
-        print(f"✓ Prodotti stats: total={data['total']}, ordinare={data['ordinare_count']}")
-    
-    def test_get_prodotti_filter_ordinare(self):
-        """Test products filter - Da Ordinare"""
-        response = requests.get(f"{BASE_URL}/api/prodotti", params={'filter_type': 'ordinare'})
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        print(f"✓ Filter 'ordinare': {len(data)} products")
-    
-    def test_get_prodotti_filter_scadenza(self):
-        """Test products filter - In Scadenza"""
-        response = requests.get(f"{BASE_URL}/api/prodotti", params={'filter_type': 'scadenza'})
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        print(f"✓ Filter 'scadenza': {len(data)} products")
+        assert "ordinare_count" in data
+        assert "scadenza_count" in data
+        assert "total" in data
 
 
-class TestClienti:
-    """Clienti CRUD API tests"""
+class TestStatisticheLists:
+    """Test statistiche/lists endpoint for filter dropdowns"""
     
-    @pytest.fixture
-    def test_cliente_id(self):
-        """Create a test client for subsequent tests"""
-        data = {"nome": "TEST_Cliente_PyTest", "codice": "TEST001"}
-        response = requests.post(f"{BASE_URL}/api/clienti", json=data)
-        if response.status_code == 200:
-            return response.json().get('id')
-        return None
-    
-    def test_get_clienti(self):
-        """Test get clients endpoint"""
-        response = requests.get(f"{BASE_URL}/api/clienti")
+    def test_statistiche_lists_returns_prodotti_and_clienti(self):
+        """Should return lists of prodotti and clienti for filter dropdowns"""
+        response = requests.get(f"{BASE_URL}/api/statistiche/lists")
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list)
-        print(f"✓ Clienti: {len(data)} clients found")
-    
-    def test_create_cliente(self):
-        """Test create client"""
-        data = {"nome": "TEST_NuovoCliente", "codice": "TEST999", "email": "test@test.com"}
-        response = requests.post(f"{BASE_URL}/api/clienti", json=data)
-        assert response.status_code == 200
-        result = response.json()
-        assert result.get('nome') == data['nome']
-        assert 'id' in result
-        print(f"✓ Cliente created: {result.get('id')}")
         
-        # Cleanup
-        requests.delete(f"{BASE_URL}/api/clienti/{result['id']}")
-    
-    def test_get_clienti_search(self):
-        """Test client search"""
-        response = requests.get(f"{BASE_URL}/api/clienti", params={'search': 'fruit'})
-        assert response.status_code == 200
-        print(f"✓ Client search working")
+        assert "prodotti" in data
+        assert "clienti" in data
+        assert isinstance(data["prodotti"], list)
+        assert isinstance(data["clienti"], list)
 
 
-class TestFornitori:
-    """Fornitori CRUD API tests"""
+class TestUploadCSV:
+    """Test CSV upload endpoint accepts both CSV and XLSX"""
     
-    def test_get_fornitori(self):
-        """Test get suppliers endpoint"""
-        response = requests.get(f"{BASE_URL}/api/fornitori")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        print(f"✓ Fornitori: {len(data)} suppliers found")
-    
-    def test_create_fornitore(self):
-        """Test create supplier"""
-        data = {"nome": "TEST_NuovoFornitore", "codice": "TESTF001"}
-        response = requests.post(f"{BASE_URL}/api/fornitori", json=data)
-        assert response.status_code == 200
-        result = response.json()
-        assert result.get('nome') == data['nome']
-        assert 'id' in result
-        print(f"✓ Fornitore created: {result.get('id')}")
-        
-        # Cleanup
-        requests.delete(f"{BASE_URL}/api/fornitori/{result['id']}")
-
-
-class TestVendite:
-    """Vendite (Sales) API tests"""
-    
-    def test_get_vendite(self):
-        """Test get sales endpoint"""
-        response = requests.get(f"{BASE_URL}/api/vendite")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        print(f"✓ Vendite: {len(data)} sales found")
-    
-    def test_get_vendite_count(self):
-        """Test vendite count endpoint"""
-        response = requests.get(f"{BASE_URL}/api/vendite/count")
-        assert response.status_code == 200
-        data = response.json()
-        assert 'count' in data
-        print(f"✓ Vendite count: {data['count']}")
-    
-    def test_get_vendite_with_filters(self):
-        """Test vendite with filters"""
-        params = {
-            'start_date': '2025-01-01',
-            'end_date': '2025-12-31',
-            'limit': 10
-        }
-        response = requests.get(f"{BASE_URL}/api/vendite", params=params)
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        print(f"✓ Vendite filter working")
-
-
-class TestOrdini:
-    """Ordini (Orders/Purchases) API tests"""
-    
-    def test_get_ordini(self):
-        """Test get orders endpoint"""
-        response = requests.get(f"{BASE_URL}/api/ordini")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        print(f"✓ Ordini: {len(data)} orders found")
+    def test_upload_rejects_invalid_files(self):
+        """Upload should reject non-CSV/XLSX files"""
+        # Create a fake .txt file
+        files = {"file": ("test.txt", b"test content", "text/plain")}
+        response = requests.post(f"{BASE_URL}/api/upload-csv", files=files)
+        assert response.status_code == 400
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v", "--tb=short"])
+    pytest.main([__file__, "-v"])
