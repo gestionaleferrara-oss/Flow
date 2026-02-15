@@ -321,7 +321,7 @@ def auto_detect_columns(headers: list) -> dict:
     return mapping
 
 
-async def process_csv_row(row: dict, stats: dict, col_mapping: dict):
+async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict):
     """Process a single CSV row and update database"""
     
     # Use auto-detected column mapping
@@ -356,93 +356,68 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict):
     is_vendita = movimento.upper() == 'SCARICO' or 'VEN' in str(causale).upper()
     
     if is_vendita and nome_cliente_fornitore:
-        # Process as sale - create/update cliente
-        existing_cliente = await db.clienti.find_one({"nome": nome_cliente_fornitore})
-        if not existing_cliente:
-            cliente = Cliente(
-                nome=nome_cliente_fornitore,
-                codice=codice_cliente_fornitore
-            )
-            await db.clienti.insert_one(serialize_doc(cliente.model_dump()))
-            stats['new_clienti'] += 1
-            cliente_id = cliente.id
+        # Check in-memory cache first
+        if nome_cliente_fornitore not in cache['clienti']:
+            existing = await db.clienti.find_one({"nome": nome_cliente_fornitore}, {"_id": 0, "id": 1})
+            if not existing:
+                cliente = Cliente(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
+                await db.clienti.insert_one(serialize_doc(cliente.model_dump()))
+                cache['clienti'][nome_cliente_fornitore] = cliente.id
+                stats['new_clienti'] += 1
+            else:
+                cache['clienti'][nome_cliente_fornitore] = existing.get('id')
+                stats['existing_clienti'] += 1
         else:
-            cliente_id = existing_cliente.get('id')
             stats['existing_clienti'] += 1
         
-        # Create vendita record
+        cliente_id = cache['clienti'][nome_cliente_fornitore]
+        
         vendita = Vendita(
-            data=data,
-            cliente_id=cliente_id,
-            cliente_nome=nome_cliente_fornitore,
-            prodotto_nome=nome_prodotto,
-            quantita=quantita,
-            prezzo_unitario=importo_unitario,
-            totale=importo_totale,
-            movimento=movimento
+            data=data, cliente_id=cliente_id, cliente_nome=nome_cliente_fornitore,
+            prodotto_nome=nome_prodotto, quantita=quantita,
+            prezzo_unitario=importo_unitario, totale=importo_totale, movimento=movimento
         )
-        await db.vendite.insert_one(serialize_doc(vendita.model_dump()))
+        cache['vendite_batch'].append(serialize_doc(vendita.model_dump()))
         stats['vendite_created'] += 1
         
-        # Update cliente fatturato
-        await db.clienti.update_one(
-            {"nome": nome_cliente_fornitore},
-            {"$inc": {"fatturato_totale": importo_totale}}
-        )
-        
     elif not is_vendita and nome_cliente_fornitore:
-        # Process as purchase - create/update fornitore
-        existing_fornitore = await db.fornitori.find_one({"nome": nome_cliente_fornitore})
-        if not existing_fornitore:
-            fornitore = Fornitore(
-                nome=nome_cliente_fornitore,
-                codice=codice_cliente_fornitore
-            )
-            await db.fornitori.insert_one(serialize_doc(fornitore.model_dump()))
-            stats['new_fornitori'] += 1
-            fornitore_id = fornitore.id
+        if nome_cliente_fornitore not in cache['fornitori']:
+            existing = await db.fornitori.find_one({"nome": nome_cliente_fornitore}, {"_id": 0, "id": 1})
+            if not existing:
+                fornitore = Fornitore(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
+                await db.fornitori.insert_one(serialize_doc(fornitore.model_dump()))
+                cache['fornitori'][nome_cliente_fornitore] = fornitore.id
+                stats['new_fornitori'] += 1
+            else:
+                cache['fornitori'][nome_cliente_fornitore] = existing.get('id')
+                stats['existing_fornitori'] += 1
         else:
-            fornitore_id = existing_fornitore.get('id')
             stats['existing_fornitori'] += 1
         
-        # Create ordine record
-        ordine = Ordine(
-            data=data,
-            fornitore_id=fornitore_id,
-            fornitore_nome=nome_cliente_fornitore,
-            prodotto_nome=nome_prodotto,
-            quantita=quantita,
-            prezzo_unitario=importo_unitario,
-            totale=importo_totale
-        )
-        await db.ordini.insert_one(serialize_doc(ordine.model_dump()))
-        stats['ordini_created'] += 1
+        fornitore_id = cache['fornitori'][nome_cliente_fornitore]
         
-        # Update fornitore fatturato
-        await db.fornitori.update_one(
-            {"nome": nome_cliente_fornitore},
-            {"$inc": {"fatturato_totale": importo_totale}}
+        ordine = Ordine(
+            data=data, fornitore_id=fornitore_id, fornitore_nome=nome_cliente_fornitore,
+            prodotto_nome=nome_prodotto, quantita=quantita,
+            prezzo_unitario=importo_unitario, totale=importo_totale
         )
+        cache['ordini_batch'].append(serialize_doc(ordine.model_dump()))
+        stats['ordini_created'] += 1
     
     # Create/update prodotto
     if nome_prodotto:
-        existing_prodotto = await db.prodotti.find_one({"nome": nome_prodotto})
-        if not existing_prodotto:
-            prodotto = Prodotto(
-                nome=nome_prodotto,
-                codice=codice_prodotto,
-                prezzo_medio=importo_unitario
-            )
-            await db.prodotti.insert_one(serialize_doc(prodotto.model_dump()))
-            stats['new_prodotti'] += 1
+        if nome_prodotto not in cache['prodotti']:
+            existing = await db.prodotti.find_one({"nome": nome_prodotto}, {"_id": 0, "id": 1})
+            if not existing:
+                prodotto = Prodotto(nome=nome_prodotto, codice=codice_prodotto, prezzo_medio=importo_unitario)
+                await db.prodotti.insert_one(serialize_doc(prodotto.model_dump()))
+                cache['prodotti'][nome_prodotto] = True
+                stats['new_prodotti'] += 1
+            else:
+                cache['prodotti'][nome_prodotto] = True
+                stats['existing_prodotti'] += 1
         else:
             stats['existing_prodotti'] += 1
-            # Update quantity based on movement
-            qty_change = quantita if not is_vendita else -quantita
-            await db.prodotti.update_one(
-                {"nome": nome_prodotto},
-                {"$inc": {"quantita": qty_change}}
-            )
 
 
 # ======================= API ENDPOINTS =======================
