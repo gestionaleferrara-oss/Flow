@@ -214,18 +214,40 @@ def parse_italian_date(date_str: str) -> str:
 
 
 def parse_float(value: str) -> float:
-    """Parse string to float, handling Italian number format"""
+    """Parse string to float, handling Italian number format with thousand separators"""
     if not value:
         return 0.0
     
     value = str(value).strip()
-    # Remove currency symbols and spaces
+    
+    # Remove currency symbols (€) and extra spaces
     value = re.sub(r'[€\s]', '', value)
-    # Handle Italian format (comma as decimal, dot as thousand separator)
+    
+    # Check for empty string after cleaning
+    if not value or value == '-':
+        return 0.0
+    
+    # Handle Italian format:
+    # - Comma (,) is decimal separator
+    # - Period (.) is thousand separator
+    # Examples: "4.497,50" -> 4497.50, "1,05" -> 1.05, "-13" -> -13
+    
+    # If we have both comma and period, period is thousand separator
     if ',' in value and '.' in value:
+        # Remove thousand separators (periods) first, then replace comma with period
         value = value.replace('.', '').replace(',', '.')
     elif ',' in value:
+        # Only comma present - it's the decimal separator
         value = value.replace(',', '.')
+    # If only period is present, need to check if it's thousand or decimal
+    elif '.' in value:
+        # Count digits after the period
+        parts = value.split('.')
+        if len(parts) == 2:
+            # If 3 digits after period, likely thousand separator (e.g., "4.497")
+            if len(parts[1]) == 3 and parts[1].isdigit():
+                value = value.replace('.', '')
+            # Otherwise keep as decimal (e.g., "1.05")
     
     try:
         return float(value)
