@@ -12,11 +12,22 @@ import {
   ArrowUpRight,
   Upload,
   BarChart3,
-  TrendingUp
+  TrendingUp,
+  Search,
+  X,
+  Box
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import StatCard from '@/components/StatCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -24,9 +35,17 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [prodottoSearch, setProdottoSearch] = useState('');
+  const [prodotti, setProdotti] = useState([]);
+  const [showProdottoModal, setShowProdottoModal] = useState(false);
+  const [selectedProdotto, setSelectedProdotto] = useState(null);
+  const [prodottoAnalisi, setProdottoAnalisi] = useState(null);
+  const [loadingAnalisi, setLoadingAnalisi] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     loadDashboard();
+    loadProdotti();
   }, []);
 
   const loadDashboard = async () => {
@@ -39,6 +58,36 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  const loadProdotti = async () => {
+    try {
+      const response = await axios.get(`${API}/prodotti?limit=1000`);
+      setProdotti(response.data);
+    } catch (error) {
+      console.error('Error loading prodotti:', error);
+    }
+  };
+
+  const viewProdottoAnalisi = async (prodotto) => {
+    setSelectedProdotto(prodotto);
+    setShowProdottoModal(true);
+    setLoadingAnalisi(true);
+    setProdottoSearch('');
+    setShowSuggestions(false);
+    try {
+      const response = await axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi`);
+      setProdottoAnalisi(response.data);
+    } catch (error) {
+      console.error('Error loading prodotto analisi:', error);
+      setProdottoAnalisi(null);
+    } finally {
+      setLoadingAnalisi(false);
+    }
+  };
+
+  const filteredProdotti = prodotti.filter(p => 
+    p.nome.toLowerCase().includes(prodottoSearch.toLowerCase())
+  ).slice(0, 8);
 
   if (loading) return <LoadingSpinner fullScreen />;
 
