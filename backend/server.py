@@ -409,16 +409,30 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
     # Create/update prodotto
     if nome_prodotto:
         if nome_prodotto not in cache['prodotti']:
-            existing = await db.prodotti.find_one({"nome": nome_prodotto}, {"_id": 0, "id": 1})
+            existing = await db.prodotti.find_one({"nome": nome_prodotto}, {"_id": 0, "id": 1, "prezzo_medio": 1})
             if not existing:
                 prodotto = Prodotto(nome=nome_prodotto, codice=codice_prodotto, prezzo_medio=importo_unitario)
                 await db.prodotti.insert_one(serialize_doc(prodotto.model_dump()))
                 cache['prodotti'][nome_prodotto] = True
                 stats['new_prodotti'] += 1
             else:
+                # Update price if a new CARICO has a different price
+                if not is_vendita and importo_unitario > 0:
+                    old_price = existing.get('prezzo_medio', 0)
+                    if old_price != importo_unitario:
+                        await db.prodotti.update_one(
+                            {"nome": nome_prodotto},
+                            {"$set": {"prezzo_medio": importo_unitario}}
+                        )
                 cache['prodotti'][nome_prodotto] = True
                 stats['existing_prodotti'] += 1
         else:
+            # Product already seen in this upload - update price if CARICO
+            if not is_vendita and importo_unitario > 0:
+                await db.prodotti.update_one(
+                    {"nome": nome_prodotto},
+                    {"$set": {"prezzo_medio": importo_unitario}}
+                )
             stats['existing_prodotti'] += 1
 
 
