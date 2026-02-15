@@ -861,36 +861,64 @@ async def get_prodotto_analisi(prodotto_nome: str):
     # Decode URL-encoded product name (handle slashes in names)
     from urllib.parse import unquote
     prodotto_nome = unquote(prodotto_nome)
-    vendite = await db.vendite.find({"prodotto_nome": prodotto_nome}, {"_id": 0}).to_list(1000)
+    vendite = await db.vendite.find({"prodotto_nome": prodotto_nome}, {"_id": 0}).to_list(10000)
     
-    totale_venduto = sum(v.get('quantita', 0) for v in vendite)
-    ultima_vendita = max([v.get('data', '') for v in vendite], default='N/A')
+    # Exclude non-client entries
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    vendite_filtered = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    
+    ultima_vendita = max([v.get('data', '') for v in vendite_filtered], default='N/A')
     
     # Monthly average (last 6 months)
     six_months_ago = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
-    recent_vendite = [v for v in vendite if v.get('data', '') >= six_months_ago]
-    media_mensile = sum(v.get('quantita', 0) for v in recent_vendite) / 6 if recent_vendite else 0
+    recent_vendite = [v for v in vendite_filtered if v.get('data', '') >= six_months_ago]
+    media_mensile = sum(abs(v.get('quantita', 0)) for v in recent_vendite) / 6 if recent_vendite else 0
     
-    # Top clienti
+    # Fatturato mensile medio (più utile del totale venduto)
+    fatturato_mensile = sum(abs(v.get('totale', 0)) for v in recent_vendite) / 6 if recent_vendite else 0
+    
+    # Trend vendite (confronto ultimo mese vs mese precedente)
+    now = datetime.now()
+    last_month_start = (now.replace(day=1) - timedelta(days=1)).replace(day=1).strftime("%Y-%m-%d")
+    last_month_end = (now.replace(day=1) - timedelta(days=1)).strftime("%Y-%m-%d")
+    this_month_start = now.replace(day=1).strftime("%Y-%m-%d")
+    
+    vendite_last_month = sum(abs(v.get('totale', 0)) for v in vendite_filtered if last_month_start <= v.get('data', '') <= last_month_end)
+    vendite_this_month = sum(abs(v.get('totale', 0)) for v in vendite_filtered if v.get('data', '') >= this_month_start)
+    
+    if vendite_last_month > 0:
+        trend_percentuale = round(((vendite_this_month - vendite_last_month) / vendite_last_month) * 100, 1)
+    else:
+        trend_percentuale = 100 if vendite_this_month > 0 else 0
+    
+    # Top clienti - exclude non-real clients
     clienti_count = {}
-    for v in vendite:
+    for v in vendite_filtered:
         cliente = v.get('cliente_nome', '')
-        clienti_count[cliente] = clienti_count.get(cliente, 0) + v.get('quantita', 0)
+        if cliente and cliente.upper() not in [c.upper() for c in EXCLUDED_CLIENTS]:
+            clienti_count[cliente] = clienti_count.get(cliente, 0) + abs(v.get('quantita', 0))
     
     top_clienti = sorted(clienti_count.items(), key=lambda x: x[1], reverse=True)[:3]
     clienti_str = ', '.join([c[0] for c in top_clienti]) if top_clienti else 'Nessuno'
     
+    # Numero clienti unici
+    clienti_unici = len(set(v.get('cliente_nome', '') for v in vendite_filtered if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]))
+    
     # Days until stock exhaustion
     prodotto = await db.prodotti.find_one({"nome": prodotto_nome}, {"_id": 0})
     quantita_attuale = prodotto.get('quantita', 0) if prodotto else 0
+    prezzo_medio = prodotto.get('prezzo_medio', 0) if prodotto else 0
     giorni_esaurimento = int(quantita_attuale / media_mensile * 30) if media_mensile > 0 else 'N/A'
     
     return {
-        "totaleVenduto": totale_venduto,
-        "ultimaVendita": ultima_vendita,
+        "fatturatoMensile": round(fatturato_mensile, 2),
         "mediaMensile": round(media_mensile, 2),
+        "ultimaVendita": ultima_vendita,
+        "trendPercentuale": trend_percentuale,
+        "clientiUnici": clienti_unici,
         "clientiPrincipali": clienti_str,
-        "giorniEsaurimento": giorni_esaurimento
+        "giorniEsaurimento": giorni_esaurimento,
+        "prezzoMedio": prezzo_medio
     }
 
 
