@@ -241,7 +241,7 @@ export default function Statistiche() {
     <PageWrapper>
       <PageHeader
         title="Statistiche"
-        subtitle="Analisi dettagliate delle vendite"
+        subtitle={viewMode === 'vendite' ? "Analisi dettagliate delle vendite" : "Analisi dettagliate degli acquisti"}
       >
         <Button
           variant="outline"
@@ -253,21 +253,106 @@ export default function Statistiche() {
         </Button>
       </PageHeader>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard
-          label="Fatturato Mese"
-          value={data?.fatturatoMese || 0}
-          format="currency"
-          icon={Euro}
-          trend={data?.diffPercentuale > 0 ? 'up' : data?.diffPercentuale < 0 ? 'down' : 'neutral'}
-          trendValue={data?.diffPercentuale}
-          subtitle={data?.fatturatoMesePrec > 0 ? `Mese prec: ${formatCurrency(data.fatturatoMesePrec)}` : null}
-        />
-        
-        {/* Show these only when filter is active */}
-        {hasActiveFilters && (
-          <>
+      {/* Switch Vendite/Acquisti */}
+      <div className="flex p-1.5 bg-slate-800/50 rounded-xl mb-6 max-w-md">
+        <button
+          onClick={() => setViewMode('vendite')}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all",
+            viewMode === 'vendite' 
+              ? "bg-emerald-500/20 text-emerald-400 shadow-sm border border-emerald-500/30" 
+              : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/50"
+          )}
+          data-testid="switch-vendite"
+        >
+          <Users className="w-4 h-4" />
+          Vendite / Clienti
+        </button>
+        <button
+          onClick={() => setViewMode('acquisti')}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all",
+            viewMode === 'acquisti' 
+              ? "bg-blue-500/20 text-blue-400 shadow-sm border border-blue-500/30" 
+              : "text-slate-400 hover:text-slate-300 hover:bg-slate-700/50"
+          )}
+          data-testid="switch-acquisti"
+        >
+          <Truck className="w-4 h-4" />
+          Acquisti / Fornitori
+        </button>
+      </div>
+
+      {/* KPI Cards - Conditional based on viewMode */}
+      {viewMode === 'vendite' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard
+            label="Fatturato Mese"
+            value={data?.fatturatoMese || 0}
+            format="currency"
+            icon={Euro}
+            trend={data?.diffPercentuale > 0 ? 'up' : data?.diffPercentuale < 0 ? 'down' : 'neutral'}
+            trendValue={data?.diffPercentuale}
+            subtitle={data?.fatturatoMesePrec > 0 ? `Mese prec: ${formatCurrency(data.fatturatoMesePrec)}` : null}
+          />
+          
+          {hasActiveFilters && (
+            <>
+              <StatCard
+                label="Articoli Venduti"
+                value={data?.totaleArticoli || 0}
+                icon={Package}
+              />
+              <StatCard
+                label="Totale Venduto"
+                value={data?.totaleEuro || 0}
+                format="currency"
+                icon={ShoppingBag}
+              />
+            </>
+          )}
+          
+          <StatCard
+            label="Clienti Attivi"
+            value={data?.clientiAttivi || 0}
+            icon={Users}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard
+            label="Speso Mese"
+            value={dataAcquisti?.spesoMese || 0}
+            format="currency"
+            icon={Euro}
+            trend={dataAcquisti?.diffPercentuale > 0 ? 'up' : dataAcquisti?.diffPercentuale < 0 ? 'down' : 'neutral'}
+            trendValue={dataAcquisti?.diffPercentuale}
+            subtitle={dataAcquisti?.spesoMesePrec > 0 ? `Mese prec: ${formatCurrency(dataAcquisti.spesoMesePrec)}` : null}
+          />
+          
+          {hasActiveFilters && (
+            <>
+              <StatCard
+                label="Articoli Acquistati"
+                value={dataAcquisti?.totaleArticoli || 0}
+                icon={Package}
+              />
+              <StatCard
+                label="Totale Speso"
+                value={dataAcquisti?.totaleEuro || 0}
+                format="currency"
+                icon={ShoppingBag}
+              />
+            </>
+          )}
+          
+          <StatCard
+            label="Fornitori Attivi"
+            value={dataAcquisti?.fornitoriAttivi || 0}
+            icon={Truck}
+          />
+        </div>
+      )}
             <StatCard
               label="Articoli Venduti"
               value={data?.totaleArticoli || 0}
