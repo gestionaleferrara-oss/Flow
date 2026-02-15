@@ -1960,6 +1960,172 @@ async def get_meteo(lat: float = 44.4949, lon: float = 11.3426):
         return {"error": str(e)}
 
 
+# ----- AI Reports -----
+@api_router.get("/ai-reports")
+async def get_ai_reports():
+    """Get all AI-generated reports"""
+    reports = await db.ai_reports.find({}, {"_id": 0}).sort("created_at", -1).limit(20).to_list(20)
+    return reports
+
+
+@api_router.get("/ai-reports/{report_id}")
+async def get_ai_report(report_id: str):
+    """Get a specific AI report"""
+    report = await db.ai_reports.find_one({"id": report_id}, {"_id": 0})
+    if not report:
+        raise HTTPException(status_code=404, detail="Report non trovato")
+    return report
+
+
+@api_router.post("/ai-reports/generate")
+async def generate_ai_report(report_type: str = Query("settimanale", enum=["settimanale", "mensile"])):
+    """Generate a new AI business report"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    
+    now = datetime.now()
+    
+    # Determine date range based on report type
+    if report_type == "settimanale":
+        start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+        period_name = "Settimana"
+    else:
+        start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+        period_name = "Mese"
+    
+    end_date = now.strftime("%Y-%m-%d")
+    
+    # Gather business data
+    vendite = await db.vendite.find({"data": {"$gte": start_date}}, {"_id": 0}).to_list(10000)
+    vendite = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    
+    ordini = await db.ordini.find({"data": {"$gte": start_date}}, {"_id": 0}).to_list(5000)
+    prodotti = await db.prodotti.find({}, {"_id": 0}).to_list(1000)
+    clienti = await db.clienti.find({}, {"_id": 0}).to_list(1000)
+    
+    # Calculate metrics
+    fatturato_totale = sum(abs(v.get('totale', 0)) for v in vendite)
+    num_vendite = len(vendite)
+    
+    # Top products by revenue
+    prodotti_revenue = {}
+    for v in vendite:
+        prod = v.get('prodotto_nome', '')
+        prodotti_revenue[prod] = prodotti_revenue.get(prod, 0) + abs(v.get('totale', 0))
+    top_products = sorted(prodotti_revenue.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    # Top clients by spending
+    clienti_spending = {}
+    for v in vendite:
+        cliente = v.get('cliente_nome', '')
+        if cliente:
+            clienti_spending[cliente] = clienti_spending.get(cliente, 0) + abs(v.get('totale', 0))
+    top_clients = sorted(clienti_spending.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    # Products with low stock
+    low_stock = [p for p in prodotti if p.get('quantita', 0) > 0 and p.get('quantita_minima', 0) > 0 and p.get('quantita', 0) <= p.get('quantita_minima', 0)]
+    
+    # Inactive clients
+    recent_clients = set(v.get('cliente_nome', '') for v in vendite)
+    all_historical_clients = set(c.get('nome', '') for c in clienti)
+    inactive_clients = list(all_historical_clients - recent_clients)[:10]
+    
+    # Acquisti totali
+    acquisti_totale = sum(abs(o.get('totale', 0)) for o in ordini)
+    
+    # Build data summary for AI
+    data_summary = f"""
+DATI AZIENDALI - {period_name} dal {start_date} al {end_date}
+
+FATTURATO E VENDITE:
+- Fatturato totale: €{fatturato_totale:,.2f}
+- Numero transazioni: {num_vendite}
+- Media per transazione: €{fatturato_totale/num_vendite if num_vendite > 0 else 0:,.2f}
+
+TOP 5 PRODOTTI (per fatturato):
+{chr(10).join([f"- {p[0]}: €{p[1]:,.2f}" for p in top_products]) if top_products else "- Nessun dato"}
+
+TOP 5 CLIENTI (per spesa):
+{chr(10).join([f"- {c[0]}: €{c[1]:,.2f}" for c in top_clients]) if top_clients else "- Nessun dato"}
+
+MAGAZZINO:
+- Prodotti totali: {len(prodotti)}
+- Prodotti sotto scorta minima: {len(low_stock)}
+{chr(10).join([f"  * {p.get('nome', '')}: {p.get('quantita', 0)}/{p.get('quantita_minima', 0)}" for p in low_stock[:5]]) if low_stock else ""}
+
+ACQUISTI:
+- Totale acquisti periodo: €{acquisti_totale:,.2f}
+
+CLIENTI:
+- Clienti attivi nel periodo: {len(recent_clients)}
+- Clienti inattivi (da ricontattare): {len(inactive_clients)}
+{chr(10).join([f"  * {c}" for c in inactive_clients[:5]]) if inactive_clients else ""}
+"""
+
+    # Generate AI report
+    api_key = os.environ.get('EMERGENT_LLM_KEY')
+    if not api_key:
+        raise HTTPException(status_code=500, detail="API key LLM non configurata")
+    
+    try:
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"report-{uuid.uuid4()}",
+            system_message="""Sei un analista business esperto nel settore ortofrutticolo italiano.
+Il tuo compito è generare report aziendali chiari, professionali e actionable in italiano.
+Usa un tono professionale ma accessibile. Struttura il report in sezioni chiare.
+Fornisci sempre suggerimenti concreti e specifici basati sui dati."""
+        ).with_model("openai", "gpt-4o")
+        
+        prompt = f"""Genera un report {report_type} professionale basato sui seguenti dati aziendali.
+
+{data_summary}
+
+Il report deve includere:
+1. **Sommario Esecutivo** - panoramica rapida dei risultati chiave (2-3 frasi)
+2. **Performance Vendite** - analisi del fatturato e trend
+3. **Prodotti** - analisi dei best seller e suggerimenti
+4. **Clienti** - analisi dei top clienti e strategia per clienti inattivi
+5. **Magazzino** - alert scorte e suggerimenti di riordino
+6. **Raccomandazioni** - 3-5 azioni concrete da intraprendere questa settimana
+
+Formatta il report in markdown per una buona leggibilità.
+Sii specifico nei suggerimenti, usando i nomi reali di prodotti e clienti dai dati."""
+
+        user_message = UserMessage(text=prompt)
+        response = await chat.send_message(user_message)
+        
+        # Save report to database
+        report_id = str(uuid.uuid4())[:8]
+        report = {
+            "id": report_id,
+            "tipo": report_type,
+            "periodo_inizio": start_date,
+            "periodo_fine": end_date,
+            "contenuto": response,
+            "metriche": {
+                "fatturato": fatturato_totale,
+                "num_vendite": num_vendite,
+                "top_prodotti": [{"nome": p[0], "fatturato": p[1]} for p in top_products[:3]],
+                "top_clienti": [{"nome": c[0], "spesa": c[1]} for c in top_clients[:3]],
+                "prodotti_sotto_scorta": len(low_stock),
+                "clienti_inattivi": len(inactive_clients)
+            },
+            "created_at": now.isoformat()
+        }
+        
+        await db.ai_reports.insert_one(report)
+        
+        # Return without _id
+        report.pop('_id', None)
+        return report
+        
+    except Exception as e:
+        logger.error(f"Error generating AI report: {e}")
+        raise HTTPException(status_code=500, detail=f"Errore generazione report: {str(e)}")
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
