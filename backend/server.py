@@ -1977,6 +1977,15 @@ async def get_ai_report(report_id: str):
     return report
 
 
+@api_router.delete("/ai-reports/{report_id}")
+async def delete_ai_report(report_id: str):
+    """Delete a specific AI report"""
+    result = await db.ai_reports.delete_one({"id": report_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Report non trovato")
+    return {"success": True, "message": "Report eliminato"}
+
+
 @api_router.post("/ai-reports/generate")
 async def generate_ai_report(report_type: str = Query("settimanale", enum=["settimanale", "mensile"])):
     """Generate a new AI business report"""
