@@ -35,21 +35,14 @@ api_router = APIRouter(prefix="/api")
 
 # ======================= RSS NEWS SOURCES =======================
 RSS_SOURCES = [
-    {"name": "ANSA Economia", "url": "https://www.ansa.it/sito/notizie/economia/economia_rss.xml", "categoria": "economia"},
-    {"name": "ANSA Agricoltura", "url": "https://www.ansa.it/sito/notizie/economia/agroalimentare/agroalimentare_rss.xml", "categoria": "agricoltura"},
-    {"name": "ANSA Regioni", "url": "https://www.ansa.it/sito/notizie/regioni/regioni_rss.xml", "categoria": "regioni"},
-    {"name": "Il Sole 24 Ore", "url": "https://www.ilsole24ore.com/rss/finanza.xml", "categoria": "finanza"},
+    {"name": "FreshPlaza", "url": "https://www.freshplaza.it/rss.xml", "categoria": "ortofrutta"},
+    {"name": "Corriere Ortofrutticolo", "url": "https://www.corriereortofrutticolo.it/feed/", "categoria": "ortofrutta"},
+    {"name": "ItaliaFruit", "url": "https://www.italiafruit.net/feed/", "categoria": "ortofrutta"},
 ]
 
 # ======================= MARKET PRICE LINKS =======================
-MARKET_PRICE_LINKS = [
-    {"nome": "Bologna", "url": "https://www.cafrfruttaortaggi.it/listino/"},
-    {"nome": "Milano", "url": "https://www.mercatomilano.it/quotazioni-frutta-verdura/"},
-    {"nome": "Roma", "url": "https://www.carfruttaroma.it/listino/"},
-    {"nome": "Torino", "url": "https://www.mercatoortofrutticolo.com/quotazioni/"},
-    {"nome": "Verona", "url": "https://www.veronamercato.it/listino/"},
-    {"nome": "Padova", "url": "https://www.mercatipavani.it/quotazioni/"},
-]
+# These are dynamically scraped from FreshPlaza; this is the fallback cache
+_market_price_cache = {"links": [], "last_updated": None}
 
 
 # ======================= MODELS =======================
