@@ -277,6 +277,91 @@ export default function Dashboard() {
           )}
         </div>
       </motion.div>
+
+      {/* Modal Analisi Prodotto */}
+      <Dialog open={showProdottoModal} onOpenChange={setShowProdottoModal}>
+        <DialogContent className="max-w-lg" data-testid="prodotto-analisi-modal">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl uppercase flex items-center gap-3">
+              <Package className="w-5 h-5 text-emerald-500" />
+              {selectedProdotto?.nome}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingAnalisi ? (
+            <LoadingSpinner />
+          ) : prodottoAnalisi ? (
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Totale Venduto</p>
+                  <p className="font-heading text-2xl font-bold text-emerald-400">
+                    {prodottoAnalisi.totaleVenduto?.toLocaleString('it-IT') || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">unità</p>
+                </div>
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Media Mensile</p>
+                  <p className="font-heading text-2xl font-bold">
+                    {prodottoAnalisi.mediaMensile?.toLocaleString('it-IT') || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">unità/mese</p>
+                </div>
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Ultima Vendita</p>
+                  <p className="font-heading text-xl font-bold">
+                    {prodottoAnalisi.ultimaVendita || 'N/A'}
+                  </p>
+                </div>
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Giorni Esaurimento</p>
+                  <p className={cn(
+                    "font-heading text-2xl font-bold",
+                    typeof prodottoAnalisi.giorniEsaurimento === 'number' && prodottoAnalisi.giorniEsaurimento < 14 
+                      ? "text-red-400" 
+                      : "text-blue-400"
+                  )}>
+                    {prodottoAnalisi.giorniEsaurimento || 'N/A'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="p-4 bg-primary/10 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-1">Clienti Principali</p>
+                <p className="font-medium text-primary">
+                  {prodottoAnalisi.clientiPrincipali || 'Nessun dato'}
+                </p>
+              </div>
+
+              {/* Info prodotto corrente */}
+              {selectedProdotto && (
+                <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <p className="text-sm text-muted-foreground mb-2">Stato Magazzino</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Quantità attuale:</span>
+                    <span className={cn(
+                      "font-mono font-bold",
+                      (selectedProdotto.quantita || 0) <= 0 ? "text-red-400" : "text-emerald-400"
+                    )}>
+                      {selectedProdotto.quantita?.toLocaleString('it-IT') || 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-sm">Prezzo medio:</span>
+                    <span className="font-mono">
+                      {formatCurrency(selectedProdotto.prezzo_medio || 0)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              Nessun dato disponibile per questo prodotto
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }
