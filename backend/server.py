@@ -892,23 +892,23 @@ async def get_statistiche(
     
     vendite = await db.vendite.find(query, {"_id": 0}).to_list(100000)
     
-    # Calculate KPIs
-    totale_euro = sum(v.get('totale', 0) for v in vendite)
-    totale_articoli = sum(v.get('quantita', 0) for v in vendite)
+    # Calculate KPIs - use absolute values since SCARICO has negative values
+    totale_euro = sum(abs(v.get('totale', 0)) for v in vendite)
+    totale_articoli = sum(abs(v.get('quantita', 0)) for v in vendite)
     clienti_attivi = len(set(v.get('cliente_nome', '') for v in vendite))
     
     # Current month revenue
     now = datetime.now()
     current_month_start = now.replace(day=1).strftime("%Y-%m-%d")
     current_month_vendite = [v for v in vendite if v.get('data', '') >= current_month_start]
-    fatturato_mese = sum(v.get('totale', 0) for v in current_month_vendite)
+    fatturato_mese = sum(abs(v.get('totale', 0)) for v in current_month_vendite)
     
     # Previous month revenue
     prev_month = now.replace(day=1) - timedelta(days=1)
     prev_month_start = prev_month.replace(day=1).strftime("%Y-%m-%d")
     prev_month_end = prev_month.strftime("%Y-%m-%d")
     prev_month_vendite = [v for v in vendite if prev_month_start <= v.get('data', '') <= prev_month_end]
-    fatturato_mese_prec = sum(v.get('totale', 0) for v in prev_month_vendite)
+    fatturato_mese_prec = sum(abs(v.get('totale', 0)) for v in prev_month_vendite)
     
     # Percentage difference
     if fatturato_mese_prec > 0:
@@ -916,11 +916,11 @@ async def get_statistiche(
     else:
         diff_percentuale = 100 if fatturato_mese > 0 else 0
     
-    # Monthly sales data
+    # Monthly sales data - use absolute values
     vendite_mensili = {}
     for v in vendite:
         data = v.get('data', '')[:7]  # YYYY-MM
-        vendite_mensili[data] = vendite_mensili.get(data, 0) + v.get('totale', 0)
+        vendite_mensili[data] = vendite_mensili.get(data, 0) + abs(v.get('totale', 0))
     
     monthly_data = [{"data": k, "totale": v} for k, v in sorted(vendite_mensili.items())]
     
@@ -928,7 +928,7 @@ async def get_statistiche(
     vendite_giornaliere = {}
     for v in vendite:
         data = v.get('data', '')
-        vendite_giornaliere[data] = vendite_giornaliere.get(data, 0) + v.get('totale', 0)
+        vendite_giornaliere[data] = vendite_giornaliere.get(data, 0) + abs(v.get('totale', 0))
     
     daily_data = [{"data": k, "totale": v} for k, v in sorted(vendite_giornaliere.items())]
     
@@ -936,7 +936,7 @@ async def get_statistiche(
     clienti_fatturato = {}
     for v in vendite:
         cliente = v.get('cliente_nome', '')
-        clienti_fatturato[cliente] = clienti_fatturato.get(cliente, 0) + v.get('totale', 0)
+        clienti_fatturato[cliente] = clienti_fatturato.get(cliente, 0) + abs(v.get('totale', 0))
     
     top_clienti = [{"nome": k, "spesa": v} for k, v in sorted(clienti_fatturato.items(), key=lambda x: x[1], reverse=True)[:10]]
     
@@ -944,7 +944,7 @@ async def get_statistiche(
     prodotti_quantita = {}
     for v in vendite:
         prod = v.get('prodotto_nome', '')
-        prodotti_quantita[prod] = prodotti_quantita.get(prod, 0) + v.get('quantita', 0)
+        prodotti_quantita[prod] = prodotti_quantita.get(prod, 0) + abs(v.get('quantita', 0))
     
     top_prodotti = [{"nome": k, "quantita": v} for k, v in sorted(prodotti_quantita.items(), key=lambda x: x[1], reverse=True)[:10]]
     
