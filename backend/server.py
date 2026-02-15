@@ -877,6 +877,10 @@ async def get_prodotto_analisi(prodotto_nome: str):
     # Fatturato mensile medio (più utile del totale venduto)
     fatturato_mensile = sum(abs(v.get('totale', 0)) for v in recent_vendite) / 6 if recent_vendite else 0
     
+    # Prezzo medio di vendita (calcolato dalle vendite effettive)
+    prezzi_vendita = [v.get('prezzo_unitario', 0) for v in vendite_filtered if v.get('prezzo_unitario', 0) > 0]
+    prezzo_medio_vendita = sum(prezzi_vendita) / len(prezzi_vendita) if prezzi_vendita else 0
+    
     # Trend vendite (confronto ultimo mese vs mese precedente)
     now = datetime.now()
     last_month_start = (now.replace(day=1) - timedelta(days=1)).replace(day=1).strftime("%Y-%m-%d")
@@ -907,7 +911,7 @@ async def get_prodotto_analisi(prodotto_nome: str):
     # Days until stock exhaustion
     prodotto = await db.prodotti.find_one({"nome": prodotto_nome}, {"_id": 0})
     quantita_attuale = prodotto.get('quantita', 0) if prodotto else 0
-    prezzo_medio = prodotto.get('prezzo_medio', 0) if prodotto else 0
+    prezzo_acquisto = prodotto.get('prezzo_medio', 0) if prodotto else 0
     giorni_esaurimento = int(quantita_attuale / media_mensile * 30) if media_mensile > 0 else 'N/A'
     
     return {
@@ -918,7 +922,8 @@ async def get_prodotto_analisi(prodotto_nome: str):
         "clientiUnici": clienti_unici,
         "clientiPrincipali": clienti_str,
         "giorniEsaurimento": giorni_esaurimento,
-        "prezzoMedio": prezzo_medio
+        "prezzoMedioVendita": round(prezzo_medio_vendita, 2),
+        "prezzoAcquisto": prezzo_acquisto
     }
 
 
