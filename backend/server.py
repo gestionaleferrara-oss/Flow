@@ -781,8 +781,8 @@ async def get_fornitore_prodotti(fornitore_nome: str, mese: Optional[str] = None
     if not ordini:
         return {
             "fornitore": fornitore_nome,
-            "prodotti": [],
-            "totale_prodotti": 0,
+            "acquisti": [],
+            "totale_acquisti": 0,
             "totale_speso": 0,
             "mese_riferimento": "N/A",
             "mesi_disponibili": []
