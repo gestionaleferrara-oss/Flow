@@ -277,7 +277,9 @@ export default function Statistiche() {
                 <XAxis dataKey="data" stroke="#71717A" fontSize={12} />
                 <YAxis stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
                 <Tooltip
-                  contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A' }}
+                  contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A', color: '#e2e8f0' }}
+                  itemStyle={{ color: '#e2e8f0' }}
+                  labelStyle={{ color: '#e2e8f0' }}
                   formatter={(value) => [formatCurrency(value), 'Vendite']}
                 />
                 <Area
