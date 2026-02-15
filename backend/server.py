@@ -35,10 +35,10 @@ api_router = APIRouter(prefix="/api")
 
 # ======================= RSS NEWS SOURCES =======================
 RSS_SOURCES = [
-    {"name": "FreshPlaza", "url": "https://www.freshplaza.it/rss/", "categoria": "ortofrutta"},
-    {"name": "Italiafruit", "url": "https://www.italiafruit.net/rss.xml", "categoria": "ortofrutta"},
-    {"name": "AgriSole", "url": "https://www.agrisole.it/rss/", "categoria": "agricoltura"},
-    {"name": "ANSA Agricoltura", "url": "https://www.ansa.it/sito/notizie/economia/agroalimentare/agroalimentare_rss.xml", "categoria": "economia"},
+    {"name": "ANSA Economia", "url": "https://www.ansa.it/sito/notizie/economia/economia_rss.xml", "categoria": "economia"},
+    {"name": "ANSA Agricoltura", "url": "https://www.ansa.it/sito/notizie/economia/agroalimentare/agroalimentare_rss.xml", "categoria": "agricoltura"},
+    {"name": "ANSA Regioni", "url": "https://www.ansa.it/sito/notizie/regioni/regioni_rss.xml", "categoria": "regioni"},
+    {"name": "Il Sole 24 Ore", "url": "https://www.ilsole24ore.com/rss/finanza.xml", "categoria": "finanza"},
 ]
 
 # ======================= MARKET PRICE LINKS =======================
