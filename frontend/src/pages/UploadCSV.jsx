@@ -38,7 +38,8 @@ export default function UploadCSV() {
     onDrop,
     accept: {
       'text/csv': ['.csv'],
-      'application/vnd.ms-excel': ['.csv']
+      'application/vnd.ms-excel': ['.csv'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
     },
     maxFiles: 1
   });
@@ -75,7 +76,7 @@ export default function UploadCSV() {
     <PageWrapper>
       <PageHeader
         title="Importa Dati"
-        subtitle="Carica un file CSV per importare vendite, clienti e prodotti"
+        subtitle="Carica un file CSV o XLSX per importare vendite, clienti e prodotti"
       />
 
       {uploading && <LoadingSpinner fullScreen />}
@@ -253,10 +254,11 @@ export default function UploadCSV() {
         {!result && (
           <div className="mt-8 p-6 bg-muted/50 rounded-sm">
             <h3 className="font-heading text-lg font-semibold uppercase mb-4">
-              Formato CSV Supportato
+              Formati Supportati
             </h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>• Separatore: punto e virgola (;) o virgola (,)</li>
+              <li>• <strong>CSV</strong>: Separatore punto e virgola (;) o virgola (,)</li>
+              <li>• <strong>XLSX</strong>: File Excel (Microsoft Excel)</li>
               <li>• Colonne: Movimento, Data, Codice Cl./Fo., Decodifica Cl./Fo., Codice, Decodifica, Quantita, Importo</li>
               <li>• I nuovi clienti, fornitori e prodotti vengono creati automaticamente</li>
               <li>• Movimento "SCARICO" = Vendita, "CARICO" = Acquisto</li>
