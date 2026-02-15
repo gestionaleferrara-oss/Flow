@@ -277,9 +277,9 @@ export default function Fornitori() {
 
                 {/* Summary Stats */}
                 {fornitoreProdotti && (
-                  <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="grid grid-cols-3 gap-4 mt-4">
                     <div className="p-3 bg-white/5 rounded-lg">
-                      <p className="text-xs text-slate-400">Prodotti Totali</p>
+                      <p className="text-xs text-slate-400">Prodotti</p>
                       <p className="text-lg font-semibold text-blue-400">
                         {fornitoreProdotti.totale_prodotti}
                       </p>
@@ -288,6 +288,12 @@ export default function Fornitori() {
                       <p className="text-xs text-slate-400">Totale Speso</p>
                       <p className="text-lg font-semibold text-emerald-400">
                         {formatCurrency(fornitoreProdotti.totale_speso)}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-white/5 rounded-lg">
+                      <p className="text-xs text-slate-400">Mese</p>
+                      <p className="text-lg font-semibold text-amber-400">
+                        {fornitoreProdotti.mese_riferimento || 'N/A'}
                       </p>
                     </div>
                   </div>
