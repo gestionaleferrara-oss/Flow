@@ -1,53 +1,50 @@
-import { useEffect } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import { Toaster } from "sonner";
+import Sidebar from "@/components/Sidebar";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+// Pages
+import Dashboard from "@/pages/Dashboard";
+import UploadCSV from "@/pages/UploadCSV";
+import Magazzino from "@/pages/Magazzino";
+import Vendite from "@/pages/Vendite";
+import Clienti from "@/pages/Clienti";
+import Fornitori from "@/pages/Fornitori";
+import Ordini from "@/pages/Ordini";
+import Statistiche from "@/pages/Statistiche";
+import Notizie from "@/pages/Notizie";
 
 function App() {
   return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </div>
+    <BrowserRouter>
+      <div className="app-container">
+        <Sidebar />
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/upload" element={<UploadCSV />} />
+            <Route path="/magazzino" element={<Magazzino />} />
+            <Route path="/vendite" element={<Vendite />} />
+            <Route path="/clienti" element={<Clienti />} />
+            <Route path="/fornitori" element={<Fornitori />} />
+            <Route path="/ordini" element={<Ordini />} />
+            <Route path="/statistiche" element={<Statistiche />} />
+            <Route path="/notizie" element={<Notizie />} />
+          </Routes>
+        </main>
+        <Toaster 
+          theme="dark" 
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              color: 'hsl(var(--foreground))'
+            }
+          }}
+        />
+      </div>
+    </BrowserRouter>
   );
 }
 
