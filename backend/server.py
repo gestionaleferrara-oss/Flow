@@ -2440,6 +2440,75 @@ async def get_meteo(lat: float = 44.4949, lon: float = 11.3426):
         return {"error": str(e)}
 
 
+
+# ----- Google Trends Frutta Secca -----
+@api_router.get("/trends-frutta-secca")
+async def get_trends_frutta_secca():
+    """Get Google Trends data for dried fruits/nuts keywords (Italy)"""
+    import asyncio
+    from functools import partial
+
+    keywords = ["pistacchi", "mandorle", "noci", "nocciole", "anacardi"]
+    
+    # Check cache first (cache for 6 hours)
+    cache = await db.cache.find_one({"key": "trends_frutta_secca"}, {"_id": 0})
+    if cache:
+        from datetime import timezone
+        cached_at = cache.get("cached_at")
+        if cached_at and (datetime.now(timezone.utc) - cached_at).total_seconds() < 21600:
+            return cache.get("data", [])
+
+    def fetch_trends():
+        try:
+            from pytrends.request import TrendReq
+            pytrend = TrendReq(hl='it-IT', tz=60)
+            pytrend.build_payload(kw_list=keywords, timeframe='today 3-m', geo='IT')
+            df = pytrend.interest_over_time()
+            if df.empty:
+                return []
+            
+            results = []
+            for kw in keywords:
+                if kw not in df.columns:
+                    continue
+                values = df[kw].tolist()
+                current = values[-1] if values else 0
+                prev_week = values[-2] if len(values) > 1 else current
+                avg = sum(values) / len(values) if values else 0
+                change = ((current - prev_week) / max(prev_week, 1)) * 100
+                
+                # Get last 12 data points for sparkline
+                sparkline = values[-12:] if len(values) >= 12 else values
+                
+                results.append({
+                    "keyword": kw.capitalize(),
+                    "current_interest": int(current),
+                    "avg_interest": round(avg, 1),
+                    "change_pct": round(change, 1),
+                    "sparkline": sparkline,
+                    "trend": "up" if change > 5 else "down" if change < -5 else "stable"
+                })
+            
+            results.sort(key=lambda x: x["current_interest"], reverse=True)
+            return results
+        except Exception as e:
+            logger.error(f"Error fetching Google Trends: {e}")
+            return []
+
+    loop = asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, fetch_trends)
+    
+    # Cache result
+    from datetime import timezone
+    await db.cache.update_one(
+        {"key": "trends_frutta_secca"},
+        {"$set": {"key": "trends_frutta_secca", "data": data, "cached_at": datetime.now(timezone.utc)}},
+        upsert=True
+    )
+    
+    return data
+
+
 # ----- AI Reports -----
 @api_router.get("/ai-reports")
 async def get_ai_reports():
