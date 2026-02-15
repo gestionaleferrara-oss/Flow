@@ -1251,6 +1251,130 @@ async def get_clienti_trend():
     return trend_data
 
 
+@api_router.get("/statistiche/acquisti")
+async def get_statistiche_acquisti(
+    prodotto: Optional[str] = None,
+    fornitore: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    """Get purchase statistics (mirror of vendite statistics but for ordini/fornitori)"""
+    
+    query = {}
+    if prodotto:
+        query["prodotto_nome"] = {"$regex": prodotto, "$options": "i"}
+    if fornitore:
+        query["fornitore_nome"] = {"$regex": fornitore, "$options": "i"}
+    if start_date:
+        query.setdefault("data", {})["$gte"] = start_date
+    if end_date:
+        query.setdefault("data", {})["$lte"] = end_date
+    
+    ordini = await db.ordini.find(query, {"_id": 0}).to_list(100000)
+    
+    # Calculate KPIs
+    totale_euro = sum(abs(o.get('totale', 0)) for o in ordini)
+    totale_articoli = sum(abs(o.get('quantita', 0)) for o in ordini)
+    fornitori_attivi = len(set(o.get('fornitore_nome', '') for o in ordini))
+    
+    # Current month spending
+    now = datetime.now()
+    current_month_start = now.replace(day=1).strftime("%Y-%m-%d")
+    current_month_ordini = [o for o in ordini if o.get('data', '') >= current_month_start]
+    speso_mese = sum(abs(o.get('totale', 0)) for o in current_month_ordini)
+    
+    # Previous month spending
+    prev_month = now.replace(day=1) - timedelta(days=1)
+    prev_month_start = prev_month.replace(day=1).strftime("%Y-%m-%d")
+    prev_month_end = prev_month.strftime("%Y-%m-%d")
+    prev_month_ordini = [o for o in ordini if prev_month_start <= o.get('data', '') <= prev_month_end]
+    speso_mese_prec = sum(abs(o.get('totale', 0)) for o in prev_month_ordini)
+    
+    # Percentage difference
+    if speso_mese_prec > 0:
+        diff_percentuale = ((speso_mese - speso_mese_prec) / speso_mese_prec) * 100
+    else:
+        diff_percentuale = 100 if speso_mese > 0 else 0
+    
+    # Monthly purchases data
+    acquisti_mensili = {}
+    for o in ordini:
+        data = o.get('data', '')[:7]  # YYYY-MM
+        acquisti_mensili[data] = acquisti_mensili.get(data, 0) + abs(o.get('totale', 0))
+    
+    monthly_data = [{"data": k, "totale": v} for k, v in sorted(acquisti_mensili.items())]
+    
+    # Top fornitori
+    fornitori_spesa = {}
+    for o in ordini:
+        fornitore_nome = o.get('fornitore_nome', '')
+        if fornitore_nome:
+            fornitori_spesa[fornitore_nome] = fornitori_spesa.get(fornitore_nome, 0) + abs(o.get('totale', 0))
+    
+    top_fornitori = [{"nome": k, "spesa": v} for k, v in sorted(fornitori_spesa.items(), key=lambda x: x[1], reverse=True)[:10]]
+    
+    # Top prodotti acquistati
+    prodotti_totale = {}
+    for o in ordini:
+        prod = o.get('prodotto_nome', '')
+        prodotti_totale[prod] = prodotti_totale.get(prod, 0) + abs(o.get('totale', 0))
+    
+    top_prodotti = [{"nome": k, "totale_euro": round(v, 2)} for k, v in sorted(prodotti_totale.items(), key=lambda x: x[1], reverse=True)[:10]]
+    
+    return {
+        "totaleEuro": totale_euro,
+        "totaleArticoli": totale_articoli,
+        "fornitoriAttivi": fornitori_attivi,
+        "spesoMese": speso_mese,
+        "spesoMesePrec": speso_mese_prec,
+        "diffPercentuale": round(diff_percentuale, 2),
+        "acquistiMensili": monthly_data,
+        "topFornitori": top_fornitori,
+        "topProdotti": top_prodotti
+    }
+
+
+@api_router.get("/statistiche/acquisti/lists")
+async def get_statistiche_acquisti_lists():
+    """Get unique products and fornitori for filter dropdowns"""
+    
+    prodotti = await db.prodotti.find({}, {"_id": 0, "nome": 1}).to_list(10000)
+    fornitori = await db.fornitori.find({}, {"_id": 0, "nome": 1}).to_list(10000)
+    
+    return {
+        "prodotti": [p.get('nome', '') for p in prodotti],
+        "fornitori": [f.get('nome', '') for f in fornitori]
+    }
+
+
+@api_router.get("/statistiche/fornitori-trend")
+async def get_fornitori_trend():
+    """Get daily unique fornitori for the last 7 days"""
+    
+    today = datetime.now()
+    days = []
+    for i in range(6, -1, -1):
+        day = today - timedelta(days=i)
+        days.append(day.strftime("%Y-%m-%d"))
+    
+    trend_data = []
+    for day in days:
+        ordini = await db.ordini.find({"data": day}, {"_id": 0, "fornitore_nome": 1}).to_list(10000)
+        unique_fornitori = len(set(o.get('fornitore_nome', '') for o in ordini if o.get('fornitore_nome')))
+        
+        day_date = datetime.strptime(day, "%Y-%m-%d")
+        day_names = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+        day_label = f"{day_names[day_date.weekday()]} {day_date.day}"
+        
+        trend_data.append({
+            "giorno": day_label,
+            "data": day,
+            "fornitori": unique_fornitori
+        })
+    
+    return trend_data
+
+
 # ----- Dashboard Overview -----
 @api_router.get("/dashboard")
 async def get_dashboard():
