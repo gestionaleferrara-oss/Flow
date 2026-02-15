@@ -82,11 +82,10 @@ export default function Vendite() {
             </thead>
             <tbody>
               {vendite.map((vendita, index) => (
-                <motion.tr
+                <tr
                   key={vendita.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.02 }}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${index * 20}ms` }}
                 >
                   <td className="tabular-nums">{formatDate(vendita.data)}</td>
                   <td className="font-medium">{vendita.cliente_nome}</td>
