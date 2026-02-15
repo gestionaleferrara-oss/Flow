@@ -444,13 +444,14 @@ async def root():
     return {"message": "Gestio API v1.0"}
 
 
-# ----- CSV Upload -----
+# ----- CSV/XLSX Upload -----
 @api_router.post("/upload-csv")
 async def upload_csv(file: UploadFile = File(...)):
-    """Upload and process CSV file"""
+    """Upload and process CSV or XLSX file"""
     
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="Il file deve essere in formato CSV")
+    filename = file.filename.lower()
+    if not filename.endswith('.csv') and not filename.endswith('.xlsx'):
+        raise HTTPException(status_code=400, detail="Il file deve essere in formato CSV o XLSX")
     
     stats = {
         'new_clienti': 0,
@@ -468,30 +469,45 @@ async def upload_csv(file: UploadFile = File(...)):
     
     try:
         content = await file.read()
+        rows = []
+        headers = []
         
-        # Try different encodings
-        for encoding in ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']:
-            try:
-                text_content = content.decode(encoding)
-                break
-            except UnicodeDecodeError:
-                continue
+        if filename.endswith('.xlsx'):
+            # Parse XLSX with pandas
+            df = pd.read_excel(io.BytesIO(content), engine='openpyxl')
+            df.columns = [str(c).strip() for c in df.columns]
+            headers = list(df.columns)
+            rows = df.fillna('').to_dict('records')
+            # Convert all values to strings for consistency
+            for row in rows:
+                for k, v in row.items():
+                    if pd.notna(v) and not isinstance(v, str):
+                        row[k] = str(v)
         else:
-            raise HTTPException(status_code=400, detail="Impossibile decodificare il file")
-        
-        # Detect delimiter
-        first_line = text_content.split('\n')[0]
-        delimiter = ';' if ';' in first_line else ','
-        
-        # Parse CSV
-        csv_reader = csv.DictReader(io.StringIO(text_content), delimiter=delimiter)
+            # Parse CSV with encoding detection
+            for encoding in ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']:
+                try:
+                    text_content = content.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            else:
+                raise HTTPException(status_code=400, detail="Impossibile decodificare il file")
+            
+            # Detect delimiter
+            first_line = text_content.split('\n')[0]
+            delimiter = ';' if ';' in first_line else ','
+            
+            # Parse CSV
+            csv_reader = csv.DictReader(io.StringIO(text_content), delimiter=delimiter)
+            headers = csv_reader.fieldnames or []
+            rows = list(csv_reader)
         
         # Auto-detect columns from headers
-        headers = csv_reader.fieldnames or []
         col_mapping = auto_detect_columns(headers)
         stats['columns_detected'] = {k: v for k, v in col_mapping.items() if v is not None}
         
-        for row in csv_reader:
+        for row in rows:
             try:
                 await process_csv_row(row, stats, col_mapping)
                 stats['rows_processed'] += 1
@@ -504,8 +520,10 @@ async def upload_csv(file: UploadFile = File(...)):
             "stats": stats
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error processing CSV: {e}")
+        logger.error(f"Error processing file: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
