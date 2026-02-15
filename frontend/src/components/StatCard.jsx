@@ -27,6 +27,7 @@ export default function StatCard({
   icon: Icon,
   format = 'number',
   gradient = 'blue',
+  subtitle,
   className 
 }) {
   const formattedValue = format === 'currency' 
@@ -61,6 +62,11 @@ export default function StatCard({
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             {label}
           </p>
+          {subtitle && (
+            <p className="text-xs text-slate-500 mt-1">
+              {subtitle}
+            </p>
+          )}
           {trendValue !== undefined && (
             <div className={cn(
               'inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-md text-xs font-semibold',
