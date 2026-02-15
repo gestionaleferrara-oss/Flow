@@ -808,6 +808,10 @@ async def update_prodotto(prodotto_id: str, data: Dict[str, Any]):
 
 @api_router.delete("/prodotti/{prodotto_id}")
 async def delete_prodotto(prodotto_id: str):
+    result = await db.prodotti.delete_one({"id": prodotto_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Prodotto non trovato")
+    return {"success": True}
 
 
 @api_router.post("/prodotti/recalculate-quantities")
@@ -849,10 +853,6 @@ async def recalculate_quantities():
         "products_updated": updated,
         "total_products_calculated": len(product_quantities)
     }
-    result = await db.prodotti.delete_one({"id": prodotto_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Prodotto non trovato")
-    return {"success": True}
 
 
 @api_router.get("/prodotti/{prodotto_nome}/analisi")
