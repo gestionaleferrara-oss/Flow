@@ -121,18 +121,18 @@ export default function Notizie() {
       {/* === TOP: 3 widget in riga === */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
 
-        {/* 1. METEO — compatto */}
+        {/* 1. METEO */}
         {cw && w && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl overflow-hidden border border-white/[0.08] p-5"
+            className="rounded-2xl overflow-hidden border border-white/[0.08] p-5 relative"
             style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
             data-testid="weather-widget"
           >
-            <div className={cn('absolute inset-0 rounded-2xl bg-gradient-to-br opacity-40', w.bg)} style={{ position: 'absolute' }} />
+            <div className={cn('absolute inset-0 rounded-2xl bg-gradient-to-br opacity-40', w.bg)} />
             <div className="relative z-10">
-              <div className="flex items-center gap-1.5 mb-3">
+              <div className="flex items-center gap-1.5 mb-2">
                 <MapPin className="w-3.5 h-3.5 text-cyan-400" />
                 <span className="text-xs font-medium text-slate-400">Bologna</span>
                 <span className="text-[10px] text-slate-600 ml-auto">
@@ -140,34 +140,41 @@ export default function Notizie() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-5xl">{w.icon}</span>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-4xl">{w.icon}</span>
                 <div>
-                  <p className="text-4xl font-extrabold tracking-tight text-white leading-none">{Math.round(cw.temperature)}°</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{w.label}</p>
+                  <p className="text-3xl font-extrabold tracking-tight text-white leading-none">{Math.round(cw.temperature)}°</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{w.label}</p>
                 </div>
-                <div className="ml-auto flex flex-col gap-1 text-[11px] text-slate-500">
+                <div className="ml-auto flex flex-col gap-0.5 text-[11px] text-slate-500">
                   <div className="flex items-center gap-1.5"><Wind className="w-3 h-3 text-sky-400" />{Math.round(cw.windspeed)} km/h</div>
                   {daily && <>
-                    <div className="flex items-center gap-1.5"><Thermometer className="w-3 h-3 text-red-400" />{Math.round(daily.temperature_2m_max[0])}°</div>
-                    <div className="flex items-center gap-1.5"><Thermometer className="w-3 h-3 text-blue-400" />{Math.round(daily.temperature_2m_min[0])}°</div>
+                    <div className="flex items-center gap-1.5"><Thermometer className="w-3 h-3 text-red-400" />Max {Math.round(daily.temperature_2m_max[0])}°</div>
+                    <div className="flex items-center gap-1.5"><Thermometer className="w-3 h-3 text-blue-400" />Min {Math.round(daily.temperature_2m_min[0])}°</div>
                   </>}
                 </div>
               </div>
 
-              {/* Forecast strip */}
+              {/* 6-day forecast */}
               {daily && (
-                <div className="flex gap-1.5">
-                  {daily.time.slice(1, 5).map((date, idx) => {
+                <div className="grid grid-cols-6 gap-1">
+                  {daily.time.slice(1, 7).map((date, idx) => {
                     const dw = getW(daily.weathercode[idx + 1]);
                     return (
-                      <div key={date} className="flex-1 flex flex-col items-center py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.05]">
-                        <p className="text-[9px] uppercase font-semibold text-slate-600 tracking-wider">
+                      <div key={date} className="flex flex-col items-center py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.05]">
+                        <p className="text-[8px] uppercase font-semibold text-slate-600 tracking-wider">
                           {new Date(date).toLocaleDateString('it-IT', { weekday: 'short' })}
                         </p>
-                        <span className="text-lg my-0.5">{dw.icon}</span>
-                        <div className="flex gap-0.5 text-[10px]">
+                        <span className="text-base my-0.5">{dw.icon}</span>
+                        <div className="flex gap-0.5 text-[9px]">
                           <span className="font-semibold text-white">{Math.round(daily.temperature_2m_max[idx + 1])}°</span>
+                          <span className="text-slate-500">{Math.round(daily.temperature_2m_min[idx + 1])}°</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
                           <span className="text-slate-500">{Math.round(daily.temperature_2m_min[idx + 1])}°</span>
                         </div>
                       </div>
