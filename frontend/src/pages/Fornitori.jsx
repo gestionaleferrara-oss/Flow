@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { motion } from 'framer-motion';
-import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Plus, Edit2, Trash2, Eye, X, Check, Package } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate, cn } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -14,6 +15,15 @@ export default function Fornitori() {
   const [fornitori, setFornitori] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editNote, setEditNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  
+  // Modal per prodotti fornitore
+  const [showProdottiModal, setShowProdottiModal] = useState(false);
+  const [selectedFornitore, setSelectedFornitore] = useState(null);
+  const [fornitoreProdotti, setFornitoreProdotti] = useState(null);
+  const [loadingProdotti, setLoadingProdotti] = useState(false);
 
   useEffect(() => {
     loadFornitori();
@@ -22,7 +32,7 @@ export default function Fornitori() {
   const loadFornitori = async () => {
     try {
       const params = search ? `?search=${search}` : '';
-      const response = await axios.get(`${API}/fornitori${params}`);
+      const response = await axios.get(`${API}/fornitori-with-stats${params}`);
       setFornitori(response.data);
     } catch (error) {
       console.error('Error loading fornitori:', error);
@@ -39,6 +49,52 @@ export default function Fornitori() {
     } catch (error) {
       console.error('Error deleting:', error);
     }
+  };
+
+  const handleEditNote = (fornitore) => {
+    setEditingId(fornitore.id);
+    setEditNote(fornitore.note || '');
+  };
+
+  const handleSaveNote = async (fornitoreId) => {
+    setSavingNote(true);
+    try {
+      await axios.put(`${API}/fornitori/${fornitoreId}/note`, { note: editNote });
+      setEditingId(null);
+      loadFornitori();
+    } catch (error) {
+      console.error('Error saving note:', error);
+      alert('Errore nel salvataggio della nota');
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditNote('');
+  };
+
+  const handleViewProdotti = async (fornitore) => {
+    setSelectedFornitore(fornitore);
+    setShowProdottiModal(true);
+    setLoadingProdotti(true);
+    
+    try {
+      const response = await axios.get(`${API}/fornitori/${encodeURIComponent(fornitore.nome)}/prodotti`);
+      setFornitoreProdotti(response.data);
+    } catch (error) {
+      console.error('Error loading prodotti fornitore:', error);
+      setFornitoreProdotti({ prodotti: [], totale_prodotti: 0, totale_speso: 0 });
+    } finally {
+      setLoadingProdotti(false);
+    }
+  };
+
+  const closeProdottiModal = () => {
+    setShowProdottiModal(false);
+    setSelectedFornitore(null);
+    setFornitoreProdotti(null);
   };
 
   if (loading) return <LoadingSpinner fullScreen />;
@@ -78,44 +134,95 @@ export default function Fornitori() {
               <th>Codice</th>
               <th className="text-right">Fatturato</th>
               <th>Note</th>
-              <th className="w-24"></th>
+              <th className="w-32"></th>
             </tr>
           </thead>
           <tbody>
-            {fornitori.map((fornitore, index) => (
-              <motion.tr
-                key={fornitore.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: index * 0.02 }}
-              >
-                <td className="font-medium">{fornitore.nome}</td>
-                <td className="text-muted-foreground">{fornitore.codice || '-'}</td>
-                <td className="text-right tabular-nums font-medium text-primary">
-                  {formatCurrency(fornitore.fatturato_totale)}
-                </td>
-                <td className="text-muted-foreground text-sm truncate max-w-[300px]">
-                  {fornitore.note || '-'}
-                </td>
-                <td>
-                  <div className="table-actions justify-end">
-                    <button
-                      className="action-btn"
-                      title="Modifica"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(fornitore.id)}
-                      className="action-btn delete"
-                      title="Elimina"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </motion.tr>
-            ))}
+            {fornitori.map((fornitore, index) => {
+              const isEditing = editingId === fornitore.id;
+              
+              return (
+                <motion.tr
+                  key={fornitore.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: index * 0.02 }}
+                  data-testid={`fornitore-row-${index}`}
+                >
+                  <td className="font-medium">{fornitore.nome}</td>
+                  <td className="text-muted-foreground">{fornitore.codice || '-'}</td>
+                  <td className="text-right tabular-nums font-medium text-emerald-400">
+                    {formatCurrency(fornitore.fatturato_totale)}
+                  </td>
+                  <td className="max-w-[300px]">
+                    {isEditing ? (
+                      <div className="flex items-center gap-2">
+                        <Textarea
+                          value={editNote}
+                          onChange={(e) => setEditNote(e.target.value)}
+                          className="h-16 text-sm resize-none"
+                          placeholder="Inserisci note..."
+                          data-testid="edit-note-input"
+                        />
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => handleSaveNote(fornitore.id)}
+                            disabled={savingNote}
+                            className="action-btn"
+                            data-testid="save-note-btn"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="action-btn delete"
+                            data-testid="cancel-note-btn"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <span 
+                        className="text-muted-foreground text-sm truncate block cursor-pointer hover:text-slate-300"
+                        onClick={() => handleEditNote(fornitore)}
+                        title="Clicca per modificare"
+                      >
+                        {fornitore.note || '-'}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="table-actions justify-end">
+                      <button
+                        onClick={() => handleViewProdotti(fornitore)}
+                        className="action-btn"
+                        title="Vedi prodotti"
+                        data-testid={`view-prodotti-btn-${index}`}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleEditNote(fornitore)}
+                        className="action-btn"
+                        title="Modifica note"
+                        data-testid={`edit-note-btn-${index}`}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(fornitore.id)}
+                        className="action-btn delete"
+                        title="Elimina"
+                        data-testid={`delete-fornitore-btn-${index}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </motion.tr>
+              );
+            })}
           </tbody>
         </table>
 
@@ -126,6 +233,119 @@ export default function Fornitori() {
           </div>
         )}
       </div>
+
+      {/* Modal Prodotti Fornitore */}
+      <AnimatePresence>
+        {showProdottiModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={closeProdottiModal}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[80vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+              data-testid="prodotti-modal"
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-700 bg-gradient-to-r from-blue-500/10 to-purple-500/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-500/20">
+                      <Package className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold">Prodotti da {selectedFornitore?.nome}</h2>
+                      <p className="text-sm text-slate-400">
+                        Storico acquisti per prodotto
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={closeProdottiModal}
+                    className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+                    data-testid="close-modal-btn"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Summary Stats */}
+                {fornitoreProdotti && (
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="p-3 bg-white/5 rounded-lg">
+                      <p className="text-xs text-slate-400">Prodotti Totali</p>
+                      <p className="text-lg font-semibold text-blue-400">
+                        {fornitoreProdotti.totale_prodotti}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-white/5 rounded-lg">
+                      <p className="text-xs text-slate-400">Totale Speso</p>
+                      <p className="text-lg font-semibold text-emerald-400">
+                        {formatCurrency(fornitoreProdotti.totale_speso)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 overflow-auto max-h-[calc(80vh-180px)]">
+                {loadingProdotti ? (
+                  <div className="flex items-center justify-center py-12">
+                    <LoadingSpinner />
+                  </div>
+                ) : fornitoreProdotti?.prodotti?.length > 0 ? (
+                  <div className="space-y-3">
+                    {fornitoreProdotti.prodotti.map((prodotto, index) => (
+                      <div
+                        key={prodotto.nome}
+                        className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:border-slate-600 transition-colors"
+                        data-testid={`prodotto-item-${index}`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-medium text-slate-200">{prodotto.nome}</h3>
+                          <span className="text-emerald-400 font-semibold">
+                            {formatCurrency(prodotto.totale_speso)}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <p className="text-slate-500">Quantità Tot.</p>
+                            <p className="text-slate-300">{prodotto.quantita_totale.toLocaleString('it-IT')}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">N. Ordini</p>
+                            <p className="text-slate-300">{prodotto.num_ordini}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Ultimo Prezzo</p>
+                            <p className="text-slate-300">{formatCurrency(prodotto.ultimo_prezzo)}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Ultimo Ordine</p>
+                            <p className="text-slate-300">{formatDate(prodotto.ultimo_ordine)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Package className="w-12 h-12 mx-auto text-slate-600 mb-3" />
+                    <p className="text-slate-400">Nessun prodotto acquistato da questo fornitore</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageWrapper>
   );
 }
