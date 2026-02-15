@@ -506,12 +506,38 @@ async def upload_csv(file: UploadFile = File(...)):
         col_mapping = auto_detect_columns(headers)
         stats['columns_detected'] = {k: v for k, v in col_mapping.items() if v is not None}
         
+        # In-memory cache for batch processing
+        cache = {
+            'clienti': {},
+            'fornitori': {},
+            'prodotti': {},
+            'vendite_batch': [],
+            'ordini_batch': []
+        }
+        
+        BATCH_SIZE = 500
+        
         for row in rows:
             try:
-                await process_csv_row(row, stats, col_mapping)
+                await process_csv_row(row, stats, col_mapping, cache)
                 stats['rows_processed'] += 1
+                
+                # Flush batches periodically
+                if len(cache['vendite_batch']) >= BATCH_SIZE:
+                    await db.vendite.insert_many(cache['vendite_batch'])
+                    cache['vendite_batch'] = []
+                if len(cache['ordini_batch']) >= BATCH_SIZE:
+                    await db.ordini.insert_many(cache['ordini_batch'])
+                    cache['ordini_batch'] = []
+                    
             except Exception as e:
                 stats['errors'].append(f"Riga {stats['rows_processed'] + 1}: {str(e)}")
+        
+        # Flush remaining batches
+        if cache['vendite_batch']:
+            await db.vendite.insert_many(cache['vendite_batch'])
+        if cache['ordini_batch']:
+            await db.ordini.insert_many(cache['ordini_batch'])
         
         return {
             "success": True,
