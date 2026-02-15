@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Database } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,10 +14,12 @@ export default function Vendite() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const perPage = 20;
 
   useEffect(() => {
     loadVendite();
+    loadTotalCount();
   }, [search, page]);
 
   const loadVendite = async () => {
@@ -38,7 +40,20 @@ export default function Vendite() {
     }
   };
 
+  const loadTotalCount = async () => {
+    try {
+      const response = await axios.get(`${API}/vendite/count`);
+      setTotalCount(response.data.count);
+    } catch (error) {
+      console.error('Error loading count:', error);
+    }
+  };
+
   if (loading) return <LoadingSpinner fullScreen />;
+
+  const totalPages = Math.ceil(totalCount / perPage);
+  const startRecord = (page - 1) * perPage + 1;
+  const endRecord = Math.min(page * perPage, totalCount);
 
   return (
     <PageWrapper>
@@ -46,6 +61,17 @@ export default function Vendite() {
         title="Vendite"
         subtitle="Storico delle vendite registrate"
       />
+
+      {/* Total Records Counter */}
+      <div className="mb-6 flex items-center gap-4">
+        <div className="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+          <Database className="w-5 h-5 text-emerald-400" />
+          <div>
+            <span className="text-emerald-400 font-semibold text-lg">{totalCount.toLocaleString('it-IT')}</span>
+            <span className="text-slate-400 text-sm ml-2">record totali nel database</span>
+          </div>
+        </div>
+      </div>
 
       {/* Search */}
       <div className="mb-6">
@@ -65,7 +91,7 @@ export default function Vendite() {
       </div>
 
       {/* Table */}
-      <div className="bg-card border border-border/50 rounded-sm overflow-hidden">
+      <div className="bg-card border border-border/50 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="data-table" data-testid="vendite-table">
             <thead>
@@ -112,9 +138,18 @@ export default function Vendite() {
         )}
       </div>
 
-      {/* Pagination */}
+      {/* Pagination with detailed info */}
       <div className="flex items-center justify-between mt-4">
-        <p className="text-sm text-muted-foreground">Pagina {page}</p>
+        <p className="text-sm text-muted-foreground">
+          {totalCount > 0 ? (
+            <>
+              Mostrando <span className="font-medium text-slate-300">{startRecord}</span> - <span className="font-medium text-slate-300">{endRecord}</span> di <span className="font-medium text-emerald-400">{totalCount.toLocaleString('it-IT')}</span> record
+              {totalPages > 1 && <span className="ml-2">(Pagina {page} di {totalPages})</span>}
+            </>
+          ) : (
+            'Nessun record'
+          )}
+        </p>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -129,7 +164,7 @@ export default function Vendite() {
             variant="outline"
             size="sm"
             onClick={() => setPage(p => p + 1)}
-            disabled={vendite.length < perPage}
+            disabled={vendite.length < perPage || page >= totalPages}
             data-testid="next-page-btn"
           >
             Successiva <ChevronRight className="w-4 h-4" />
