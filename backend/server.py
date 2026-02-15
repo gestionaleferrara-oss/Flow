@@ -476,13 +476,29 @@ async def upload_csv(file: UploadFile = File(...)):
             # Parse XLSX with pandas
             df = pd.read_excel(io.BytesIO(content), engine='openpyxl')
             df.columns = [str(c).strip() for c in df.columns]
+            
+            # Check if first row contains actual headers (common with XLSX exports)
+            # If columns are "Unnamed:" it means the real headers are in the first data row
+            unnamed_cols = sum(1 for c in df.columns if 'unnamed' in c.lower())
+            if unnamed_cols > len(df.columns) / 2 and len(df) > 0:
+                # Use first row as headers
+                new_headers = [str(v).strip() if pd.notna(v) else f'col_{i}' for i, v in enumerate(df.iloc[0])]
+                df.columns = new_headers
+                df = df.iloc[1:].reset_index(drop=True)
+            
             headers = list(df.columns)
-            rows = df.fillna('').to_dict('records')
-            # Convert all values to strings for consistency
-            for row in rows:
-                for k, v in row.items():
-                    if pd.notna(v) and not isinstance(v, str):
-                        row[k] = str(v)
+            rows = []
+            for _, row in df.iterrows():
+                row_dict = {}
+                for col in df.columns:
+                    val = row[col]
+                    if pd.isna(val):
+                        row_dict[col] = ''
+                    elif isinstance(val, (int, float)):
+                        row_dict[col] = str(val)
+                    else:
+                        row_dict[col] = str(val).strip()
+                rows.append(row_dict)
         else:
             # Parse CSV with encoding detection
             for encoding in ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']:
