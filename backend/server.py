@@ -38,7 +38,7 @@ api_router = APIRouter(prefix="/api")
 RSS_SOURCES = [
     {"name": "FreshPlaza", "url": "https://www.freshplaza.it/rss.xml", "categoria": "ortofrutta"},
     {"name": "Corriere Ortofrutticolo", "url": "https://www.corriereortofrutticolo.it/feed/", "categoria": "ortofrutta"},
-    {"name": "ItaliaFruit", "url": "https://www.italiafruit.net/feed/", "categoria": "ortofrutta"},
+    {"name": "FreshPoint Magazine", "url": "https://www.freshpointmagazine.it/feed/", "categoria": "ortofrutta"},
 ]
 
 # ======================= MARKET PRICE LINKS =======================
