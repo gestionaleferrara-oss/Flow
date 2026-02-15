@@ -824,6 +824,7 @@ async def get_prodotto_analisi(prodotto_nome: str):
 async def get_vendite(
     cliente: Optional[str] = None,
     prodotto: Optional[str] = None,
+    search: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     limit: int = 100,
@@ -831,10 +832,18 @@ async def get_vendite(
 ):
     query = {}
     
-    if cliente:
-        query["cliente_nome"] = {"$regex": cliente, "$options": "i"}
-    if prodotto:
-        query["prodotto_nome"] = {"$regex": prodotto, "$options": "i"}
+    # General search: OR across cliente and prodotto
+    if search:
+        query["$or"] = [
+            {"cliente_nome": {"$regex": search, "$options": "i"}},
+            {"prodotto_nome": {"$regex": search, "$options": "i"}}
+        ]
+    else:
+        if cliente:
+            query["cliente_nome"] = {"$regex": cliente, "$options": "i"}
+        if prodotto:
+            query["prodotto_nome"] = {"$regex": prodotto, "$options": "i"}
+    
     if start_date:
         query.setdefault("data", {})["$gte"] = start_date
     if end_date:
