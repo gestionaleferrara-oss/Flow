@@ -38,8 +38,10 @@ api_router = APIRouter(prefix="/api")
 RSS_SOURCES = [
     {"name": "FreshPlaza", "url": "https://www.freshplaza.it/rss.xml", "categoria": "ortofrutta"},
     {"name": "Corriere Ortofrutticolo", "url": "https://www.corriereortofrutticolo.it/feed/", "categoria": "ortofrutta"},
-    {"name": "FreshPoint Magazine", "url": "https://www.freshpointmagazine.it/feed/", "categoria": "ortofrutta"},
 ]
+
+# Myfruit.it does not have RSS; we scrape HTML instead
+MYFRUIT_NEWS_URL = "https://www.myfruit.it/news-page/1"
 
 # ======================= MARKET PRICE LINKS =======================
 # These are dynamically scraped from FreshPlaza; this is the fallback cache
