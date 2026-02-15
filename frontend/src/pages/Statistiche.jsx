@@ -106,20 +106,24 @@ const renderActiveShape = (props) => {
 
 export default function Statistiche() {
   const [data, setData] = useState(null);
+  const [dataAcquisti, setDataAcquisti] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('vendite'); // 'vendite' or 'acquisti'
   const [filters, setFilters] = useState({
     prodotto: '',
     cliente: '',
+    fornitore: '',
     startDate: '',
     endDate: ''
   });
-  const [lists, setLists] = useState({ prodotti: [], clienti: [] });
-  const [showSuggestions, setShowSuggestions] = useState({ prodotto: false, cliente: false });
+  const [lists, setLists] = useState({ prodotti: [], clienti: [], fornitori: [] });
+  const [showSuggestions, setShowSuggestions] = useState({ prodotto: false, cliente: false, fornitore: false });
   const [activePieIndex, setActivePieIndex] = useState(-1);
   const [clientiTrend, setClientiTrend] = useState([]);
+  const [fornitoriTrend, setFornitoriTrend] = useState([]);
 
   // Check if any filter is active
-  const hasActiveFilters = filters.prodotto || filters.cliente || filters.startDate || filters.endDate;
+  const hasActiveFilters = filters.prodotto || filters.cliente || filters.fornitore || filters.startDate || filters.endDate;
 
   useEffect(() => {
     loadLists();
