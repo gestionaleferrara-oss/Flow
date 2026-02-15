@@ -20,6 +20,9 @@ const navigation = [
   { name: 'Notizie', href: '/notizie', icon: Newspaper },
 ];
 
+const COLLAPSED_W = 76;
+const EXPANDED_W = 250;
+
 export default function Sidebar() {
   const [expanded, setExpanded] = useState(false);
   const location = useLocation();
@@ -35,7 +38,7 @@ export default function Sidebar() {
       data-testid="sidebar"
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
-      animate={{ width: expanded ? 230 : 68 }}
+      animate={{ width: expanded ? EXPANDED_W : COLLAPSED_W }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className="fixed left-0 top-0 h-full z-50 flex flex-col overflow-hidden"
       style={{
@@ -49,20 +52,16 @@ export default function Sidebar() {
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
 
       {/* Logo */}
-      <Link to="/" className="flex items-center gap-3 px-4 py-5 group shrink-0" data-testid="logo-link">
-        <motion.div
-          animate={{ scale: expanded ? 1 : 0.95 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          className="relative shrink-0"
-        >
+      <Link to="/" className="flex items-center gap-3 px-5 py-5 group shrink-0" data-testid="logo-link">
+        <div className="relative shrink-0">
           <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 blur-sm 
             group-hover:blur-md transition-all duration-500" />
-          <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 
+          <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 
             flex items-center justify-center shadow-lg shadow-cyan-500/20
             group-hover:shadow-cyan-500/40 transition-all duration-500">
             <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
           </div>
-        </motion.div>
+        </div>
         <motion.div
           animate={{ opacity: expanded ? 1 : 0, x: expanded ? 0 : -8 }}
           transition={{ duration: 0.15, delay: expanded ? 0.05 : 0 }}
@@ -73,10 +72,10 @@ export default function Sidebar() {
         </motion.div>
       </Link>
 
-      <div className="mx-3 h-px bg-white/[0.04]" />
+      <div className="mx-4 h-px bg-white/[0.04]" />
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto overflow-x-hidden">
+      <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto overflow-x-hidden">
         {navigation.map((item) => {
           const isActive = location.pathname === item.href;
           const Icon = item.icon;
@@ -94,7 +93,7 @@ export default function Sidebar() {
                   : 'text-slate-500 hover:text-slate-200'
               )}
             >
-              {/* Background */}
+              {/* Active background */}
               {isActive && (
                 <motion.div
                   layoutId="nav-active"
@@ -113,16 +112,19 @@ export default function Sidebar() {
                 />
               )}
 
-              {/* Icon with zoom on hover */}
+              {/* Icon - zoom solo sull'icona hover */}
               <motion.div
                 className="relative z-10 shrink-0"
-                whileHover={{ scale: 1.2 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                whileHover={{ scale: 1.3 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
               >
-                <Icon size={18} className={cn(isActive ? 'text-cyan-400' : 'group-hover/item:text-slate-200')} />
+                <Icon size={22} className={cn(
+                  'transition-colors duration-200',
+                  isActive ? 'text-cyan-400' : 'group-hover/item:text-slate-200'
+                )} />
               </motion.div>
 
-              {/* Text slides in */}
+              {/* Text - appare solo quando sidebar e' espansa */}
               <motion.span
                 animate={{
                   opacity: expanded ? 1 : 0,
@@ -153,7 +155,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 py-3 shrink-0">
+      <div className="px-4 py-3 shrink-0">
         <div className="h-px bg-white/[0.04] mb-2" />
         <div className={cn('flex items-center', expanded ? 'justify-between px-1' : 'justify-center')}>
           <div className="flex items-center gap-1.5">
