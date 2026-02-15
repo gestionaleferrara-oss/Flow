@@ -126,7 +126,7 @@ export default function UploadCSV() {
                     <Upload className="w-16 h-16 text-muted-foreground" />
                     <div>
                       <p className="text-lg font-medium">
-                        {isDragActive ? 'Rilascia il file qui' : 'Trascina un file CSV'}
+                        {isDragActive ? 'Rilascia il file qui' : 'Trascina un file CSV o XLSX'}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         oppure clicca per selezionare
