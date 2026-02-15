@@ -1,20 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Home,
-  Upload,
-  Package,
-  Users,
-  Truck,
-  ShoppingCart,
-  BarChart3,
-  Newspaper,
-  Menu,
-  X,
-  Sparkles,
-  ChevronRight,
-  Zap
+  Home, Upload, Package, Users, Truck, ShoppingCart,
+  BarChart3, Newspaper, Sparkles, Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -32,8 +21,7 @@ const navigation = [
 ];
 
 export default function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [expanded, setExpanded] = useState(false);
   const location = useLocation();
   const [time, setTime] = useState(new Date());
 
@@ -43,159 +31,152 @@ export default function Sidebar() {
   }, []);
 
   return (
-    <>
-      {/* Mobile toggle */}
-      <button
-        data-testid="sidebar-toggle"
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 left-4 z-50 lg:hidden p-3 rounded-xl
-          bg-white/5 backdrop-blur-xl border border-white/10
-          hover:bg-white/10 transition-all duration-300"
-      >
-        {isOpen ? <X size={20} /> : <Menu size={20} />}
-      </button>
+    <motion.aside
+      data-testid="sidebar"
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+      animate={{ width: expanded ? 230 : 68 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      className="fixed left-0 top-0 h-full z-50 flex flex-col overflow-hidden"
+      style={{
+        background: 'rgba(8, 12, 24, 0.65)',
+        backdropFilter: 'blur(40px)',
+        WebkitBackdropFilter: 'blur(40px)',
+        borderRight: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
+      {/* Top glow line */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
 
-      {/* Overlay */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-            onClick={() => setIsOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          'fixed left-0 top-0 h-full w-[220px] z-50 flex flex-col',
-          'transition-transform duration-300 lg:translate-x-0',
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        )}
-        style={{
-          background: 'rgba(8, 12, 24, 0.55)',
-          backdropFilter: 'blur(40px)',
-          WebkitBackdropFilter: 'blur(40px)',
-          borderRight: '1px solid rgba(255,255,255,0.05)'
-        }}
-      >
-        {/* Top accent line */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
-
-        {/* Logo */}
-        <Link
-          to="/"
-          className="flex items-center gap-3 px-5 py-5 group"
-          data-testid="logo-link"
-          onClick={() => setIsOpen(false)}
+      {/* Logo */}
+      <Link to="/" className="flex items-center gap-3 px-4 py-5 group shrink-0" data-testid="logo-link">
+        <motion.div
+          animate={{ scale: expanded ? 1 : 0.95 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+          className="relative shrink-0"
         >
-          <div className="relative w-9 h-9 flex items-center justify-center">
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 
-              blur-sm group-hover:blur-md transition-all duration-500" />
-            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 
-              flex items-center justify-center shadow-lg shadow-cyan-500/20
-              group-hover:shadow-cyan-500/40 transition-all duration-500">
-              <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
-            </div>
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 blur-sm 
+            group-hover:blur-md transition-all duration-500" />
+          <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 
+            flex items-center justify-center shadow-lg shadow-cyan-500/20
+            group-hover:shadow-cyan-500/40 transition-all duration-500">
+            <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
           </div>
-          <div className="overflow-hidden">
-            <h1 className="text-lg font-bold tracking-tight text-white leading-none">
-              Flusso
-            </h1>
-            <p className="text-[9px] text-slate-500 uppercase tracking-[0.25em] font-medium mt-0.5">
-              Business Hub
-            </p>
-          </div>
-        </Link>
+        </motion.div>
+        <motion.div
+          animate={{ opacity: expanded ? 1 : 0, x: expanded ? 0 : -8 }}
+          transition={{ duration: 0.15, delay: expanded ? 0.05 : 0 }}
+          className="overflow-hidden whitespace-nowrap"
+        >
+          <h1 className="text-base font-bold tracking-tight text-white leading-none">Flusso</h1>
+          <p className="text-[9px] text-slate-500 uppercase tracking-[0.2em] font-medium mt-0.5">Business Hub</p>
+        </motion.div>
+      </Link>
 
-        {/* Divider */}
-        <div className="mx-4 h-px bg-white/[0.04]" />
+      <div className="mx-3 h-px bg-white/[0.04]" />
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-          {navigation.map((item, index) => {
-            const isActive = location.pathname === item.href;
-            const Icon = item.icon;
-            const isHovered = hoveredIdx === index;
+      {/* Nav */}
+      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto overflow-x-hidden">
+        {navigation.map((item) => {
+          const isActive = location.pathname === item.href;
+          const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                data-testid={`nav-${item.name.toLowerCase().replace(/\s/g, '-')}`}
-                onClick={() => setIsOpen(false)}
-                onMouseEnter={() => setHoveredIdx(index)}
-                onMouseLeave={() => setHoveredIdx(null)}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative text-[13px] font-medium',
-                  isActive
-                    ? 'text-cyan-400'
-                    : 'text-slate-500 hover:text-slate-200'
-                )}
-              >
-                {/* Active/Hover background */}
-                {(isActive || isHovered) && (
-                  <motion.div
-                    layoutId="sidebar-bg"
-                    className={cn(
-                      'absolute inset-0 rounded-lg',
-                      isActive
-                        ? 'bg-white/[0.06] border border-white/[0.08]'
-                        : 'bg-white/[0.03]'
-                    )}
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  />
-                )}
-
-                {/* Active left bar */}
-                {isActive && (
-                  <motion.div
-                    layoutId="sidebar-indicator"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.6)]"
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  />
-                )}
-
-                <Icon
-                  size={17}
-                  className={cn(
-                    'relative z-10 transition-colors duration-200',
-                    isActive ? 'text-cyan-400' : ''
-                  )}
+          return (
+            <Link
+              key={item.name}
+              to={item.href}
+              data-testid={`nav-${item.name.toLowerCase().replace(/\s/g, '-')}`}
+              className={cn(
+                'relative flex items-center gap-3 rounded-lg transition-all duration-200 group/item',
+                expanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center',
+                isActive
+                  ? 'text-cyan-400'
+                  : 'text-slate-500 hover:text-slate-200'
+              )}
+            >
+              {/* Background */}
+              {isActive && (
+                <motion.div
+                  layoutId="nav-active"
+                  className="absolute inset-0 rounded-lg bg-white/[0.07] border border-white/[0.08]"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
-                <span className="relative z-10">{item.name}</span>
+              )}
 
-                {item.badge && (
-                  <span className="ml-auto relative z-10 px-1.5 py-0.5 text-[9px] font-bold bg-purple-500/25 text-purple-300 rounded-md border border-purple-500/20">
-                    {item.badge}
-                  </span>
-                )}
-                {isActive && !item.badge && (
-                  <ChevronRight size={14} className="ml-auto relative z-10 text-cyan-400/40" />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
+              {/* Left indicator */}
+              {isActive && (
+                <motion.div
+                  layoutId="nav-bar"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-cyan-400 
+                    shadow-[0_0_12px_rgba(34,211,238,0.7)]"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
 
-        {/* Footer */}
-        <div className="px-4 py-4">
-          <div className="h-px bg-white/[0.04] mb-3" />
-          <div className="flex items-center justify-between px-1">
-            <div>
-              <p className="text-[10px] font-medium text-slate-500">Flusso v2.1</p>
-              <p className="text-[9px] text-slate-600">{time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</p>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[9px] text-emerald-500/70">Online</span>
-            </div>
+              {/* Icon with zoom on hover */}
+              <motion.div
+                className="relative z-10 shrink-0"
+                whileHover={{ scale: 1.2 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+              >
+                <Icon size={18} className={cn(isActive ? 'text-cyan-400' : 'group-hover/item:text-slate-200')} />
+              </motion.div>
+
+              {/* Text slides in */}
+              <motion.span
+                animate={{
+                  opacity: expanded ? 1 : 0,
+                  x: expanded ? 0 : -10,
+                  width: expanded ? 'auto' : 0,
+                }}
+                transition={{ duration: 0.15, delay: expanded ? 0.03 : 0 }}
+                className="relative z-10 text-[13px] font-medium whitespace-nowrap overflow-hidden"
+              >
+                {item.name}
+              </motion.span>
+
+              {/* Badge */}
+              {item.badge && expanded && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.1 }}
+                  className="ml-auto relative z-10 px-1.5 py-0.5 text-[9px] font-bold bg-purple-500/25 
+                    text-purple-300 rounded-md border border-purple-500/20"
+                >
+                  {item.badge}
+                </motion.span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div className="px-3 py-3 shrink-0">
+        <div className="h-px bg-white/[0.04] mb-2" />
+        <div className={cn('flex items-center', expanded ? 'justify-between px-1' : 'justify-center')}>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <motion.span
+              animate={{ opacity: expanded ? 1 : 0, width: expanded ? 'auto' : 0 }}
+              transition={{ duration: 0.15 }}
+              className="text-[9px] text-emerald-500/70 whitespace-nowrap overflow-hidden"
+            >
+              Online
+            </motion.span>
           </div>
+          {expanded && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-[9px] text-slate-600"
+            >
+              {time.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+            </motion.p>
+          )}
         </div>
-      </aside>
-    </>
+      </div>
+    </motion.aside>
   );
 }
