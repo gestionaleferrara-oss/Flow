@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
@@ -13,23 +13,37 @@ export default function Vendite() {
   const [venditeGrouped, setVenditeGrouped] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [expandedRows, setExpandedRows] = useState({});
   const perPage = 20;
+  const isInitialLoad = useRef(true);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     loadVendite();
-  }, [search, page]);
+  }, [debouncedSearch, page]);
 
   const loadVendite = async () => {
-    setLoading(true);
+    // Only show full loading on initial load
+    if (isInitialLoad.current) {
+      setLoading(true);
+    }
+    
     try {
       const params = new URLSearchParams();
-      if (search) {
-        params.append('search', search);
+      if (debouncedSearch) {
+        params.append('search', debouncedSearch);
       }
       params.append('skip', (page - 1) * perPage);
-      params.append('limit', 500); // Get more to group properly
+      params.append('limit', 500);
       
       const response = await axios.get(`${API}/vendite?${params}`);
       
@@ -47,10 +61,11 @@ export default function Vendite() {
           };
         }
         grouped[key].prodotti.push(v);
-        grouped[key].totale += Math.abs(v.totale || (v.quantita * v.prezzo_unitario) || 0);
+        // Calcola totale come prezzo * quantità
+        const prodTotale = Math.abs((v.quantita || 0) * (v.prezzo_unitario || 0));
+        grouped[key].totale += prodTotale;
       });
       
-      // Convert to array and sort by date desc
       const groupedArray = Object.values(grouped)
         .sort((a, b) => b.data.localeCompare(a.data))
         .slice(0, perPage);
@@ -60,6 +75,7 @@ export default function Vendite() {
       console.error('Error loading vendite:', error);
     } finally {
       setLoading(false);
+      isInitialLoad.current = false;
     }
   };
 
