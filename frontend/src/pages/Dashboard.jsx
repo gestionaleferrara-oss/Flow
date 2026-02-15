@@ -58,13 +58,15 @@ export default function Dashboard() {
           format="currency"
           icon={Euro}
           gradient="blue"
+          trend={data?.crescitaPercentuale > 0 ? 'up' : data?.crescitaPercentuale < 0 ? 'down' : 'neutral'}
+          trendValue={data?.crescitaPercentuale}
+          subtitle={data?.fatturatoMesePrec > 0 ? `Mese prec: ${formatCurrency(data.fatturatoMesePrec)}` : null}
         />
         <StatCard
-          label="Crescita Vendite"
-          value={data?.crescitaPercentuale || 0}
-          format="percent"
-          icon={data?.crescitaPercentuale >= 0 ? TrendingUp : TrendingDown}
-          gradient={data?.crescitaPercentuale >= 0 ? 'emerald' : 'pink'}
+          label="Ordini Mese"
+          value={data?.ordiniMese || 0}
+          icon={ShoppingCart}
+          gradient="emerald"
         />
         <StatCard
           label="Nuovi Clienti"
