@@ -715,6 +715,93 @@ async def delete_fornitore(fornitore_id: str):
     return {"success": True}
 
 
+@api_router.get("/fornitori-with-stats")
+async def get_fornitori_with_stats(
+    search: Optional[str] = None,
+    limit: int = 100,
+    skip: int = 0
+):
+    """Get fornitori with calculated fatturato from ordini"""
+    query = {}
+    if search:
+        query["nome"] = {"$regex": search, "$options": "i"}
+    
+    fornitori = await db.fornitori.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    
+    # Get all ordini to calculate fatturato per fornitore
+    ordini = await db.ordini.find({}, {"_id": 0, "fornitore_nome": 1, "totale": 1}).to_list(100000)
+    
+    # Calculate fatturato per fornitore
+    fatturato_map = {}
+    for o in ordini:
+        fornitore_nome = o.get('fornitore_nome', '')
+        fatturato_map[fornitore_nome] = fatturato_map.get(fornitore_nome, 0) + abs(o.get('totale', 0))
+    
+    # Add calculated fatturato to each fornitore
+    for f in fornitori:
+        f['fatturato_totale'] = round(fatturato_map.get(f.get('nome', ''), 0), 2)
+    
+    return fornitori
+
+
+@api_router.put("/fornitori/{fornitore_id}/note")
+async def update_fornitore_note(fornitore_id: str, data: Dict[str, Any]):
+    """Update only the note field of a fornitore"""
+    result = await db.fornitori.update_one(
+        {"id": fornitore_id},
+        {"$set": {"note": data.get("note", "")}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Fornitore non trovato")
+    return {"success": True}
+
+
+@api_router.get("/fornitori/{fornitore_nome}/prodotti")
+async def get_fornitore_prodotti(fornitore_nome: str):
+    """Get all products purchased from a specific fornitore"""
+    from urllib.parse import unquote
+    fornitore_nome = unquote(fornitore_nome)
+    
+    # Get all ordini for this fornitore
+    ordini = await db.ordini.find(
+        {"fornitore_nome": fornitore_nome}, 
+        {"_id": 0, "prodotto_nome": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1, "data": 1}
+    ).to_list(10000)
+    
+    # Aggregate by product
+    prodotti_map = {}
+    for o in ordini:
+        prod_nome = o.get('prodotto_nome', '')
+        if prod_nome not in prodotti_map:
+            prodotti_map[prod_nome] = {
+                "nome": prod_nome,
+                "quantita_totale": 0,
+                "totale_speso": 0,
+                "num_ordini": 0,
+                "ultimo_ordine": "",
+                "ultimo_prezzo": 0
+            }
+        prodotti_map[prod_nome]["quantita_totale"] += abs(o.get('quantita', 0))
+        prodotti_map[prod_nome]["totale_speso"] += abs(o.get('totale', 0))
+        prodotti_map[prod_nome]["num_ordini"] += 1
+        
+        data_ordine = o.get('data', '')
+        if data_ordine > prodotti_map[prod_nome]["ultimo_ordine"]:
+            prodotti_map[prod_nome]["ultimo_ordine"] = data_ordine
+            prodotti_map[prod_nome]["ultimo_prezzo"] = o.get('prezzo_unitario', 0)
+    
+    # Convert to list and sort by totale_speso
+    prodotti_list = list(prodotti_map.values())
+    prodotti_list.sort(key=lambda x: -x['totale_speso'])
+    
+    return {
+        "fornitore": fornitore_nome,
+        "prodotti": prodotti_list,
+        "totale_prodotti": len(prodotti_list),
+        "totale_speso": sum(p['totale_speso'] for p in prodotti_list)
+    }
+
+
 # ----- Prodotti (Magazzino) -----
 @api_router.get("/prodotti", response_model=List[Prodotto])
 async def get_prodotti(
