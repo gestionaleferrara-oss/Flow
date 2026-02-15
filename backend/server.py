@@ -33,6 +33,25 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 
+# ======================= RSS NEWS SOURCES =======================
+RSS_SOURCES = [
+    {"name": "FreshPlaza", "url": "https://www.freshplaza.it/rss/", "categoria": "ortofrutta"},
+    {"name": "Italiafruit", "url": "https://www.italiafruit.net/rss.xml", "categoria": "ortofrutta"},
+    {"name": "AgriSole", "url": "https://www.agrisole.it/rss/", "categoria": "agricoltura"},
+    {"name": "ANSA Agricoltura", "url": "https://www.ansa.it/sito/notizie/economia/agroalimentare/agroalimentare_rss.xml", "categoria": "economia"},
+]
+
+# ======================= MARKET PRICE LINKS =======================
+MARKET_PRICE_LINKS = [
+    {"nome": "Bologna", "url": "https://www.cafrfruttaortaggi.it/listino/"},
+    {"nome": "Milano", "url": "https://www.mercatomilano.it/quotazioni-frutta-verdura/"},
+    {"nome": "Roma", "url": "https://www.carfruttaroma.it/listino/"},
+    {"nome": "Torino", "url": "https://www.mercatoortofrutticolo.com/quotazioni/"},
+    {"nome": "Verona", "url": "https://www.veronamercato.it/listino/"},
+    {"nome": "Padova", "url": "https://www.mercatipavani.it/quotazioni/"},
+]
+
+
 # ======================= MODELS =======================
 
 class BaseModelConfig(BaseModel):
