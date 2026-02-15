@@ -9,7 +9,7 @@ export function formatCurrency(value) {
   return new Intl.NumberFormat('it-IT', {
     style: 'currency',
     currency: 'EUR'
-  }).format(value || 0);
+  }).format(Math.abs(value || 0));
 }
 
 export function formatNumber(value) {

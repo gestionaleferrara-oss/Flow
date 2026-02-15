@@ -325,14 +325,14 @@ export default function Statistiche() {
           </div>
         </div>
 
-        {/* Top Prodotti Chart */}
+        {/* Top Prodotti Chart - by Euro */}
         <div className="bg-card border border-border/50 p-6 rounded-sm lg:col-span-2">
-          <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Prodotti per Quantita</h3>
+          <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Prodotti per Fatturato</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data?.topProdotti || []} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
-                <XAxis type="number" stroke="#71717A" fontSize={12} />
+                <XAxis type="number" stroke="#71717A" fontSize={12} tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`} />
                 <YAxis 
                   type="category" 
                   dataKey="nome" 
@@ -343,9 +343,9 @@ export default function Statistiche() {
                 />
                 <Tooltip
                   contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A' }}
-                  formatter={(value) => [value.toLocaleString('it-IT'), 'Quantita']}
+                  formatter={(value) => [formatCurrency(value), 'Fatturato']}
                 />
-                <Bar dataKey="quantita" fill="#3B82F6" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="totale_euro" fill="#10B981" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
