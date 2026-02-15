@@ -137,37 +137,50 @@ export default function ReportAI() {
                 </div>
               ) : (
                 reports.map((report, index) => (
-                  <button
+                  <div
                     key={report.id}
-                    onClick={() => setSelectedReport(report)}
                     className={cn(
-                      "w-full text-left p-3 rounded-lg transition-all",
+                      "w-full text-left p-3 rounded-lg transition-all relative group",
                       selectedReport?.id === report.id
                         ? "bg-blue-500/20 border border-blue-500/30"
                         : "bg-white/[0.02] hover:bg-white/[0.05] border border-transparent"
                     )}
-                    data-testid={`report-item-${index}`}
                   >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={cn(
-                        "px-2 py-0.5 text-xs rounded-full",
-                        report.tipo === 'settimanale' 
-                          ? "bg-purple-500/20 text-purple-300"
-                          : "bg-blue-500/20 text-blue-300"
-                      )}>
-                        {report.tipo === 'settimanale' ? '7gg' : '30gg'}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {formatDate(report.created_at)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-300 truncate">
-                        {formatCurrency(report.metriche?.fatturato || 0)}
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-slate-600" />
-                    </div>
-                  </button>
+                    <button
+                      onClick={() => setSelectedReport(report)}
+                      className="w-full text-left"
+                      data-testid={`report-item-${index}`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={cn(
+                          "px-2 py-0.5 text-xs rounded-full",
+                          report.tipo === 'settimanale' 
+                            ? "bg-purple-500/20 text-purple-300"
+                            : "bg-blue-500/20 text-blue-300"
+                        )}>
+                          {report.tipo === 'settimanale' ? '7gg' : '30gg'}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {formatDate(report.created_at)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-slate-300 truncate">
+                          {formatCurrency(report.metriche?.fatturato || 0)}
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-slate-600" />
+                      </div>
+                    </button>
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => deleteReport(report.id, e)}
+                      className="absolute top-2 right-2 p-1.5 rounded-md bg-red-500/0 hover:bg-red-500/20 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                      data-testid={`delete-report-${index}`}
+                      title="Elimina report"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 ))
               )}
             </div>
