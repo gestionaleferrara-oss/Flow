@@ -64,6 +64,9 @@ L'utente vuole migrare un'applicazione Google Apps Script a un'applicazione web 
 - `GET /api/vendite` - Lista vendite
 - `GET /api/ordini` - Lista ordini/acquisti
 - `GET /api/statistiche` - Statistiche vendite
+- `GET /api/statistiche/acquisti` - Statistiche acquisti
+- `GET /api/statistiche/acquisti/lists` - Liste per filtri acquisti
+- `GET /api/statistiche/fornitori-trend` - Trend fornitori 7gg
 - `GET /api/dashboard` - Dati dashboard
 - `GET /api/ai-suggestion` - Suggerimento AI settimanale
 - `POST /api/ai-suggestion/refresh` - Rigenera suggerimento
@@ -73,6 +76,8 @@ L'utente vuole migrare un'applicazione Google Apps Script a un'applicazione web 
 - `GET /api/fornitori-with-stats` - Fornitori con fatturato calcolato
 - `PUT /api/fornitori/{id}/note` - Aggiorna note fornitore
 - `GET /api/fornitori/{nome}/prodotti` - Prodotti acquistati da fornitore
+- `GET /api/prodotti/{nome}/analisi` - Analisi vendite prodotto
+- `GET /api/prodotti/{nome}/analisi-acquisti` - Analisi acquisti prodotto
 
 ## Database Collections
 - `clienti` - Anagrafica clienti
