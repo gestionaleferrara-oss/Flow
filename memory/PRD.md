@@ -1,49 +1,71 @@
-# Flusso - Gestione Aziendale
+# Flusso - Gestione Aziendale Ortofrutta
 
-## Problem Statement
-Migrazione di un'applicazione Google Apps Script a un'applicazione web full-stack moderna per la gestione aziendale di un'attività ortofrutticola.
+## Descrizione
+Applicazione web full-stack per la gestione aziendale nel settore ortofrutticolo. Migrazione da Google Apps Script a architettura moderna.
 
-## Core Requirements
-1. **Data Import**: Caricamento CSV/XLSX con vendite, automaticamente crea clienti/prodotti
-2. **Inventory Management (Magazzino)**: Visualizza stock con quantità minime editabili
-3. **Sales Tracking (Vendite)**: Storico vendite con dettaglio prodotti per cliente/giorno
-4. **Statistics Dashboard**: Grafici vendite mensili, top clienti, top prodotti
-5. **News Feed**: Notizie dal settore ortofrutticolo
-
-## Tech Stack
-- **Frontend**: React.js, Tailwind CSS, Recharts, Framer Motion
+## Stack Tecnologico
+- **Frontend**: React.js, Tailwind CSS, Framer Motion, Recharts
 - **Backend**: FastAPI, Python
 - **Database**: MongoDB
+- **UI Components**: Shadcn/UI
 
-## Current Status: MVP Operational
+## Funzionalità Implementate
 
-### Implemented Features
-- [x] Upload CSV/XLSX con parsing automatico
-- [x] Dashboard con KPI principali
-- [x] Grafico a torta Top Clienti con percentuali
-- [x] Grafico andamento vendite mensili
-- [x] Trend clienti attivi (ultimi 7 giorni)
-- [x] Magazzino con Q.tà importata (non editabile) e Q.tà Minima (editabile)
-- [x] Vendite raggruppate per cliente/giorno con espansione dettagli
-- [x] Calcolo automatico quantità prodotti da movimenti CARICO/SCARICO
-- [x] Esclusione "SCARICO VENDUTO" e "CLIENTE CORRISPETTIVI" dalle statistiche
-- [x] Font Quicksand e nome app "Flusso"
-- [x] Spinner soft senza testo
+### Core Features
+- [x] Upload CSV/XLSX per importazione dati vendite e acquisti
+- [x] Gestione automatica clienti, fornitori, prodotti
+- [x] Calcolo automatico quantità magazzino (CARICO/SCARICO)
+- [x] Dashboard con KPI e attività recenti
 
-### Known Issues
-- Alcuni prodotti mostrano quantità negative (vendite > carichi nel DB)
-- Il tooltip del pie chart potrebbe non essere visibile in tutti i browser
+### Pagine
+- [x] **Dashboard**: Overview con statistiche, suggerimenti AI, ricerca prodotti
+- [x] **Importa Dati**: Upload file CSV/XLSX
+- [x] **Magazzino**: Gestione prodotti con quantità e quantità minima editabile
+- [x] **Vendite**: Raggruppamento per cliente/data con righe espandibili
+- [x] **Clienti**: Lista con analisi dettagliata e campi editabili (WhatsApp, Email, Note)
+- [x] **Fornitori**: Gestione fornitori
+- [x] **Acquisti**: Raggruppamento per fornitore/data con righe espandibili
+- [x] **Statistiche**: Grafici vendite, top clienti, top prodotti, trend
+- [x] **Notizie**: Feed RSS da fonti ortofrutta
 
-### API Endpoints
-- POST `/api/upload-csv` - Import dati
-- GET `/api/statistiche` - KPI e grafici
-- GET `/api/statistiche/clienti-trend` - Trend clienti 7 giorni
-- GET `/api/prodotti` - Lista prodotti con filtri
-- POST `/api/prodotti/recalculate-quantities` - Ricalcola quantità
-- PUT `/api/prodotti/{id}` - Aggiorna Q.tà Minima/Scadenza
-- GET `/api/vendite` - Lista vendite raggruppate
+### Funzionalità Recenti (15/02/2025)
+- [x] Pagina Acquisti con raggruppamento (come Vendite)
+- [x] Scheda Analisi Cliente con campi editabili
+- [x] Ricerca prodotti da Dashboard con modal dedicato
+- [x] Suggerimento AI settimanale basato sui dati aziendali
+- [x] Filtro "SCARICO VENDUTO" da tutte le statistiche clienti
+- [x] Nuove statistiche prodotto: Fatturato Mensile, Trend, Clienti Unici
 
-## Backlog (P2)
-- [ ] Migliorare scraping immagini notizie
-- [ ] Refactoring server.py in moduli
-- [ ] Report esportabili
+## API Endpoints Principali
+- `POST /api/upload-csv` - Upload file dati
+- `GET /api/dashboard` - Dati dashboard
+- `GET /api/ai-suggestion` - Suggerimento AI settimanale
+- `GET /api/clienti` - Lista clienti
+- `PUT /api/clienti/{id}` - Aggiorna cliente
+- `GET /api/clienti/{id}/analisi` - Analisi cliente
+- `GET /api/prodotti` - Lista prodotti
+- `GET /api/prodotti/{nome}/analisi` - Analisi prodotto
+- `GET /api/vendite` - Vendite
+- `GET /api/ordini` - Acquisti
+- `GET /api/statistiche` - Statistiche vendite
+
+## Backlog / Future Tasks
+
+### P1 - Alta Priorità
+- [ ] Fix tooltip grafico a torta (hover non funziona)
+- [ ] Fix scraper notizie per immagini ilcorriereortofrutticolo
+
+### P2 - Media Priorità
+- [ ] Refactoring server.py in struttura modulare (routes, services, models)
+- [ ] Notifica UI per quantità negative in magazzino
+- [ ] Review originale Google Apps Script per features mancanti
+
+### P3 - Bassa Priorità
+- [ ] Esportazione dati in PDF/Excel
+- [ ] Backup automatico database
+- [ ] Dashboard mobile-responsive migliorata
+
+## Note Tecniche
+- Le quantità negative in magazzino sono tecnicamente corrette (più vendite che carichi registrati)
+- Il suggerimento AI viene cachato per settimana nel database
+- "SCARICO VENDUTO" è escluso da tutte le statistiche clienti
