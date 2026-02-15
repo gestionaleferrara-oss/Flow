@@ -48,7 +48,9 @@ export default function Dashboard() {
   const [showProdottoModal, setShowProdottoModal] = useState(false);
   const [selectedProdotto, setSelectedProdotto] = useState(null);
   const [prodottoAnalisi, setProdottoAnalisi] = useState(null);
+  const [prodottoAnalisiAcquisti, setProdottoAnalisiAcquisti] = useState(null);
   const [loadingAnalisi, setLoadingAnalisi] = useState(false);
+  const [analisiView, setAnalisiView] = useState('vendite'); // 'vendite' or 'acquisti'
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [alerts, setAlerts] = useState(null);
