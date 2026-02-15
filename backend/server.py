@@ -2477,8 +2477,14 @@ async def get_trends_frutta_secca():
                 values = df[kw].tolist()
                 current = values[-1] if values else 0
                 avg = sum(values) / len(values) if values else 0
-                # Confronto con la media del periodo (piu' stabile del week-over-week)
-                change = ((current - avg) / max(avg, 1)) * 100
+                
+                # Confronto ultime 2 settimane vs 2 precedenti (direzione recente)
+                if len(values) >= 4:
+                    recent = sum(values[-2:]) / 2
+                    prior = sum(values[-4:-2]) / 2
+                    change = ((recent - prior) / max(prior, 1)) * 100
+                else:
+                    change = 0.0
                 
                 # Last 12 points per sparkline
                 sparkline = values[-12:] if len(values) >= 12 else values
@@ -2489,7 +2495,7 @@ async def get_trends_frutta_secca():
                     "avg_interest": round(avg, 1),
                     "change_pct": round(change, 1),
                     "sparkline": sparkline,
-                    "trend": "up" if change > 10 else "down" if change < -10 else "stable"
+                    "trend": "up" if change > 5 else "down" if change < -5 else "stable"
                 })
             
             results.sort(key=lambda x: x["current_interest"], reverse=True)
