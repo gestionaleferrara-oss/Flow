@@ -353,26 +353,6 @@ export default function Statistiche() {
           />
         </div>
       )}
-            <StatCard
-              label="Articoli Venduti"
-              value={data?.totaleArticoli || 0}
-              icon={Package}
-            />
-            <StatCard
-              label="Totale Venduto"
-              value={data?.totaleEuro || 0}
-              format="currency"
-              icon={ShoppingBag}
-            />
-          </>
-        )}
-        
-        <StatCard
-          label="Clienti Attivi"
-          value={data?.clientiAttivi || 0}
-          icon={Users}
-        />
-      </div>
 
       {/* Filters */}
       <div className="bg-muted p-4 rounded-lg mb-8">
@@ -415,9 +395,62 @@ export default function Statistiche() {
             )}
           </div>
 
-          {/* Cliente */}
-          <div className="relative">
-            <Input
+          {/* Cliente or Fornitore based on viewMode */}
+          {viewMode === 'vendite' ? (
+            <div className="relative">
+              <Input
+                placeholder="Cliente"
+                value={filters.cliente}
+                onChange={(e) => setFilters({ ...filters, cliente: e.target.value })}
+                onFocus={() => setShowSuggestions({ ...showSuggestions, cliente: true })}
+                onBlur={() => setTimeout(() => setShowSuggestions({ ...showSuggestions, cliente: false }), 200)}
+                data-testid="filter-cliente"
+              />
+              {showSuggestions.cliente && filters.cliente && (
+                <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-lg mt-1 max-h-48 overflow-auto z-10">
+                  {lists.clienti
+                    .filter(c => c.toLowerCase().includes(filters.cliente.toLowerCase()))
+                    .slice(0, 10)
+                    .map((c, i) => (
+                      <div
+                        key={i}
+                        className="px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                        onClick={() => setFilters({ ...filters, cliente: c })}
+                      >
+                        {c}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="relative">
+              <Input
+                placeholder="Fornitore"
+                value={filters.fornitore}
+                onChange={(e) => setFilters({ ...filters, fornitore: e.target.value })}
+                onFocus={() => setShowSuggestions({ ...showSuggestions, fornitore: true })}
+                onBlur={() => setTimeout(() => setShowSuggestions({ ...showSuggestions, fornitore: false }), 200)}
+                data-testid="filter-fornitore"
+              />
+              {showSuggestions.fornitore && filters.fornitore && (
+                <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-lg mt-1 max-h-48 overflow-auto z-10">
+                  {(lists.fornitori || [])
+                    .filter(f => f.toLowerCase().includes(filters.fornitore.toLowerCase()))
+                    .slice(0, 10)
+                    .map((f, i) => (
+                      <div
+                        key={i}
+                        className="px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                        onClick={() => setFilters({ ...filters, fornitore: f })}
+                      >
+                        {f}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
               placeholder="Cliente"
               value={filters.cliente}
               onChange={(e) => setFilters({ ...filters, cliente: e.target.value })}
