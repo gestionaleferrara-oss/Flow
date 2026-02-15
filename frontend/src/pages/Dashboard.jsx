@@ -479,99 +479,221 @@ export default function Dashboard() {
             </DialogTitle>
           </DialogHeader>
           
+          {/* Switch Vendite/Acquisti */}
+          <div className="flex p-1 bg-slate-800 rounded-lg mt-2">
+            <button
+              onClick={() => setAnalisiView('vendite')}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-all",
+                analisiView === 'vendite' 
+                  ? "bg-emerald-500/20 text-emerald-400 shadow-sm" 
+                  : "text-slate-400 hover:text-slate-300"
+              )}
+              data-testid="switch-vendite"
+            >
+              <Users className="w-4 h-4" />
+              Vendite / Clienti
+            </button>
+            <button
+              onClick={() => setAnalisiView('acquisti')}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-all",
+                analisiView === 'acquisti' 
+                  ? "bg-blue-500/20 text-blue-400 shadow-sm" 
+                  : "text-slate-400 hover:text-slate-300"
+              )}
+              data-testid="switch-acquisti"
+            >
+              <Truck className="w-4 h-4" />
+              Acquisti / Fornitori
+            </button>
+          </div>
+          
           {loadingAnalisi ? (
             <LoadingSpinner />
-          ) : prodottoAnalisi ? (
-            <div className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Fatturato Mensile</p>
-                  <p className="font-heading text-2xl font-bold text-emerald-400">
-                    {formatCurrency(prodottoAnalisi.fatturatoMensile || 0)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">media 6 mesi</p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Prezzo Medio Vendita</p>
-                  <p className="font-heading text-2xl font-bold text-blue-400">
-                    {formatCurrency(prodottoAnalisi.prezzoMedioVendita || 0)}
-                  </p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Trend Vendite</p>
-                  <div className="flex items-center gap-2">
-                    {(prodottoAnalisi.trendPercentuale || 0) >= 0 ? (
-                      <TrendingUp className="w-5 h-5 text-emerald-400" />
-                    ) : (
-                      <TrendingDown className="w-5 h-5 text-red-400" />
-                    )}
-                    <p className={cn(
-                      "font-heading text-2xl font-bold",
-                      (prodottoAnalisi.trendPercentuale || 0) >= 0 ? "text-emerald-400" : "text-red-400"
-                    )}>
-                      {prodottoAnalisi.trendPercentuale > 0 ? '+' : ''}{prodottoAnalisi.trendPercentuale || 0}%
-                    </p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">vs mese prec.</p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Clienti Unici</p>
-                  <p className="font-heading text-2xl font-bold text-purple-400">
-                    {prodottoAnalisi.clientiUnici || 0}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="p-4 bg-primary/10 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-1">Clienti Principali</p>
-                <p className="font-medium text-primary">
-                  {prodottoAnalisi.clientiPrincipali || 'Nessun dato'}
-                </p>
-              </div>
-
-              {/* Info prodotto */}
-              <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-                <p className="text-sm text-muted-foreground mb-2">Stato Magazzino</p>
+          ) : analisiView === 'vendite' ? (
+            // Vista Vendite/Clienti
+            prodottoAnalisi ? (
+              <div className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-xs text-slate-500">Quantità</span>
-                    <p className={cn(
-                      "font-mono font-bold text-lg",
-                      (selectedProdotto?.quantita || 0) <= 0 ? "text-red-400" : "text-emerald-400"
-                    )}>
-                      {selectedProdotto?.quantita?.toLocaleString('it-IT') || 0}
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Fatturato Mensile</p>
+                    <p className="font-heading text-2xl font-bold text-emerald-400">
+                      {formatCurrency(prodottoAnalisi.fatturatoMensile || 0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">media 6 mesi</p>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Prezzo Medio Vendita</p>
+                    <p className="font-heading text-2xl font-bold text-blue-400">
+                      {formatCurrency(prodottoAnalisi.prezzoMedioVendita || 0)}
                     </p>
                   </div>
-                  <div>
-                    <span className="text-xs text-slate-500">Giorni Rimanenti</span>
-                    <p className={cn(
-                      "font-mono font-bold text-lg",
-                      typeof prodottoAnalisi.giorniEsaurimento === 'number' && prodottoAnalisi.giorniEsaurimento < 14 
-                        ? "text-red-400" 
-                        : "text-blue-400"
-                    )}>
-                      {prodottoAnalisi.giorniEsaurimento || 'N/A'}
-                    </p>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Trend Vendite</p>
+                    <div className="flex items-center gap-2">
+                      {(prodottoAnalisi.trendPercentuale || 0) >= 0 ? (
+                        <TrendingUp className="w-5 h-5 text-emerald-400" />
+                      ) : (
+                        <TrendingDown className="w-5 h-5 text-red-400" />
+                      )}
+                      <p className={cn(
+                        "font-heading text-2xl font-bold",
+                        (prodottoAnalisi.trendPercentuale || 0) >= 0 ? "text-emerald-400" : "text-red-400"
+                      )}>
+                        {prodottoAnalisi.trendPercentuale > 0 ? '+' : ''}{prodottoAnalisi.trendPercentuale || 0}%
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">vs mese prec.</p>
                   </div>
-                  <div>
-                    <span className="text-xs text-slate-500">Vendita Media/Mese</span>
-                    <p className="font-mono text-slate-300">
-                      {prodottoAnalisi.mediaMensile?.toLocaleString('it-IT') || 0}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-500">Ultima Vendita</span>
-                    <p className="font-mono text-slate-300">
-                      {formatDate(prodottoAnalisi.ultimaVendita)}
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Clienti Unici</p>
+                    <p className="font-heading text-2xl font-bold text-purple-400">
+                      {prodottoAnalisi.clientiUnici || 0}
                     </p>
                   </div>
                 </div>
+                
+                <div className="p-4 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                  <p className="text-sm text-muted-foreground mb-1">Clienti Principali</p>
+                  <p className="font-medium text-emerald-400">
+                    {prodottoAnalisi.clientiPrincipali || 'Nessun dato'}
+                  </p>
+                </div>
+
+                {/* Info prodotto */}
+                <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <p className="text-sm text-muted-foreground mb-2">Stato Magazzino</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-xs text-slate-500">Quantità</span>
+                      <p className={cn(
+                        "font-mono font-bold text-lg",
+                        (selectedProdotto?.quantita || 0) <= 0 ? "text-red-400" : "text-emerald-400"
+                      )}>
+                        {selectedProdotto?.quantita?.toLocaleString('it-IT') || 0}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500">Giorni Rimanenti</span>
+                      <p className={cn(
+                        "font-mono font-bold text-lg",
+                        typeof prodottoAnalisi.giorniEsaurimento === 'number' && prodottoAnalisi.giorniEsaurimento < 14 
+                          ? "text-red-400" 
+                          : "text-blue-400"
+                      )}>
+                        {prodottoAnalisi.giorniEsaurimento || 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500">Vendita Media/Mese</span>
+                      <p className="font-mono text-slate-300">
+                        {prodottoAnalisi.mediaMensile?.toLocaleString('it-IT') || 0}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500">Ultima Vendita</span>
+                      <p className="font-mono text-slate-300">
+                        {formatDate(prodottoAnalisi.ultimaVendita)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                Nessun dato di vendita per questo prodotto
+              </div>
+            )
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              Nessun dato di vendita per questo prodotto
-            </div>
+            // Vista Acquisti/Fornitori
+            prodottoAnalisiAcquisti ? (
+              <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Speso Mensile</p>
+                    <p className="font-heading text-2xl font-bold text-blue-400">
+                      {formatCurrency(prodottoAnalisiAcquisti.spesoMensile || 0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">media 6 mesi</p>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Prezzo Medio Acquisto</p>
+                    <p className="font-heading text-2xl font-bold text-amber-400">
+                      {formatCurrency(prodottoAnalisiAcquisti.prezzoMedioAcquisto || 0)}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Trend Acquisti</p>
+                    <div className="flex items-center gap-2">
+                      {(prodottoAnalisiAcquisti.trendPercentuale || 0) >= 0 ? (
+                        <TrendingUp className="w-5 h-5 text-blue-400" />
+                      ) : (
+                        <TrendingDown className="w-5 h-5 text-emerald-400" />
+                      )}
+                      <p className={cn(
+                        "font-heading text-2xl font-bold",
+                        (prodottoAnalisiAcquisti.trendPercentuale || 0) >= 0 ? "text-blue-400" : "text-emerald-400"
+                      )}>
+                        {prodottoAnalisiAcquisti.trendPercentuale > 0 ? '+' : ''}{prodottoAnalisiAcquisti.trendPercentuale || 0}%
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">vs mese prec.</p>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Fornitori Unici</p>
+                    <p className="font-heading text-2xl font-bold text-purple-400">
+                      {prodottoAnalisiAcquisti.fornitoriUnici || 0}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                  <p className="text-sm text-muted-foreground mb-1">Fornitori Principali</p>
+                  <p className="font-medium text-blue-400">
+                    {prodottoAnalisiAcquisti.fornitoriPrincipali || 'Nessun dato'}
+                  </p>
+                </div>
+
+                {/* Info acquisti */}
+                <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <p className="text-sm text-muted-foreground mb-2">Storico Acquisti</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-xs text-slate-500">Totale Ordini</span>
+                      <p className="font-mono font-bold text-lg text-blue-400">
+                        {prodottoAnalisiAcquisti.numOrdini || 0}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500">Ultimo Acquisto</span>
+                      <p className="font-mono text-slate-300">
+                        {formatDate(prodottoAnalisiAcquisti.ultimoAcquisto)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500">Acquisto Medio/Mese</span>
+                      <p className="font-mono text-slate-300">
+                        {prodottoAnalisiAcquisti.mediaMensile?.toLocaleString('it-IT') || 0}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500">Quantità Attuale</span>
+                      <p className={cn(
+                        "font-mono font-bold text-lg",
+                        (selectedProdotto?.quantita || 0) <= 0 ? "text-red-400" : "text-emerald-400"
+                      )}>
+                        {selectedProdotto?.quantita?.toLocaleString('it-IT') || 0}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                Nessun dato di acquisto per questo prodotto
+              </div>
+            )
           )}
         </DialogContent>
       </Dialog>
