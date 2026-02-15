@@ -451,30 +451,6 @@ export default function Statistiche() {
               )}
             </div>
           )}
-              placeholder="Cliente"
-              value={filters.cliente}
-              onChange={(e) => setFilters({ ...filters, cliente: e.target.value })}
-              onFocus={() => setShowSuggestions({ ...showSuggestions, cliente: true })}
-              onBlur={() => setTimeout(() => setShowSuggestions({ ...showSuggestions, cliente: false }), 200)}
-              data-testid="filter-cliente"
-            />
-            {showSuggestions.cliente && filters.cliente && (
-              <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-lg mt-1 max-h-48 overflow-auto z-10">
-                {lists.clienti
-                  .filter(c => c.toLowerCase().includes(filters.cliente.toLowerCase()))
-                  .slice(0, 10)
-                  .map((c, i) => (
-                    <div
-                      key={i}
-                      className="px-3 py-2 hover:bg-muted cursor-pointer text-sm"
-                      onClick={() => setFilters({ ...filters, cliente: c })}
-                    >
-                      {c}
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
 
           {/* Date Range */}
           <Input
@@ -509,15 +485,16 @@ export default function Statistiche() {
         </div>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly Sales Chart */}
-        <div className="bg-card border border-border/50 p-6 rounded-xl">
-          <h3 className="font-heading text-lg font-semibold uppercase mb-4">Andamento Vendite Mensili</h3>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data?.venditeMensili || []}>
-                <defs>
+      {/* Charts - Conditional based on viewMode */}
+      {viewMode === 'vendite' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Monthly Sales Chart */}
+          <div className="bg-card border border-border/50 p-6 rounded-xl">
+            <h3 className="font-heading text-lg font-semibold uppercase mb-4">Andamento Vendite Mensili</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data?.venditeMensili || []}>
+                  <defs>
                   <linearGradient id="colorVendite" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
