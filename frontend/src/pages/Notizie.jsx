@@ -1,18 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  RefreshCw, 
-  ExternalLink, 
-  Cloud, 
-  Sun, 
-  CloudRain, 
-  Snowflake,
-  Wind,
-  Droplets,
-  TrendingUp,
-  Filter,
-  X
+import {
+  RefreshCw, ExternalLink, X, Wind, Droplets, Thermometer,
+  MapPin, Clock, ArrowUpRight, FileText, CloudSun
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
@@ -21,30 +12,31 @@ import { cn } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Weather code to icon mapping
-const weatherIcons = {
-  0: { icon: '☀️', name: 'Sereno' },
-  1: { icon: '🌤️', name: 'Prevalentemente sereno' },
-  2: { icon: '⛅', name: 'Parzialmente nuvoloso' },
-  3: { icon: '☁️', name: 'Nuvoloso' },
-  45: { icon: '🌫️', name: 'Nebbia' },
-  48: { icon: '🌫️', name: 'Nebbia ghiacciata' },
-  51: { icon: '🌦️', name: 'Pioggerella' },
-  53: { icon: '🌦️', name: 'Pioggerella' },
-  55: { icon: '🌧️', name: 'Pioggerella intensa' },
-  61: { icon: '🌧️', name: 'Pioggia leggera' },
-  63: { icon: '🌧️', name: 'Pioggia' },
-  65: { icon: '🌧️', name: 'Pioggia forte' },
-  71: { icon: '🌨️', name: 'Neve leggera' },
-  73: { icon: '🌨️', name: 'Neve' },
-  75: { icon: '❄️', name: 'Neve forte' },
-  80: { icon: '⛈️', name: 'Rovescio' },
-  81: { icon: '⛈️', name: 'Rovescio forte' },
-  82: { icon: '⛈️', name: 'Rovescio violento' },
-  95: { icon: '🌩️', name: 'Temporale' },
+const weatherMeta = {
+  0: { label: 'Sereno', icon: '☀️', gradient: 'from-amber-500/20 via-orange-500/10 to-yellow-500/5' },
+  1: { label: 'Prevalentemente sereno', icon: '🌤️', gradient: 'from-amber-500/15 via-sky-500/10 to-blue-500/5' },
+  2: { label: 'Parzialmente nuvoloso', icon: '⛅', gradient: 'from-sky-500/15 via-slate-500/10 to-blue-500/5' },
+  3: { label: 'Nuvoloso', icon: '☁️', gradient: 'from-slate-500/20 via-gray-500/10 to-slate-600/5' },
+  45: { label: 'Nebbia', icon: '🌫️', gradient: 'from-gray-400/20 via-slate-500/10 to-gray-600/5' },
+  48: { label: 'Nebbia ghiacciata', icon: '🌫️', gradient: 'from-cyan-400/20 via-slate-500/10 to-gray-600/5' },
+  51: { label: 'Pioggerella', icon: '🌦️', gradient: 'from-blue-400/20 via-sky-500/10 to-slate-500/5' },
+  53: { label: 'Pioggerella', icon: '🌦️', gradient: 'from-blue-400/20 via-sky-500/10 to-slate-500/5' },
+  55: { label: 'Pioggerella intensa', icon: '🌧️', gradient: 'from-blue-500/25 via-indigo-500/10 to-slate-500/5' },
+  61: { label: 'Pioggia leggera', icon: '🌧️', gradient: 'from-blue-500/20 via-sky-600/10 to-slate-500/5' },
+  63: { label: 'Pioggia', icon: '🌧️', gradient: 'from-blue-600/25 via-indigo-500/10 to-slate-600/5' },
+  65: { label: 'Pioggia forte', icon: '🌧️', gradient: 'from-indigo-500/25 via-blue-600/10 to-slate-700/5' },
+  71: { label: 'Neve leggera', icon: '🌨️', gradient: 'from-cyan-300/20 via-blue-200/10 to-white/5' },
+  73: { label: 'Neve', icon: '🌨️', gradient: 'from-cyan-300/25 via-blue-200/10 to-white/5' },
+  75: { label: 'Neve forte', icon: '❄️', gradient: 'from-cyan-200/25 via-blue-100/10 to-white/5' },
+  80: { label: 'Rovescio', icon: '⛈️', gradient: 'from-indigo-500/25 via-purple-500/10 to-slate-600/5' },
+  81: { label: 'Rovescio forte', icon: '⛈️', gradient: 'from-indigo-600/25 via-purple-600/10 to-slate-700/5' },
+  82: { label: 'Rovescio violento', icon: '⛈️', gradient: 'from-purple-600/25 via-indigo-600/10 to-slate-800/5' },
+  95: { label: 'Temporale', icon: '🌩️', gradient: 'from-purple-500/25 via-indigo-600/10 to-slate-800/5' },
 };
 
-const fallbackImage = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250' fill='%236c757d'%3E%3Crect width='100%25' height='100%25' fill='%231e293b'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%2364748b'%3EImmagine non disponibile%3C/text%3E%3C/svg%3E";
+const getWeather = (code) => weatherMeta[code] || { label: 'Sconosciuto', icon: '❓', gradient: 'from-slate-500/20 to-slate-600/5' };
+
+const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250'%3E%3Crect width='100%25' height='100%25' fill='%23111827'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='13' fill='%23475569'%3EImmagine non disponibile%3C/text%3E%3C/svg%3E";
 
 export default function Notizie() {
   const [notizie, setNotizie] = useState([]);
@@ -54,11 +46,8 @@ export default function Notizie() {
   const [prezziMercati, setPrezziMercati] = useState([]);
   const [categorie, setCategorie] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState('all');
-  const [selectedArticle, setSelectedArticle] = useState(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
@@ -67,171 +56,211 @@ export default function Notizie() {
         axios.get(`${API}/meteo`),
         axios.get(`${API}/prezzi-mercati`)
       ]);
-      
       setNotizie(notizieRes.data);
       setMeteo(meteoRes.data);
       setPrezziMercati(prezziRes.data);
-      
-      // Extract unique categories
       const cats = [...new Set(notizieRes.data.map(n => n.categoria))];
       setCategorie(cats);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 
   const refreshNews = async () => {
     setRefreshing(true);
     try {
       await axios.post(`${API}/notizie/refresh`);
-      // Wait a bit for background refresh
       setTimeout(async () => {
         const response = await axios.get(`${API}/notizie`);
         setNotizie(response.data);
         setRefreshing(false);
       }, 3000);
-    } catch (error) {
-      console.error('Error refreshing news:', error);
-      setRefreshing(false);
-    }
+    } catch (error) { setRefreshing(false); }
   };
 
-  const filteredNotizie = selectedCategoria === 'all' 
-    ? notizie 
-    : notizie.filter(n => n.categoria === selectedCategoria);
-
-  const getWeatherIcon = useCallback((code) => {
-    return weatherIcons[code] || { icon: '❓', name: 'Sconosciuto' };
-  }, []);
+  const filtered = selectedCategoria === 'all' ? notizie : notizie.filter(n => n.categoria === selectedCategoria);
+  const heroArticle = filtered[0];
+  const restArticles = filtered.slice(1);
 
   if (loading) return <LoadingSpinner fullScreen />;
 
+  const cw = meteo?.current_weather;
+  const daily = meteo?.daily;
+  const w = cw ? getWeather(cw.weathercode) : null;
+
   return (
     <PageWrapper>
-      <PageHeader
-        title="Notizie di Mercato"
-        subtitle="Ultime notizie e prezzi dal mondo dell'ortofrutta"
-      >
-        <Button 
-          onClick={refreshNews} 
+      <PageHeader title="Notizie & Mercati" subtitle="Il polso del settore ortofrutticolo">
+        <Button
+          onClick={refreshNews}
           disabled={refreshing}
           data-testid="refresh-news-btn"
-          className="bg-white/10 border border-white/20 hover:bg-white/20 text-white hover:text-white disabled:text-white/70"
+          className="bg-white/10 border border-white/20 hover:bg-white/20 text-white hover:text-white"
         >
           <RefreshCw className={cn('w-4 h-4 mr-2', refreshing && 'animate-spin')} />
           {refreshing ? 'Aggiornamento...' : 'Aggiorna'}
         </Button>
       </PageHeader>
 
-      {/* Widgets Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* Weather Widget */}
-        {meteo && meteo.current_weather && (
+      {/* === TOP SECTION: Meteo + Mercati === */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-8">
+
+        {/* METEO CARD — 3 colonne */}
+        {cw && w && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="widget-card"
+            className={cn(
+              'lg:col-span-3 relative rounded-2xl overflow-hidden border border-white/[0.08]',
+              'bg-gradient-to-br', w.gradient
+            )}
+            style={{
+              background: 'linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
+              backdropFilter: 'blur(20px)',
+            }}
             data-testid="weather-widget"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <span className="text-5xl">
-                  {getWeatherIcon(meteo.current_weather.weathercode).icon}
+            {/* Background gradient overlay */}
+            <div className={cn('absolute inset-0 bg-gradient-to-br opacity-60', w.gradient)} />
+
+            <div className="relative z-10 p-6">
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-5">
+                <MapPin className="w-4 h-4 text-cyan-400" />
+                <span className="text-sm font-medium text-slate-300">Bologna, Italia</span>
+                <span className="text-xs text-slate-500 ml-auto">
+                  {new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </span>
-                <div>
-                  <p className="text-4xl font-bold tracking-tight">
-                    {Math.round(meteo.current_weather.temperature)}°
-                  </p>
-                  <p className="text-sm text-slate-400">
-                    {getWeatherIcon(meteo.current_weather.weathercode).name}
-                  </p>
+              </div>
+
+              {/* Main temp + icon */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-end gap-4">
+                  <span className="text-7xl leading-none">{w.icon}</span>
+                  <div>
+                    <p className="text-5xl font-extrabold tracking-tight text-white leading-none">
+                      {Math.round(cw.temperature)}°
+                    </p>
+                    <p className="text-sm text-slate-400 mt-1 font-medium">{w.label}</p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                    <Wind className="w-4 h-4 text-sky-400" />
+                    <span>{Math.round(cw.windspeed)} km/h</span>
+                  </div>
+                  {daily && (
+                    <>
+                      <div className="flex items-center gap-2 text-sm text-slate-400">
+                        <Thermometer className="w-4 h-4 text-red-400" />
+                        <span>Max {Math.round(daily.temperature_2m_max[0])}°</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-slate-400">
+                        <Thermometer className="w-4 h-4 text-blue-400" />
+                        <span>Min {Math.round(daily.temperature_2m_min[0])}°</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
-              <div className="text-right text-sm text-slate-500">
-                <p className="font-medium text-slate-400">Bologna</p>
-                <p>Oggi</p>
-              </div>
+
+              {/* 7-day forecast strip */}
+              {daily && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {daily.time.slice(1, 7).map((date, idx) => {
+                    const dw = getWeather(daily.weathercode[idx + 1]);
+                    const dayName = new Date(date).toLocaleDateString('it-IT', { weekday: 'short' });
+                    return (
+                      <div
+                        key={date}
+                        className="flex-1 min-w-[72px] flex flex-col items-center py-2.5 px-2 rounded-xl
+                          bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] transition-colors"
+                      >
+                        <p className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">{dayName}</p>
+                        <span className="text-xl my-1.5">{dw.icon}</span>
+                        <div className="flex items-center gap-1 text-xs">
+                          <span className="font-semibold text-white">{Math.round(daily.temperature_2m_max[idx + 1])}°</span>
+                          <span className="text-slate-500">{Math.round(daily.temperature_2m_min[idx + 1])}°</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            
-            {/* Forecast */}
-            {meteo.daily && (
-              <div className="flex justify-between pt-4 border-t border-white/5">
-                {meteo.daily.time.slice(1, 4).map((date, idx) => {
-                  const dayName = new Date(date).toLocaleDateString('it-IT', { weekday: 'short' });
-                  return (
-                    <div key={date} className="text-center">
-                      <p className="text-xs text-slate-500 uppercase">{dayName}</p>
-                      <span className="text-2xl my-1 block">
-                        {getWeatherIcon(meteo.daily.weathercode[idx + 1]).icon}
-                      </span>
-                      <p className="text-sm font-medium">
-                        {Math.round(meteo.daily.temperature_2m_max[idx + 1])}°
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </motion.div>
         )}
 
-        {/* Market Prices Widget */}
+        {/* MERCATI CARD — 2 colonne */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="widget-card"
+          className="lg:col-span-2 rounded-2xl overflow-hidden border border-white/[0.08] p-5"
+          style={{
+            background: 'linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
+            backdropFilter: 'blur(20px)',
+          }}
           data-testid="prices-widget"
         >
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/5">
-            <TrendingUp className="w-5 h-5 text-emerald-400" />
-            <h3 className="font-semibold text-slate-300">Prezzi Mercati Ingrosso</h3>
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+              <FileText className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white">Listini Mercato</h3>
+              <p className="text-[11px] text-slate-500">Prezzi ingrosso aggiornati</p>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+
+          <div className="space-y-2">
             {prezziMercati.map((mercato, idx) => (
-              <a
+              <motion.a
                 key={mercato.nome}
                 href={mercato.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between px-3 py-2.5 rounded-lg 
-                  bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] 
-                  hover:border-blue-500/30 transition-all duration-300 group"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.15 + idx * 0.03 }}
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl group
+                  bg-white/[0.03] border border-white/[0.05]
+                  hover:bg-emerald-500/[0.08] hover:border-emerald-500/20 transition-all duration-300"
               >
-                <span className="text-sm text-slate-400 group-hover:text-slate-200 transition-colors">
-                  {mercato.nome}
-                </span>
-                <ExternalLink className="w-3.5 h-3.5 text-slate-600 group-hover:text-blue-400 transition-colors" />
-              </a>
+                <div className="flex items-center gap-2.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                  <span className="text-sm text-slate-400 group-hover:text-slate-200 transition-colors font-medium">
+                    {mercato.nome}
+                  </span>
+                </div>
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-emerald-400 transition-all
+                  group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </motion.a>
             ))}
           </div>
         </motion.div>
       </div>
 
-      {/* Category Filters */}
-      <div className="flex flex-wrap gap-2 mb-6" data-testid="category-filters">
+      {/* === CATEGORY FILTERS === */}
+      <div className="flex flex-wrap items-center gap-2 mb-6" data-testid="category-filters">
         <button
           onClick={() => setSelectedCategoria('all')}
           className={cn(
-            'px-4 py-2 rounded-full text-sm font-medium transition-all duration-300',
+            'px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-300',
             selectedCategoria === 'all'
-              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-              : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
+              ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/25 shadow-sm shadow-cyan-500/10'
+              : 'bg-white/[0.04] text-slate-500 border border-white/[0.06] hover:bg-white/[0.08] hover:text-slate-300'
           )}
         >
-          Tutte
+          Tutte ({notizie.length})
         </button>
         {categorie.map(cat => (
           <button
             key={cat}
             onClick={() => setSelectedCategoria(cat)}
             className={cn(
-              'px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 capitalize',
+              'px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-300 capitalize',
               selectedCategoria === cat
-                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
+                ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/25 shadow-sm shadow-cyan-500/10'
+                : 'bg-white/[0.04] text-slate-500 border border-white/[0.06] hover:bg-white/[0.08] hover:text-slate-300'
             )}
           >
             {cat}
@@ -239,41 +268,100 @@ export default function Notizie() {
         ))}
       </div>
 
-      {/* News Grid */}
-      {filteredNotizie.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* === HERO ARTICLE === */}
+      {heroArticle && (
+        <motion.article
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="relative mb-8 rounded-2xl overflow-hidden cursor-pointer group border border-white/[0.08]"
+          onClick={() => heroArticle.url && window.open(heroArticle.url, '_blank')}
+          data-testid="hero-news-card"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2">
+            <div className="relative h-[240px] lg:h-auto overflow-hidden">
+              <img
+                src={heroArticle.immagine_url || fallbackImg}
+                alt={heroArticle.titolo}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                onError={(e) => { e.target.src = fallbackImg; }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-transparent lg:hidden" />
+            </div>
+            <div className="p-6 lg:p-8 flex flex-col justify-center"
+              style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)' }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <span className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-cyan-500/15 text-cyan-400 rounded-lg border border-cyan-500/20">
+                  {heroArticle.fonte}
+                </span>
+                {heroArticle.data_pubblicazione && (
+                  <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                    <Clock className="w-3 h-3" />
+                    {new Date(heroArticle.data_pubblicazione).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                  </span>
+                )}
+              </div>
+              <h2 className="text-xl lg:text-2xl font-bold text-white mb-3 leading-snug line-clamp-3 group-hover:text-cyan-300 transition-colors duration-300">
+                {heroArticle.titolo}
+              </h2>
+              <p className="text-sm text-slate-400 leading-relaxed line-clamp-3 mb-4">
+                {heroArticle.descrizione || heroArticle.contenuto}
+              </p>
+              <div className="flex items-center gap-2 text-cyan-400 text-sm font-medium group-hover:gap-3 transition-all duration-300">
+                <span>Leggi articolo</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </div>
+            </div>
+          </div>
+        </motion.article>
+      )}
+
+      {/* === NEWS GRID === */}
+      {restArticles.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           <AnimatePresence mode="popLayout">
-            {filteredNotizie.map((notizia, index) => (
+            {restArticles.map((notizia, index) => (
               <motion.article
                 key={notizia.id || index}
                 layout
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: index * 0.05, duration: 0.4 }}
-                className="news-card"
+                transition={{ delay: index * 0.04, duration: 0.4 }}
+                className="group rounded-2xl overflow-hidden cursor-pointer border border-white/[0.06]
+                  hover:border-white/[0.15] transition-all duration-500 hover:-translate-y-1"
+                style={{
+                  background: 'linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)',
+                }}
                 onClick={() => notizia.url && window.open(notizia.url, '_blank')}
                 data-testid="news-card"
               >
-                <img
-                  src={notizia.immagine_url || fallbackImage}
-                  alt={notizia.titolo}
-                  className="news-card-image"
-                  onError={(e) => { e.target.src = fallbackImage; }}
-                />
-                <div className="news-card-body">
-                  <span className="news-card-badge">{notizia.fonte}</span>
-                  <h3 className="font-semibold text-slate-200 mb-2 line-clamp-2 leading-snug">
+                <div className="relative h-[180px] overflow-hidden">
+                  <img
+                    src={notizia.immagine_url || fallbackImg}
+                    alt={notizia.titolo}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    onError={(e) => { e.target.src = fallbackImg; }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <span className="absolute top-3 left-3 px-2 py-1 text-[9px] font-bold uppercase tracking-wider
+                    bg-black/50 backdrop-blur-md text-white/90 rounded-lg border border-white/10">
+                    {notizia.fonte}
+                  </span>
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-sm text-slate-200 mb-2 line-clamp-2 leading-snug group-hover:text-white transition-colors">
                     {notizia.titolo}
                   </h3>
-                  <p className="text-sm text-slate-500 line-clamp-3">
+                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-3">
                     {notizia.descrizione || notizia.contenuto}
                   </p>
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
-                    <span className="text-xs text-slate-600 capitalize">{notizia.categoria}</span>
+                  <div className="flex items-center justify-between pt-3 border-t border-white/[0.05]">
+                    <span className="text-[10px] text-slate-600 capitalize font-medium">{notizia.categoria}</span>
                     {notizia.data_pubblicazione && (
-                      <span className="text-xs text-slate-600">
-                        {notizia.data_pubblicazione.slice(0, 16)}
+                      <span className="text-[10px] text-slate-600">
+                        {new Date(notizia.data_pubblicazione).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
                       </span>
                     )}
                   </div>
@@ -282,75 +370,13 @@ export default function Notizie() {
             ))}
           </AnimatePresence>
         </div>
-      ) : (
-        <div className="empty-state">
-          <div className="empty-state-icon">📰</div>
-          <p className="text-slate-400">Nessuna notizia disponibile</p>
-          <p className="text-sm text-slate-600 mt-2">
-            Clicca su "Aggiorna" per caricare le ultime notizie
-          </p>
+      ) : filtered.length === 0 && (
+        <div className="text-center py-16 rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
+          <CloudSun className="w-12 h-12 mx-auto text-slate-600 mb-3" />
+          <p className="text-slate-400 font-medium">Nessuna notizia disponibile</p>
+          <p className="text-sm text-slate-600 mt-1">Clicca su "Aggiorna" per caricare le ultime notizie</p>
         </div>
       )}
-
-      {/* Article Modal */}
-      <AnimatePresence>
-        {selectedArticle && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setSelectedArticle(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-slate-900 border border-white/10 rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="p-6 border-b border-white/10 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-slate-200 line-clamp-1">
-                  {selectedArticle.titolo}
-                </h2>
-                <button
-                  onClick={() => setSelectedArticle(null)}
-                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 overflow-y-auto max-h-[60vh]">
-                {selectedArticle.immagine_url && (
-                  <img
-                    src={selectedArticle.immagine_url}
-                    alt={selectedArticle.titolo}
-                    className="w-full h-64 object-cover rounded-xl mb-6"
-                  />
-                )}
-                <p className="text-slate-400 leading-relaxed">
-                  {selectedArticle.descrizione || selectedArticle.contenuto}
-                </p>
-              </div>
-              <div className="p-6 border-t border-white/10 flex justify-between">
-                <span className="text-sm text-slate-500">{selectedArticle.fonte}</span>
-                {selectedArticle.url && (
-                  <a
-                    href={selectedArticle.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/20 text-blue-400 
-                      rounded-lg hover:bg-blue-500/30 transition-colors"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Leggi articolo completo
-                  </a>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </PageWrapper>
   );
 }
