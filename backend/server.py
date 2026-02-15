@@ -1032,6 +1032,20 @@ async def get_dashboard():
     fatturato_mese = sum(abs(v.get('totale', 0)) for v in vendite_recenti)
     ordini_mese = len(vendite_recenti)
     
+    # Previous 30 days for comparison
+    sixty_days_ago = (now - timedelta(days=60)).strftime("%Y-%m-%d")
+    vendite_precedenti = await db.vendite.find(
+        {"data": {"$gte": sixty_days_ago, "$lt": thirty_days_ago}}, 
+        {"_id": 0}
+    ).to_list(1000)
+    fatturato_mese_prec = sum(abs(v.get('totale', 0)) for v in vendite_precedenti)
+    
+    # Calculate growth percentage
+    if fatturato_mese_prec > 0:
+        crescita_percentuale = round(((fatturato_mese - fatturato_mese_prec) / fatturato_mese_prec) * 100, 1)
+    else:
+        crescita_percentuale = 100.0 if fatturato_mese > 0 else 0.0
+    
     # New clienti this month
     nuovi_clienti = await db.clienti.count_documents({
         "created_at": {"$gte": thirty_days_ago}
@@ -1052,6 +1066,8 @@ async def get_dashboard():
     
     return {
         "fatturatoMese": fatturato_mese,
+        "fatturatoMesePrec": fatturato_mese_prec,
+        "crescitaPercentuale": crescita_percentuale,
         "ordiniMese": ordini_mese,
         "nuoviClienti": nuovi_clienti,
         "prodottiOrdinare": prodotti_stats.get('ordinare_count', 0),
