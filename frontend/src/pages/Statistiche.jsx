@@ -15,7 +15,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend
+  Legend,
+  LineChart,
+  Line
 } from 'recharts';
 import {
   Euro,
@@ -25,7 +27,8 @@ import {
   TrendingDown,
   Filter,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  ShoppingBag
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
@@ -37,6 +40,68 @@ import { formatCurrency, cn } from '@/lib/utils';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+// Custom label renderer for pie chart - always visible percentages
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, nome }) => {
+  const RADIAN = Math.PI / 180;
+  const radius = outerRadius + 25;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  
+  if (percent < 0.03) return null; // Hide labels for very small slices
+  
+  return (
+    <text 
+      x={x} 
+      y={y} 
+      fill="#e2e8f0" 
+      fontSize={11} 
+      fontWeight={500}
+      textAnchor={x > cx ? 'start' : 'end'} 
+      dominantBaseline="central"
+    >
+      {`${nome?.slice(0,10)}${nome?.length > 10 ? '...' : ''} ${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
+
+// Custom active shape for hover - with WHITE text
+const renderActiveShape = (props) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, nome, spesa } = props;
+  
+  return (
+    <g>
+      {/* Center text - WHITE color */}
+      <text x={cx} y={cy - 12} textAnchor="middle" fill="#ffffff" fontSize={14} fontWeight={600}>
+        {nome?.slice(0, 16)}
+      </text>
+      <text x={cx} y={cy + 10} textAnchor="middle" fill="#ffffff" fontSize={12}>
+        {formatCurrency(spesa)}
+      </text>
+      {/* Expanded sector */}
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 8}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+      />
+      {/* Outer glow ring */}
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={outerRadius + 10}
+        outerRadius={outerRadius + 14}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        opacity={0.3}
+      />
+    </g>
+  );
+};
 
 export default function Statistiche() {
   const [data, setData] = useState(null);
@@ -50,6 +115,9 @@ export default function Statistiche() {
   const [lists, setLists] = useState({ prodotti: [], clienti: [] });
   const [showSuggestions, setShowSuggestions] = useState({ prodotto: false, cliente: false });
   const [activePieIndex, setActivePieIndex] = useState(-1);
+
+  // Check if any filter is active
+  const hasActiveFilters = filters.prodotto || filters.cliente || filters.startDate || filters.endDate;
 
   useEffect(() => {
     loadLists();
@@ -141,7 +209,7 @@ export default function Statistiche() {
       </PageHeader>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           label="Fatturato Mese"
           value={data?.fatturatoMese || 0}
@@ -149,12 +217,26 @@ export default function Statistiche() {
           icon={Euro}
           trend={data?.diffPercentuale > 0 ? 'up' : data?.diffPercentuale < 0 ? 'down' : 'neutral'}
           trendValue={data?.diffPercentuale}
+          subtitle={data?.fatturatoMesePrec > 0 ? `Mese prec: ${formatCurrency(data.fatturatoMesePrec)}` : null}
         />
-        <StatCard
-          label="Articoli Venduti"
-          value={data?.totaleArticoli || 0}
-          icon={Package}
-        />
+        
+        {/* Show these only when filter is active */}
+        {hasActiveFilters && (
+          <>
+            <StatCard
+              label="Articoli Venduti"
+              value={data?.totaleArticoli || 0}
+              icon={Package}
+            />
+            <StatCard
+              label="Totale Venduto"
+              value={data?.totaleEuro || 0}
+              format="currency"
+              icon={ShoppingBag}
+            />
+          </>
+        )}
+        
         <StatCard
           label="Clienti Attivi"
           value={data?.clientiAttivi || 0}
@@ -163,10 +245,15 @@ export default function Statistiche() {
       </div>
 
       {/* Filters */}
-      <div className="bg-muted p-4 rounded-sm mb-8">
+      <div className="bg-muted p-4 rounded-lg mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm font-medium uppercase tracking-wider">Filtri</span>
+          {hasActiveFilters && (
+            <span className="ml-2 px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 rounded-full">
+              Attivi
+            </span>
+          )}
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
@@ -181,7 +268,7 @@ export default function Statistiche() {
               data-testid="filter-prodotto"
             />
             {showSuggestions.prodotto && filters.prodotto && (
-              <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-sm mt-1 max-h-48 overflow-auto z-10">
+              <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-lg mt-1 max-h-48 overflow-auto z-10">
                 {lists.prodotti
                   .filter(p => p.toLowerCase().includes(filters.prodotto.toLowerCase()))
                   .slice(0, 10)
@@ -209,7 +296,7 @@ export default function Statistiche() {
               data-testid="filter-cliente"
             />
             {showSuggestions.cliente && filters.cliente && (
-              <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-sm mt-1 max-h-48 overflow-auto z-10">
+              <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-lg mt-1 max-h-48 overflow-auto z-10">
                 {lists.clienti
                   .filter(c => c.toLowerCase().includes(filters.cliente.toLowerCase()))
                   .slice(0, 10)
@@ -262,7 +349,7 @@ export default function Statistiche() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Monthly Sales Chart */}
-        <div className="bg-card border border-border/50 p-6 rounded-sm">
+        <div className="bg-card border border-border/50 p-6 rounded-xl">
           <h3 className="font-heading text-lg font-semibold uppercase mb-4">Andamento Vendite Mensili</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -294,8 +381,8 @@ export default function Statistiche() {
           </div>
         </div>
 
-        {/* Top Clienti Chart */}
-        <div className="bg-card border border-border/50 p-6 rounded-sm">
+        {/* Top Clienti Pie Chart - With always-visible percentage labels */}
+        <div className="bg-card border border-border/50 p-6 rounded-xl">
           <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Clienti</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -304,36 +391,13 @@ export default function Statistiche() {
                   data={data?.topClienti || []}
                   cx="50%"
                   cy="50%"
-                  outerRadius={100}
+                  outerRadius={80}
+                  innerRadius={30}
                   dataKey="spesa"
                   nameKey="nome"
-                  label={({ cx, cy, midAngle, innerRadius, outerRadius, nome, percent }) => {
-                    const RADIAN = Math.PI / 180;
-                    const radius = outerRadius + 20;
-                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                    return (
-                      <text x={x} y={y} fill="#e2e8f0" fontSize={12} fontWeight={500}
-                        textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
-                        {`${nome?.slice(0,12)} (${(percent*100).toFixed(0)}%)`}
-                      </text>
-                    );
-                  }}
-                  labelLine={false}
-                  activeShape={({ cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, nome, spesa }) => {
-                    return (
-                      <g>
-                        <text x={cx} y={cy - 10} textAnchor="middle" fill="#f1f5f9" fontSize={14} fontWeight={600}>
-                          {nome?.slice(0, 18)}
-                        </text>
-                        <text x={cx} y={cy + 12} textAnchor="middle" fill="#94a3b8" fontSize={12}>
-                          {formatCurrency(spesa)}
-                        </text>
-                        <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 6}
-                          startAngle={startAngle} endAngle={endAngle} fill={fill} />
-                      </g>
-                    );
-                  }}
+                  label={renderCustomizedLabel}
+                  labelLine={{ stroke: '#64748b', strokeWidth: 1 }}
+                  activeShape={renderActiveShape}
                   activeIndex={activePieIndex}
                   onMouseEnter={(_, index) => setActivePieIndex(index)}
                   onMouseLeave={() => setActivePieIndex(-1)}
@@ -343,18 +407,51 @@ export default function Statistiche() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A', color: '#e2e8f0' }}
-                  itemStyle={{ color: '#e2e8f0' }}
-                  labelStyle={{ color: '#e2e8f0' }}
-                  formatter={(value) => formatCurrency(value)}
+                  contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff' }}
+                  itemStyle={{ color: '#ffffff' }}
+                  labelStyle={{ color: '#ffffff' }}
+                  formatter={(value) => [formatCurrency(value), 'Spesa']}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
+        {/* NEW: Daily Sales Trend Chart */}
+        <div className="bg-card border border-border/50 p-6 rounded-xl">
+          <h3 className="font-heading text-lg font-semibold uppercase mb-4">Trend Vendite Giornaliero</h3>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={(data?.venditeGiornaliere || []).slice(-30)}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
+                <XAxis 
+                  dataKey="data" 
+                  stroke="#71717A" 
+                  fontSize={10}
+                  tickFormatter={(v) => v?.slice(5) || v}
+                />
+                <YAxis stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                <Tooltip
+                  contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff' }}
+                  itemStyle={{ color: '#ffffff' }}
+                  labelStyle={{ color: '#ffffff' }}
+                  formatter={(value) => [formatCurrency(value), 'Vendite']}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="totale" 
+                  stroke="#10B981" 
+                  strokeWidth={2}
+                  dot={{ fill: '#10B981', r: 3 }}
+                  activeDot={{ r: 6, fill: '#10B981' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
         {/* Top Prodotti Chart - by Euro */}
-        <div className="bg-card border border-border/50 p-6 rounded-sm lg:col-span-2">
+        <div className="bg-card border border-border/50 p-6 rounded-xl">
           <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Prodotti per Fatturato</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -365,14 +462,14 @@ export default function Statistiche() {
                   type="category" 
                   dataKey="nome" 
                   stroke="#71717A" 
-                  fontSize={12}
-                  width={150}
-                  tickFormatter={(v) => v?.length > 20 ? v.slice(0, 20) + '...' : v}
+                  fontSize={11}
+                  width={120}
+                  tickFormatter={(v) => v?.length > 15 ? v.slice(0, 15) + '...' : v}
                 />
                 <Tooltip
-                  contentStyle={{ background: '#0A0A0A', border: '1px solid #27272A', color: '#e2e8f0' }}
-                  itemStyle={{ color: '#e2e8f0' }}
-                  labelStyle={{ color: '#e2e8f0' }}
+                  contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff' }}
+                  itemStyle={{ color: '#ffffff' }}
+                  labelStyle={{ color: '#ffffff' }}
                   formatter={(value) => [formatCurrency(value), 'Fatturato']}
                 />
                 <Bar dataKey="totale_euro" fill="#10B981" radius={[0, 4, 4, 0]} />
