@@ -1,138 +1,62 @@
 # Gestio - Business Manager PRD
 
 ## Original Problem Statement
-L'utente vuole migrare un'applicazione esistente (Google Apps Script) per la gestione di un magazzino ortofrutticolo a un'applicazione web moderna con:
-1. **Upload CSV** per importare vendite/acquisti
-2. **Auto-riconoscimento** delle colonne prezzo e totale pagato
-3. **Statistiche avanzate** filtrabili per periodo, prodotto e cliente  
-4. **UI Glassmorphism** moderna come Apple iOS
-5. **Notizie di mercato** con preview, prezzi mercati e meteo
+Migration of a Google Apps Script application to a modern full-stack web application with:
+1. Data Import: Upload CSV/XLSX files containing sales data
+2. Automated Data Processing: Parse files to add customers, products, suppliers
+3. Advanced Statistics: Dashboard with filtered statistics by time, product, customer
+4. UI/UX: Modern glassmorphism dark theme
+5. News & Market Prices: Daily news from freshplaza, corriereortofrutticolo, freshpoint and market prices from FreshPlaza
+6. Functional Parity: All key features from original app
 
-## Tech Stack
-- **Frontend**: React 18, Tailwind CSS, Framer Motion, Recharts
-- **Backend**: FastAPI (Python)
-- **Database**: MongoDB
+## User Personas
+- Italian business user managing fruit/vegetable wholesale operations
+- Needs to track sales, inventory, customers, and suppliers
+- Follows market news and wholesale prices
 
-## Core Features Implemented ✅
+## Core Requirements
+- Upload CSV/XLSX with auto-detection of columns
+- Statistics with charts (area, bar, pie) filtered by product/client/date
+- Top Products chart by EURO revenue (not quantity)
+- No negative signs in sales totals
+- News from: FreshPlaza, Corriere Ortofrutticolo, FreshPoint Magazine
+- Dynamic market price links scraped from FreshPlaza
+- Weather widget for Bologna
+- CRUD for clients, suppliers, products
 
-### 1. CSV Upload & Import
-- Drag & drop file upload
-- **Auto-detection** delle colonne CSV (Movimento, Data, Importo Unitario, Importo Totale, Quantità)
-- Supporto encoding UTF-8, Latin-1, Windows-1252
-- Parsing numeri italiano (virgola decimale, punto migliaia, simbolo €)
-- Creazione automatica clienti/fornitori/prodotti
+## Architecture
+- **Frontend**: React.js + Tailwind CSS + Shadcn UI + Recharts + Framer Motion
+- **Backend**: FastAPI (Python) + MongoDB
+- **News**: feedparser + BeautifulSoup for RSS scraping
+- **Market Prices**: Dynamic scraping from FreshPlaza homepage
 
-### 2. Dashboard
-- KPI cards (Fatturato mese, Ordini, Nuovi clienti, Prodotti da riordinare)
-- Quick links per navigazione rapida
-- Attività recenti
+## What's Been Implemented (Feb 15, 2026)
+- [x] Full glassmorphism dark theme UI
+- [x] Dashboard with KPI cards and quick links
+- [x] CSV and XLSX upload with batch processing (21K+ rows)
+- [x] Statistics page with area chart, pie chart, bar chart (by euro)
+- [x] Filters: product, client, date range, presets (30 days, current/prev month)
+- [x] News from FreshPlaza, Corriere Ortofrutticolo, FreshPoint Magazine
+- [x] Dynamic market price links from FreshPlaza (8 Italian cities)
+- [x] Weather widget (Bologna)
+- [x] Vendite, Clienti, Fornitori, Magazzino, Ordini pages
+- [x] Math.abs applied to all financial displays (no negative signs)
+- [x] data-testid on all interactive elements
+- [x] Sidebar navigation with correct Italian labels
 
-### 3. Statistiche Avanzate
-- Filtri per prodotto, cliente, data inizio/fine
-- Preset: Ultimi 30 giorni, Mese corrente, Mese precedente
-- Grafici: Andamento vendite mensili (Area chart), Top clienti (Pie chart)
-- KPI: Totale vendite €, Articoli venduti, Clienti attivi
+## P0 (Completed)
+- [x] Correct news sources (FreshPlaza, Corriere Ortofrutticolo, FreshPoint)
+- [x] Correct market price links (dynamic from FreshPlaza)
+- [x] No negative totals in UI
+- [x] XLSX upload support
+- [x] Top Prodotti per Fatturato (euro, not quantity)
 
-### 4. Gestione Magazzino
-- Lista prodotti con ricerca
-- Filtri: Da ordinare, In scadenza
-- Dettagli: Quantità, Kg/pz, Prezzo, Valore scorte, Stato
+## P1 (Remaining)
+- [ ] Backend refactoring: break server.py into routes/, models/, services/
+- [ ] Full feature parity review with original Google Apps Script
 
-### 5. Notizie di Mercato
-- **Widget Meteo** con previsioni (Open-Meteo API)
-- **Widget Prezzi Mercati** (Bologna, Milano, Roma, Torino, Verona, Padova)
-- News cards con immagini preview da RSS feeds (ANSA, Il Sole 24 Ore)
-- Filtri per categoria (Tutte, Finanza, Economia)
-- Refresh manuale
-
-### 6. CRUD Completo
-- Clienti: lista, dettaglio, analisi acquisti
-- Fornitori: lista, dettaglio
-- Vendite: lista, filtri
-- Ordini/Acquisti: lista, filtri
-
-## UI/UX Design
-- **Glassmorphism** premium con effetti blur e trasparenze
-- **Aurora animated background** con gradient orbs
-- **Noise texture** overlay
-- **Cards** con hover effects e glow
-- **Responsive** sidebar navigation
-- **Dark theme** con accenti blu/viola
-
-## API Endpoints
-
-### Core
-- `POST /api/upload-csv` - Import CSV con auto-detection colonne
-- `GET /api/dashboard` - Overview dashboard
-- `GET /api/statistiche` - Statistiche filtrabili
-
-### Resources
-- `GET/POST /api/clienti` - CRUD clienti
-- `GET/POST /api/fornitori` - CRUD fornitori
-- `GET/POST /api/prodotti` - CRUD prodotti
-- `GET /api/vendite` - Lista vendite
-- `GET /api/ordini` - Lista ordini
-
-### Utilities
-- `GET /api/notizie` - News da RSS feeds
-- `POST /api/notizie/refresh` - Aggiorna news
-- `GET /api/meteo` - Dati meteo (Open-Meteo)
-- `GET /api/prezzi-mercati` - Link prezzi mercati
-
-## Data Model
-
-### Vendita
-```json
-{
-  "id": "uuid",
-  "data": "YYYY-MM-DD",
-  "cliente_id": "uuid",
-  "cliente_nome": "string",
-  "prodotto_nome": "string",
-  "quantita": "float",
-  "prezzo_unitario": "float",
-  "totale": "float",
-  "movimento": "SCARICO|CARICO"
-}
-```
-
-### Prodotto
-```json
-{
-  "id": "uuid",
-  "nome": "string",
-  "codice": "string",
-  "quantita": "float",
-  "kg_per_pezzo": "float",
-  "quantita_minima": "float",
-  "prezzo_medio": "float",
-  "scadenza": "YYYY-MM-DD"
-}
-```
-
-## Known Issues / Future Improvements
-
-### P1 - High Priority
-- [ ] RSS feeds: alcune fonti potrebbero non essere raggiungibili (FreshPlaza, Italiafruit)
-- [ ] Notizie agricoltura: aggiungere fonti RSS specifiche per ortofrutta
-
-### P2 - Medium Priority
-- [ ] Export dati in Excel/PDF
-- [ ] Notifiche prodotti in scadenza
-- [ ] Storico prezzi prodotti
-- [ ] Multi-utente con autenticazione
-
-### P3 - Low Priority
-- [ ] Mobile app (React Native)
-- [ ] Integrazione con bilance/lettori barcode
-- [ ] Analisi predittiva con AI
-
-## Changelog
-
-### 2026-02-15
-- ✅ Implementato auto-detection colonne CSV
-- ✅ Corretto parsing numeri italiani con \x80 (€ Windows-1252)
-- ✅ Corretto calcolo statistiche con valori assoluti (SCARICO ha valori negativi)
-- ✅ Implementata pagina Notizie con widget meteo e prezzi mercati
-- ✅ Aggiornato design glassmorphism su tutte le pagine
-- ✅ RSS feeds funzionanti (ANSA, Il Sole 24 Ore)
+## P2 (Backlog)
+- [ ] Export data to Excel/PDF
+- [ ] User authentication
+- [ ] Advanced inventory management (reorder alerts)
+- [ ] Email notifications for low stock
