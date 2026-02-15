@@ -59,17 +59,17 @@ Migrazione di un'applicazione Google Apps Script verso un'app web full-stack mod
 - Lista report salvati con eliminazione
 
 ### Notizie & Mercati (REDESIGNED 15 Feb 2026)
-- Widget meteo premium: temp attuale, vento, min/max, previsioni 6 giorni con icone
-- Listini mercato: card con icone MapPin, animazioni stagger, links PDF
-- Hero article full-width con layout 50/50 immagine/testo
-- Griglia magazine-style con zoom hover, badge fonte, date italiano
+- 3 widget in riga:
+  1. Meteo compatto Bologna: temp attuale, vento, min/max, previsioni 4gg
+  2. Listini Mercato: link PDF prezzi ingrosso 8 citta
+  3. **Trend Frutta Secca (NUOVO)**: Google Trends Italia per pistacchi, mandorle, noci, nocciole, anacardi con sparkline, % variazione, interesse/100
+- Hero article full-width
+- Griglia magazine-style con zoom hover
 - Filtri categoria con conteggio
-- Feed RSS (FreshPlaza, Corriere Ortofrutticolo, MyFruit)
 
 ## Sidebar
 - Solo icone (76px fissi)
 - Hover su singolo item: popup fixed con zoom icona+testo (effetto wow)
-- Glow cyan, ombra, animazione spring framer-motion
 - Anti-flicker con delay timer su mouseLeave
 
 ## Integrazioni 3rd Party
@@ -77,25 +77,15 @@ Migrazione di un'applicazione Google Apps Script verso un'app web full-stack mod
 - `emergentintegrations` + Gemini Pro: AI suggestions e reports
 - Open-Meteo API: dati meteo
 - FreshPlaza scraping: prezzi mercati ingrosso
+- `pytrends`: Google Trends API per frutta secca (NUOVO)
 
 ## Schema DB Chiave
-- `vendite`: transazioni vendita (SCARICO)
-- `ordini`: transazioni acquisto (CARICO)
-- `clienti`: anagrafica clienti
-- `fornitori`: anagrafica fornitori + note
-- `prodotti`: inventario con quantita, prezzi, scadenze
-- `notizie`: articoli news cached
-- `reports`: report AI generati
-- `ai_suggestions`: cache suggerimenti settimanali
-
-## Issue Note
-- **Prezzi nel DB**: Possibile arrotondamento durante import CSV. Fix temporaneo: frontend ricalcola prezzo x quantita
-- **Pie chart tooltip**: Bug ricorrente
-- **News scraper immagini**: Funzionante per MyFruit, problemi con altri feed
+- `vendite`, `ordini`, `clienti`, `fornitori`, `prodotti`, `notizie`, `reports`, `ai_suggestions`
+- `cache`: cache per trends Google (TTL 6h)
 
 ## Completato
 - 15 Feb 2026: Fix tabella Vendite, Sidebar effetto wow, KPI Statistiche condizionali
-- 15 Feb 2026: Redesign completo pagina Notizie & Mercati (meteo, listini, hero, griglia)
+- 15 Feb 2026: Redesign pagina Notizie & Mercati + widget Trend Frutta Secca (Google Trends)
 
 ## Backlog Prioritizzato
 - P1: Fix totali prezzi errati durante import CSV/XLSX (backend)
