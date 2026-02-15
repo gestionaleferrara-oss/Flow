@@ -62,14 +62,21 @@ export default function Magazzino() {
     }
   };
 
-  const handleEdit = (prodotto) => {
+  const handleEditMinima = (prodotto) => {
     setEditingId(prodotto.id);
-    setEditData({ ...prodotto });
+    setEditData({ 
+      quantita_minima: prodotto.quantita_minima || 0,
+      scadenza: prodotto.scadenza || ''
+    });
   };
 
   const handleSave = async () => {
     try {
-      await axios.put(`${API}/prodotti/${editingId}`, editData);
+      // Only update quantita_minima and scadenza - NOT quantita (comes from imports)
+      await axios.put(`${API}/prodotti/${editingId}`, {
+        quantita_minima: editData.quantita_minima,
+        scadenza: editData.scadenza
+      });
       setEditingId(null);
       loadProdotti();
       loadStats();
@@ -103,7 +110,7 @@ export default function Magazzino() {
       </PageHeader>
 
       {/* Filter Bar */}
-      <div className="filter-bar rounded-sm mb-6">
+      <div className="filter-bar rounded-lg mb-6">
         <div className="flex-1 max-w-md">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -124,7 +131,7 @@ export default function Magazzino() {
           onClick={() => toggleFilter('ordinare')}
           data-testid="filter-ordinare"
           className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-sm transition-all',
+            'flex items-center gap-2 px-4 py-2 rounded-lg transition-all',
             filter === 'ordinare' 
               ? 'bg-amber-500/20 text-amber-500 ring-1 ring-amber-500' 
               : 'bg-card hover:bg-muted'
@@ -139,7 +146,7 @@ export default function Magazzino() {
           onClick={() => toggleFilter('scadenza')}
           data-testid="filter-scadenza"
           className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-sm transition-all',
+            'flex items-center gap-2 px-4 py-2 rounded-lg transition-all',
             filter === 'scadenza' 
               ? 'bg-purple-500/20 text-purple-500 ring-1 ring-purple-500' 
               : 'bg-card hover:bg-muted'
@@ -152,17 +159,16 @@ export default function Magazzino() {
       </div>
 
       {/* Data Table */}
-      <div className="bg-card border border-border/50 rounded-sm overflow-hidden">
+      <div className="bg-card border border-border/50 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="data-table" data-testid="magazzino-table">
             <thead>
               <tr>
                 <th>Prodotto</th>
-                <th className="text-right">Q.ta</th>
+                <th className="text-right">Q.tà (importata)</th>
                 <th className="text-right">Kg/pz</th>
                 <th>Imballo</th>
-                <th className="text-right">Q.ta Min.</th>
-                <th className="text-right">Q.ta Rim.</th>
+                <th className="text-right bg-amber-500/5">Q.tà Minima</th>
                 <th className="text-right">Kg Rim.</th>
                 <th className="text-right">Prezzo</th>
                 <th className="text-right">Valore</th>
@@ -184,48 +190,37 @@ export default function Magazzino() {
                     transition={{ delay: index * 0.02 }}
                     data-testid={`row-${p.id}`}
                   >
-                    <td className="font-medium">
-                      {isEditing ? (
-                        <Input
-                          value={editData.nome || ''}
-                          onChange={(e) => setEditData({ ...editData, nome: e.target.value })}
-                          className="h-8"
-                        />
-                      ) : (
-                        p.nome
-                      )}
+                    <td className="font-medium">{p.nome}</td>
+                    {/* Quantità - NON MODIFICABILE - viene dai dati importati */}
+                    <td className="text-right tabular-nums text-slate-400">
+                      {p.quantita?.toLocaleString('it-IT') || 0}
                     </td>
-                    <td className="text-right tabular-nums">
-                      {isEditing ? (
-                        <Input
-                          type="number"
-                          value={editData.quantita || 0}
-                          onChange={(e) => setEditData({ ...editData, quantita: parseFloat(e.target.value) })}
-                          className="h-8 w-20 text-right"
-                        />
-                      ) : (
-                        p.quantita?.toLocaleString('it-IT')
-                      )}
-                    </td>
-                    <td className="text-right tabular-nums">{p.kg_per_pezzo?.toFixed(2)}</td>
+                    <td className="text-right tabular-nums">{p.kg_per_pezzo?.toFixed(2) || '-'}</td>
                     <td>{p.imballo || '-'}</td>
-                    <td className="text-right tabular-nums">
+                    {/* Quantità Minima - MODIFICABILE */}
+                    <td className="text-right tabular-nums bg-amber-500/5">
                       {isEditing ? (
                         <Input
                           type="number"
                           value={editData.quantita_minima || 0}
-                          onChange={(e) => setEditData({ ...editData, quantita_minima: parseFloat(e.target.value) })}
+                          onChange={(e) => setEditData({ ...editData, quantita_minima: parseFloat(e.target.value) || 0 })}
                           className="h-8 w-20 text-right"
                           data-testid="edit-quantita-minima"
                         />
                       ) : (
-                        p.quantita_minima?.toLocaleString('it-IT') || '0'
+                        <span className={cn(
+                          p.quantita_minima > 0 && p.quantita <= p.quantita_minima 
+                            ? 'text-amber-400 font-semibold' 
+                            : 'text-slate-400'
+                        )}>
+                          {p.quantita_minima?.toLocaleString('it-IT') || '0'}
+                        </span>
                       )}
                     </td>
-                    <td className="text-right tabular-nums">{p.quantita?.toLocaleString('it-IT')}</td>
-                    <td className="text-right tabular-nums">{p.kg_rimanenti?.toFixed(2)}</td>
+                    <td className="text-right tabular-nums">{p.kg_rimanenti?.toFixed(2) || '-'}</td>
                     <td className="text-right tabular-nums">{formatCurrency(p.prezzo_medio)}</td>
                     <td className="text-right tabular-nums font-medium">{formatCurrency(p.valore_scorte)}</td>
+                    {/* Scadenza - MODIFICABILE */}
                     <td>
                       {isEditing ? (
                         <Input
@@ -265,9 +260,10 @@ export default function Magazzino() {
                           </>
                         ) : (
                           <button
-                            onClick={() => handleEdit(p)}
+                            onClick={() => handleEditMinima(p)}
                             className="action-btn"
                             data-testid="edit-btn"
+                            title="Modifica Q.tà Minima e Scadenza"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -288,6 +284,12 @@ export default function Magazzino() {
             <p className="text-sm">Importa dei dati o aggiungi un nuovo prodotto</p>
           </div>
         )}
+      </div>
+
+      {/* Legend */}
+      <div className="mt-4 p-3 bg-slate-800/30 rounded-lg text-xs text-slate-500">
+        <strong>Nota:</strong> La colonna "Q.tà (importata)" viene aggiornata automaticamente dai file caricati. 
+        Puoi modificare solo la "Q.tà Minima" e la "Scadenza" per gestire gli avvisi di riordino.
       </div>
 
       {/* Pagination */}
