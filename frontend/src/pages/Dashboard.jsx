@@ -50,44 +50,6 @@ export default function Dashboard() {
         subtitle="Panoramica delle attività aziendali"
       />
 
-      {/* Welcome Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl mb-8 p-8
-          bg-gradient-to-br from-blue-600/20 via-blue-500/10 to-purple-600/10
-          border border-blue-500/20"
-      >
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-        
-        <div className="relative z-10 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-5 h-5 text-blue-400" />
-              <span className="text-sm font-medium text-blue-400">Benvenuto in Gestio</span>
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">
-              Gestisci il tuo business con facilità
-            </h2>
-            <p className="text-slate-400 max-w-md">
-              Importa i tuoi dati CSV o XLSX, monitora le vendite e analizza le statistiche in tempo reale.
-            </p>
-          </div>
-          <div className="hidden lg:flex items-center gap-4">
-            <Link
-              to="/upload"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 
-                text-white font-medium rounded-xl transition-all duration-300
-                shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
-            >
-              <Upload className="w-5 h-5" />
-              Importa Dati
-            </Link>
-          </div>
-        </div>
-      </motion.div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8 animate-stagger">
         <StatCard
