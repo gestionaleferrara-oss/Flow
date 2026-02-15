@@ -836,38 +836,30 @@ async def get_fornitore_prodotti(fornitore_nome: str, mese: Optional[str] = None
     
     ordini_mese = mesi_con_ordini[mese_selezionato]
     
-    # Aggregate by product (solo per il mese selezionato)
-    prodotti_map = {}
+    # Return individual order lines (not aggregated)
+    acquisti_list = []
     for o in ordini_mese:
-        prod_nome = o.get('prodotto_nome', '')
-        if prod_nome not in prodotti_map:
-            prodotti_map[prod_nome] = {
-                "nome": prod_nome,
-                "quantita_totale": 0,
-                "totale_speso": 0,
-                "num_ordini": 0,
-                "ultimo_ordine": "",
-                "ultimo_prezzo": 0
-            }
-        prodotti_map[prod_nome]["quantita_totale"] += abs(o.get('quantita', 0))
-        # Calcola totale come prezzo * quantità
-        prodotti_map[prod_nome]["totale_speso"] += abs(o.get('quantita', 0) * o.get('prezzo_unitario', 0))
-        prodotti_map[prod_nome]["num_ordini"] += 1
-        
-        data_ordine = o.get('data', '')
-        if data_ordine > prodotti_map[prod_nome]["ultimo_ordine"]:
-            prodotti_map[prod_nome]["ultimo_ordine"] = data_ordine
-            prodotti_map[prod_nome]["ultimo_prezzo"] = o.get('prezzo_unitario', 0)
+        quantita = abs(o.get('quantita', 0))
+        prezzo = o.get('prezzo_unitario', 0)
+        totale = round(quantita * prezzo, 2)
+        acquisti_list.append({
+            "prodotto": o.get('prodotto_nome', ''),
+            "data": o.get('data', ''),
+            "quantita": quantita,
+            "prezzo_unitario": prezzo,
+            "totale": totale
+        })
     
-    # Convert to list and sort by totale_speso
-    prodotti_list = list(prodotti_map.values())
-    prodotti_list.sort(key=lambda x: -x['totale_speso'])
+    # Sort by date descending, then by product name
+    acquisti_list.sort(key=lambda x: (-x['totale'], x['prodotto']))
+    
+    totale_speso = sum(a['totale'] for a in acquisti_list)
     
     return {
         "fornitore": fornitore_nome,
-        "prodotti": prodotti_list,
-        "totale_prodotti": len(prodotti_list),
-        "totale_speso": sum(p['totale_speso'] for p in prodotti_list),
+        "acquisti": acquisti_list,
+        "totale_acquisti": len(acquisti_list),
+        "totale_speso": round(totale_speso, 2),
         "mese_riferimento": mese_riferimento,
         "mese_selezionato": mese_selezionato,
         "mesi_disponibili": mesi_disponibili
