@@ -220,8 +220,8 @@ def parse_float(value: str) -> float:
     
     value = str(value).strip()
     
-    # Remove currency symbols (€) and extra spaces
-    value = re.sub(r'[€\s]', '', value)
+    # Remove currency symbols (€, \x80 which is € in Windows-1252) and extra spaces
+    value = re.sub(r'[€\s\x80]', '', value)
     
     # Check for empty string after cleaning
     if not value or value == '-':
