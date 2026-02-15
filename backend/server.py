@@ -994,11 +994,13 @@ async def get_statistiche(
     
     daily_data = [{"data": k, "totale": v} for k, v in sorted(vendite_giornaliere.items())]
     
-    # Top clienti
+    # Top clienti - exclude "SCARICO VENDUTO" which is not a real client
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
     clienti_fatturato = {}
     for v in vendite:
         cliente = v.get('cliente_nome', '')
-        clienti_fatturato[cliente] = clienti_fatturato.get(cliente, 0) + abs(v.get('totale', 0))
+        if cliente and cliente.upper() not in [c.upper() for c in EXCLUDED_CLIENTS]:
+            clienti_fatturato[cliente] = clienti_fatturato.get(cliente, 0) + abs(v.get('totale', 0))
     
     top_clienti = [{"nome": k, "spesa": v} for k, v in sorted(clienti_fatturato.items(), key=lambda x: x[1], reverse=True)[:10]]
     
