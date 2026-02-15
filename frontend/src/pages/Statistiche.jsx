@@ -225,7 +225,7 @@ export default function Statistiche() {
   };
 
   const clearFilters = () => {
-    setFilters({ prodotto: '', cliente: '', startDate: '', endDate: '' });
+    setFilters({ prodotto: '', cliente: '', fornitore: '', startDate: '', endDate: '' });
   };
 
   useEffect(() => {
