@@ -392,33 +392,60 @@ export default function Statistiche() {
           </div>
         </div>
 
-        {/* Top Clienti Pie Chart - With name + percentage labels always visible */}
+        {/* Top Clienti Pie Chart - With percentages + hover for details */}
         <div className="bg-card border border-border/50 p-6 rounded-xl">
           <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Clienti</h3>
-          <div className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data?.topClienti || []}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  innerRadius={35}
-                  dataKey="spesa"
-                  nameKey="nome"
-                  label={renderCustomizedLabel}
-                  labelLine={{ stroke: '#64748b', strokeWidth: 1 }}
-                  activeShape={renderActiveShape}
-                  activeIndex={activePieIndex}
-                  onMouseEnter={(_, index) => setActivePieIndex(index)}
-                  onMouseLeave={() => setActivePieIndex(-1)}
-                >
-                  {(data?.topClienti || []).map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="h-[350px] flex items-center">
+            <div className="w-1/2 h-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data?.topClienti || []}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    innerRadius={45}
+                    dataKey="spesa"
+                    nameKey="nome"
+                    activeShape={renderActiveShape}
+                    activeIndex={activePieIndex}
+                    onMouseEnter={(_, index) => setActivePieIndex(index)}
+                    onMouseLeave={() => setActivePieIndex(-1)}
+                  >
+                    {(data?.topClienti || []).map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Legend with percentages */}
+            <div className="w-1/2 space-y-2 pl-4">
+              {(data?.topClienti || []).map((cliente, index) => {
+                const total = (data?.topClienti || []).reduce((sum, c) => sum + c.spesa, 0);
+                const percent = total > 0 ? ((cliente.spesa / total) * 100).toFixed(0) : 0;
+                return (
+                  <div 
+                    key={index}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-lg transition-colors cursor-pointer",
+                      activePieIndex === index ? "bg-white/10" : "hover:bg-white/5"
+                    )}
+                    onMouseEnter={() => setActivePieIndex(index)}
+                    onMouseLeave={() => setActivePieIndex(-1)}
+                  >
+                    <div 
+                      className="w-3 h-3 rounded-full flex-shrink-0" 
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    />
+                    <span className="text-sm text-slate-300 truncate flex-1">
+                      {cliente.nome?.slice(0, 20)}{cliente.nome?.length > 20 ? '...' : ''}
+                    </span>
+                    <span className="text-sm font-bold text-white">{percent}%</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
