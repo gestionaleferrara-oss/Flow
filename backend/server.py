@@ -144,15 +144,29 @@ class OrdineCreate(BaseModel):
 class Notizia(BaseModelConfig):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     titolo: str
-    contenuto: str
+    descrizione: Optional[str] = None
+    contenuto: Optional[str] = None
+    url: Optional[str] = None
+    immagine_url: Optional[str] = None
+    fonte: str = "Sistema"
     categoria: str = "generale"
+    data_pubblicazione: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class NotiziaCreate(BaseModel):
     titolo: str
-    contenuto: str
+    descrizione: Optional[str] = None
+    contenuto: Optional[str] = None
+    url: Optional[str] = None
+    immagine_url: Optional[str] = None
+    fonte: str = "Sistema"
     categoria: str = "generale"
+
+
+class PrezzoMercato(BaseModel):
+    nome: str
+    url: str
 
 
 # ======================= UTILITY FUNCTIONS =======================
