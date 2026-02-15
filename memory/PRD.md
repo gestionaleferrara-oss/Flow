@@ -1,101 +1,90 @@
-# Flusso - Product Requirements Document
+# Flusso - PRD (Product Requirements Document)
 
-## Overview
-Flusso è un'applicazione web full-stack per la gestione aziendale, migrata da Google Apps Script a React/FastAPI/MongoDB.
+## Problema Originale
+Migrazione di un'applicazione Google Apps Script verso un'app web full-stack moderna chiamata "Flusso" per la gestione aziendale del settore ortofrutticolo.
 
-## Original Problem Statement
-L'utente vuole migrare un'applicazione Google Apps Script a un'applicazione web moderna con:
-- Import dati da CSV/XLSX
-- Gestione inventario (Magazzino)
-- Statistiche avanzate
-- News e prezzi di mercato
-- Funzionalità AI per suggerimenti e report
+## Architettura
+- **Frontend**: React.js + Tailwind CSS + Recharts + Framer Motion
+- **Backend**: FastAPI + Motor (MongoDB async) + Pandas
+- **Database**: MongoDB
+- **AI**: Gemini Pro via Emergent LLM Key
 
-## Tech Stack
-- **Frontend:** React.js, Tailwind CSS, Axios, Recharts, react-markdown
-- **Backend:** FastAPI, Pandas, BeautifulSoup4, feedparser
-- **Database:** MongoDB
-- **AI/LLM:** emergentintegrations + Google Gemini Pro (Emergent LLM Key)
+## Pagine e Funzionalità
 
-## Core Features Implemented
+### Dashboard
+- KPI: fatturato mese, ordini, clienti, prodotti da ordinare
+- Suggerimento AI settimanale
+- Centro allerta (scadenze, scorte basse)
+- Modal analisi prodotto con switch Vendite/Acquisti
 
-### Data Management
-- [x] Upload CSV/XLSX con auto-detect colonne
-- [x] Gestione Clienti con campi editabili (WhatsApp, Email, Note)
-- [x] Gestione Fornitori
-- [x] Gestione Prodotti/Magazzino
+### Importa Dati
+- Upload CSV/XLSX con auto-detect colonne
+- Gestione CARICO (acquisti) e SCARICO (vendite)
+- Aggiornamento automatico clienti, fornitori, prodotti, magazzino
 
-### Inventory (Magazzino)
-- [x] Visualizzazione stock con quantità importate
-- [x] Quantità minima editabile per alert riordino
-- [x] Scadenza editabile
-- [x] Filtri "Da Ordinare" e "In Scadenza"
-- [x] Colonne semplificate (rimossi Imballo, Kg/pz, Kg Rim.)
+### Magazzino
+- Tabella prodotti con quantità, prezzo medio, scadenza
+- Quantità minima editabile
+- Filtri: da ordinare, in scadenza
 
-### Sales & Purchases
-- [x] Vendite con vista raggruppata per cliente/data
-- [x] Acquisti (Ordini) con vista raggruppata per fornitore/data
+### Vendite
+- Lista vendite raggruppabili/espandibili
+- Ricerca con debounce
+- Totali calcolati come prezzo × quantità
 
-### Statistics
-- [x] Dashboard con KPI principali
-- [x] Grafici vendite mensili/giornaliere
-- [x] Top clienti e prodotti
-- [x] Trend clienti attivi
+### Acquisti (Ordini)
+- Lista acquisti con stesso layout vendite
+- Ricerca con debounce
 
-### AI Features
-- [x] Suggerimento settimanale AI sulla dashboard
-- [x] Pulsante refresh suggerimento
-- [x] Report AI settimanali/mensili con Gemini Pro
-- [x] Eliminazione report AI (pulsante cestino)
+### Clienti
+- Anagrafica con fatturato, note editabili
+- Modal analisi dettagliata
 
-### Alerts & Notifications
-- [x] Centro Alert sulla dashboard
-- [x] Prodotti sotto scorta minima
-- [x] Clienti inattivi
-- [x] Prodotti in esaurimento
+### Fornitori
+- Anagrafica con fatturato annuale filtrabile per anno (selettore nel titolo colonna)
+- Note editabili inline
+- Modal acquisti per fornitore con:
+  - Selettore mese tra i mesi disponibili
+  - Righe singole d'acquisto (prodotto, quantità, prezzo unitario, totale, data)
+  - Riepilogo: n. acquisti, totale speso, mese di riferimento
 
-### News & Market
-- [x] Aggregazione notizie da RSS
-- [x] Prezzi di mercato
+### Statistiche
+- Switch Vendite/Clienti ↔ Acquisti/Fornitori
+- Filtri: prodotto, cliente/fornitore, date, preset (30gg, mese corrente, mese precedente, 3 mesi)
+- KPI del periodo filtrato (NO totali cumulativi):
+  - Vendite: Fatturato Periodo, Articoli Venduti, Clienti Attivi
+  - Acquisti: Speso Periodo, Articoli Acquistati, Fornitori Attivi
+- Grafici: AreaChart (multi-mese) / BarChart (singolo mese), PieChart top clienti/fornitori
+- Trend 7 giorni clienti/fornitori attivi
+- Top prodotti per fatturato
 
-## Key API Endpoints
-- `GET/POST /api/clienti` - CRUD clienti
-- `GET/POST /api/prodotti` - CRUD prodotti
-- `GET /api/vendite` - Lista vendite
-- `GET /api/ordini` - Lista ordini/acquisti
-- `GET /api/statistiche` - Statistiche vendite
-- `GET /api/statistiche/acquisti` - Statistiche acquisti
-- `GET /api/statistiche/acquisti/lists` - Liste per filtri acquisti
-- `GET /api/statistiche/fornitori-trend` - Trend fornitori 7gg
-- `GET /api/dashboard` - Dati dashboard
-- `GET /api/ai-suggestion` - Suggerimento AI settimanale
-- `POST /api/ai-suggestion/refresh` - Rigenera suggerimento
-- `GET /api/alerts` - Alert gestione
-- `GET/POST /api/ai-reports` - Report AI
-- `DELETE /api/ai-reports/{id}` - Elimina report AI
-- `GET /api/fornitori-with-stats` - Fornitori con fatturato calcolato
-- `PUT /api/fornitori/{id}/note` - Aggiorna note fornitore
-- `GET /api/fornitori/{nome}/prodotti` - Prodotti acquistati da fornitore
-- `GET /api/prodotti/{nome}/analisi` - Analisi vendite prodotto
-- `GET /api/prodotti/{nome}/analisi-acquisti` - Analisi acquisti prodotto
+### Report AI
+- Generazione report con Gemini Pro
+- Lista report salvati con eliminazione
 
-## Database Collections
-- `clienti` - Anagrafica clienti
-- `fornitori` - Anagrafica fornitori
-- `prodotti` - Inventario prodotti
-- `vendite` - Transazioni vendita
-- `ordini` - Transazioni acquisto
-- `ai_suggestions` - Cache suggerimenti AI
-- `ai_reports` - Report AI generati
+### Notizie
+- Feed RSS (FreshPlaza, Corriere Ortofrutticolo, MyFruit)
+- Widget meteo Bologna
+- Widget prezzi mercati ingrosso (scraping FreshPlaza)
+- Filtri per categoria
 
-## Known Issues (Low Priority)
-- Tooltip grafico a torta non interattivo in Stats.js
-- Scraper news non recupera immagini per alcune fonti
+## Integrazioni 3rd Party
+- `feedparser` + `beautifulsoup4`: RSS e scraping notizie
+- `emergentintegrations` + Gemini Pro: AI suggestions e reports
+- Open-Meteo API: dati meteo
+- FreshPlaza scraping: prezzi mercati ingrosso
 
-## Future Tasks (Backlog)
-- P2: Refactoring server.py in struttura modulare
-- P2: Gestione quantità negative inventario
-- P3: Revisione script originale Google Apps
+## Schema DB Chiave
+- `vendite`: transazioni vendita (SCARICO)
+- `ordini`: transazioni acquisto (CARICO)  
+- `clienti`: anagrafica clienti
+- `fornitori`: anagrafica fornitori + note
+- `prodotti`: inventario con quantità, prezzi, scadenze
+- `notizie`: articoli news cached
+- `reports`: report AI generati
+- `ai_suggestions`: cache suggerimenti settimanali
 
----
-Last Updated: 2026-02-15
+## Issue Note
+- **Prezzi nel DB**: Possibile arrotondamento durante import CSV. Fix temporaneo: frontend ricalcola prezzo × quantità
+- **Pie chart tooltip**: Funzionante con Tooltip di recharts standard
+- **News scraper immagini**: Funzionante per MyFruit, problemi intermittenti con altri feed
