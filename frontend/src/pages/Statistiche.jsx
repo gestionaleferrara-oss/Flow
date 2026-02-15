@@ -41,10 +41,10 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
-// Custom label renderer for pie chart - always visible percentages
+// Custom label renderer for pie chart - shows name + percentage always visible
 const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, nome }) => {
   const RADIAN = Math.PI / 180;
-  const radius = outerRadius + 25;
+  const radius = outerRadius + 30;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
   
@@ -60,22 +60,22 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
       textAnchor={x > cx ? 'start' : 'end'} 
       dominantBaseline="central"
     >
-      {`${nome?.slice(0,10)}${nome?.length > 10 ? '...' : ''} ${(percent * 100).toFixed(0)}%`}
+      {`${nome?.slice(0, 12)}${nome?.length > 12 ? '..' : ''} (${(percent * 100).toFixed(0)}%)`}
     </text>
   );
 };
 
-// Custom active shape for hover - with WHITE text
+// Custom active shape for hover - shows name + total spent with WHITE text
 const renderActiveShape = (props) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, nome, spesa } = props;
   
   return (
     <g>
-      {/* Center text - WHITE color */}
+      {/* Center text - WHITE color for readability */}
       <text x={cx} y={cy - 12} textAnchor="middle" fill="#ffffff" fontSize={14} fontWeight={600}>
-        {nome?.slice(0, 16)}
+        {nome?.slice(0, 18)}
       </text>
-      <text x={cx} y={cy + 10} textAnchor="middle" fill="#ffffff" fontSize={12}>
+      <text x={cx} y={cy + 10} textAnchor="middle" fill="#ffffff" fontSize={13} fontWeight={500}>
         {formatCurrency(spesa)}
       </text>
       {/* Expanded sector */}
@@ -83,7 +83,7 @@ const renderActiveShape = (props) => {
         cx={cx}
         cy={cy}
         innerRadius={innerRadius}
-        outerRadius={outerRadius + 8}
+        outerRadius={outerRadius + 10}
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill}
@@ -92,8 +92,8 @@ const renderActiveShape = (props) => {
       <Sector
         cx={cx}
         cy={cy}
-        innerRadius={outerRadius + 10}
-        outerRadius={outerRadius + 14}
+        innerRadius={outerRadius + 12}
+        outerRadius={outerRadius + 16}
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill}
@@ -115,6 +115,7 @@ export default function Statistiche() {
   const [lists, setLists] = useState({ prodotti: [], clienti: [] });
   const [showSuggestions, setShowSuggestions] = useState({ prodotto: false, cliente: false });
   const [activePieIndex, setActivePieIndex] = useState(-1);
+  const [clientiTrend, setClientiTrend] = useState([]);
 
   // Check if any filter is active
   const hasActiveFilters = filters.prodotto || filters.cliente || filters.startDate || filters.endDate;
@@ -122,6 +123,7 @@ export default function Statistiche() {
   useEffect(() => {
     loadLists();
     loadStatistiche();
+    loadClientiTrend();
   }, []);
 
   const loadLists = async () => {
@@ -148,6 +150,15 @@ export default function Statistiche() {
       console.error('Error loading statistiche:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadClientiTrend = async () => {
+    try {
+      const response = await axios.get(`${API}/statistiche/clienti-trend`);
+      setClientiTrend(response.data);
+    } catch (error) {
+      console.error('Error loading clienti trend:', error);
     }
   };
 
@@ -381,7 +392,7 @@ export default function Statistiche() {
           </div>
         </div>
 
-        {/* Top Clienti Pie Chart - With always-visible percentage labels */}
+        {/* Top Clienti Pie Chart - With name + percentage labels always visible */}
         <div className="bg-card border border-border/50 p-6 rounded-xl">
           <h3 className="font-heading text-lg font-semibold uppercase mb-4">Top Clienti</h3>
           <div className="h-[300px]">
@@ -391,8 +402,8 @@ export default function Statistiche() {
                   data={data?.topClienti || []}
                   cx="50%"
                   cy="50%"
-                  outerRadius={80}
-                  innerRadius={30}
+                  outerRadius={70}
+                  innerRadius={25}
                   dataKey="spesa"
                   nameKey="nome"
                   label={renderCustomizedLabel}
@@ -406,44 +417,37 @@ export default function Statistiche() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff' }}
-                  itemStyle={{ color: '#ffffff' }}
-                  labelStyle={{ color: '#ffffff' }}
-                  formatter={(value) => [formatCurrency(value), 'Spesa']}
-                />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* NEW: Daily Sales Trend Chart */}
+        {/* Clienti Trend - Last 7 days */}
         <div className="bg-card border border-border/50 p-6 rounded-xl">
-          <h3 className="font-heading text-lg font-semibold uppercase mb-4">Trend Vendite Giornaliero</h3>
+          <h3 className="font-heading text-lg font-semibold uppercase mb-4">Trend Clienti Attivi (Ultimi 7 giorni)</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={(data?.venditeGiornaliere || []).slice(-30)}>
+              <LineChart data={clientiTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
                 <XAxis 
-                  dataKey="data" 
+                  dataKey="giorno" 
                   stroke="#71717A" 
-                  fontSize={10}
-                  tickFormatter={(v) => v?.slice(5) || v}
+                  fontSize={11}
                 />
-                <YAxis stroke="#71717A" fontSize={12} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                <YAxis stroke="#71717A" fontSize={12} />
                 <Tooltip
                   contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', color: '#ffffff' }}
                   itemStyle={{ color: '#ffffff' }}
                   labelStyle={{ color: '#ffffff' }}
-                  formatter={(value) => [formatCurrency(value), 'Vendite']}
+                  formatter={(value) => [value, 'Clienti']}
                 />
                 <Line 
                   type="monotone" 
-                  dataKey="totale" 
-                  stroke="#10B981" 
-                  strokeWidth={2}
-                  dot={{ fill: '#10B981', r: 3 }}
-                  activeDot={{ r: 6, fill: '#10B981' }}
+                  dataKey="clienti" 
+                  stroke="#8B5CF6" 
+                  strokeWidth={3}
+                  dot={{ fill: '#8B5CF6', r: 5 }}
+                  activeDot={{ r: 8, fill: '#8B5CF6' }}
                 />
               </LineChart>
             </ResponsiveContainer>
