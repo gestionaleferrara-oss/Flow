@@ -1151,6 +1151,7 @@ async def fetch_rss_feed(source: dict) -> List[dict]:
                 return []
             
             root = ET.fromstring(response.content)
+            ns = {'content': 'http://purl.org/rss/1.0/modules/content/'}
             items = []
             
             for item in root.findall('.//item')[:10]:
@@ -1175,6 +1176,17 @@ async def fetch_rss_feed(source: dict) -> List[dict]:
                     if img and img.get('src'):
                         image_url = img.get('src')
                     desc_text = soup.get_text()[:200]
+                
+                # Try content:encoded for image if still none
+                if not image_url:
+                    content_encoded = item.find('content:encoded', ns)
+                    if content_encoded is not None and content_encoded.text:
+                        soup = BeautifulSoup(content_encoded.text, 'html.parser')
+                        img = soup.find('img')
+                        if img and img.get('src'):
+                            image_url = img.get('src')
+                        if not desc_text or len(desc_text) < 20:
+                            desc_text = soup.get_text()[:200]
                 
                 pub_date_str = pub_date.text if pub_date is not None else ""
                 parsed_dt = parse_rss_date(pub_date_str)
