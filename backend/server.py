@@ -989,7 +989,8 @@ async def get_dashboard():
         {"_id": 0}
     ).sort("data", -1).to_list(100)
     
-    fatturato_mese = sum(v.get('totale', 0) for v in vendite_recenti)
+    # Use abs() for fatturato since SCARICO has negative values
+    fatturato_mese = sum(abs(v.get('totale', 0)) for v in vendite_recenti)
     ordini_mese = len(vendite_recenti)
     
     # New clienti this month
@@ -1006,7 +1007,7 @@ async def get_dashboard():
         attivita_recenti.append({
             "tipo": "vendita",
             "descrizione": f"Vendita a {v.get('cliente_nome', 'N/A')}",
-            "valore": v.get('totale', 0),
+            "valore": abs(v.get('totale', 0)),
             "data": v.get('data', '')
         })
     
