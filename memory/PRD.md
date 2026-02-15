@@ -70,6 +70,9 @@ L'utente vuole migrare un'applicazione Google Apps Script a un'applicazione web 
 - `GET /api/alerts` - Alert gestione
 - `GET/POST /api/ai-reports` - Report AI
 - `DELETE /api/ai-reports/{id}` - Elimina report AI
+- `GET /api/fornitori-with-stats` - Fornitori con fatturato calcolato
+- `PUT /api/fornitori/{id}/note` - Aggiorna note fornitore
+- `GET /api/fornitori/{nome}/prodotti` - Prodotti acquistati da fornitore
 
 ## Database Collections
 - `clienti` - Anagrafica clienti
