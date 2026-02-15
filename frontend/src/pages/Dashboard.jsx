@@ -125,12 +125,20 @@ export default function Dashboard() {
     setShowProdottoModal(true);
     setLoadingAnalisi(true);
     setProdottoSearch('');
+    setAnalisiView('vendite');
+    
     try {
-      const response = await axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi`);
-      setProdottoAnalisi(response.data);
+      // Load both vendite and acquisti analysis in parallel
+      const [venditeRes, acquistiRes] = await Promise.all([
+        axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi`),
+        axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi-acquisti`)
+      ]);
+      setProdottoAnalisi(venditeRes.data);
+      setProdottoAnalisiAcquisti(acquistiRes.data);
     } catch (error) {
       console.error('Error loading prodotto analisi:', error);
       setProdottoAnalisi(null);
+      setProdottoAnalisiAcquisti(null);
     } finally {
       setLoadingAnalisi(false);
     }
