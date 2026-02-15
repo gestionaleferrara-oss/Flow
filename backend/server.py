@@ -1150,11 +1150,115 @@ async def create_notizia(data: NotiziaCreate):
     return notizia
 
 
-# ----- Prezzi Mercati -----
+# ----- Prezzi Mercati (scraping dinamico da FreshPlaza) -----
+
+async def scrape_freshplaza_market_links():
+    """Scrape latest market price links from FreshPlaza like the original Google Script"""
+    global _market_price_cache
+    
+    BASE_URL = "https://www.freshplaza.it"
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as http_client:
+            # Step 1: Get homepage
+            resp = await http_client.get(BASE_URL + "/", headers={"User-Agent": "Mozilla/5.0"})
+            if resp.status_code != 200:
+                return _market_price_cache.get("links", [])
+            
+            homepage_html = resp.text
+            
+            # Step 2: Find the article link for "Ultimi prezzi ortofrutticoli"
+            anchor_text = "Ultimi prezzi ortofrutticoli"
+            anchor_idx = homepage_html.find(anchor_text)
+            
+            if anchor_idx == -1:
+                logger.warning("FreshPlaza: anchor text not found on homepage")
+                return _market_price_cache.get("links", [])
+            
+            # Find the <a href="..."> before this text
+            link_start_str = '<a href="'
+            link_start_idx = homepage_html.rfind(link_start_str, 0, anchor_idx)
+            if link_start_idx == -1:
+                return _market_price_cache.get("links", [])
+            
+            url_start = link_start_idx + len(link_start_str)
+            url_end = homepage_html.find('"', url_start)
+            relative_url = homepage_html[url_start:url_end]
+            article_url = BASE_URL + relative_url if relative_url.startswith('/') else relative_url
+            
+            logger.info(f"FreshPlaza article URL: {article_url}")
+            
+            # Step 3: Fetch the article page
+            article_resp = await http_client.get(article_url, headers={"User-Agent": "Mozilla/5.0"})
+            if article_resp.status_code != 200:
+                return _market_price_cache.get("links", [])
+            
+            article_html = article_resp.text
+            
+            # Step 4: Extract market price links
+            start_marker = '<main'
+            text_start = article_html.find(start_marker)
+            if text_start == -1:
+                start_marker = '<article'
+                text_start = article_html.find(start_marker)
+            
+            if text_start == -1:
+                return _market_price_cache.get("links", [])
+            
+            article_block = article_html[text_start:]
+            
+            # Parse with BeautifulSoup for robustness
+            soup = BeautifulSoup(article_block, 'html.parser')
+            links = []
+            
+            for a_tag in soup.find_all('a', href=True):
+                text = a_tag.get_text(strip=True)
+                href = a_tag['href']
+                
+                # Look for market price links
+                if "prezzi all'ingrosso" in text.lower() or "prezzi all&#39;ingrosso" in text.lower():
+                    city_name = text.split(':')[0].strip()
+                    if city_name:
+                        links.append({"nome": city_name, "url": href})
+                elif "listino" in href.lower() or "prezzi" in href.lower():
+                    # Also catch direct price links
+                    if text and len(text) < 60:
+                        links.append({"nome": text.split(':')[0].strip(), "url": href})
+            
+            if links:
+                _market_price_cache["links"] = links
+                _market_price_cache["last_updated"] = datetime.now(timezone.utc)
+                logger.info(f"FreshPlaza: found {len(links)} market links")
+                return links
+            
+            return _market_price_cache.get("links", [])
+            
+    except Exception as e:
+        logger.error(f"Error scraping FreshPlaza market prices: {e}")
+        return _market_price_cache.get("links", [])
+
+
 @api_router.get("/prezzi-mercati")
 async def get_prezzi_mercati():
-    """Get list of market price links"""
-    return MARKET_PRICE_LINKS
+    """Get list of market price links scraped from FreshPlaza"""
+    # Check cache (refresh every 6 hours)
+    cache_valid = (
+        _market_price_cache.get("last_updated") and 
+        _market_price_cache.get("links") and
+        (datetime.now(timezone.utc) - _market_price_cache["last_updated"]).total_seconds() < 21600
+    )
+    
+    if cache_valid:
+        return _market_price_cache["links"]
+    
+    links = await scrape_freshplaza_market_links()
+    
+    # If scraping failed and we have no cache, return a helpful message
+    if not links:
+        return [
+            {"nome": "FreshPlaza - Prezzi Ingrosso", "url": "https://www.freshplaza.it/"}
+        ]
+    
+    return links
 
 
 # ----- Meteo (usando Open-Meteo API gratuita) -----
