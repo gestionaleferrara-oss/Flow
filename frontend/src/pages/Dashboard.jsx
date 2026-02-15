@@ -13,9 +13,13 @@ import {
   Upload,
   BarChart3,
   TrendingUp,
+  TrendingDown,
   Search,
   X,
-  Box
+  Box,
+  Sparkles,
+  Lightbulb,
+  RefreshCw
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import StatCard from '@/components/StatCard';
@@ -35,17 +39,20 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [prodottoSearch, setProdottoSearch] = useState('');
   const [prodotti, setProdotti] = useState([]);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [prodottoSearch, setProdottoSearch] = useState('');
   const [showProdottoModal, setShowProdottoModal] = useState(false);
   const [selectedProdotto, setSelectedProdotto] = useState(null);
   const [prodottoAnalisi, setProdottoAnalisi] = useState(null);
   const [loadingAnalisi, setLoadingAnalisi] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [loadingAi, setLoadingAi] = useState(false);
 
   useEffect(() => {
     loadDashboard();
     loadProdotti();
+    loadAiSuggestion();
   }, []);
 
   const loadDashboard = async () => {
@@ -68,12 +75,24 @@ export default function Dashboard() {
     }
   };
 
+  const loadAiSuggestion = async () => {
+    setLoadingAi(true);
+    try {
+      const response = await axios.get(`${API}/ai-suggestion`);
+      setAiSuggestion(response.data);
+    } catch (error) {
+      console.error('Error loading AI suggestion:', error);
+    } finally {
+      setLoadingAi(false);
+    }
+  };
+
   const viewProdottoAnalisi = async (prodotto) => {
     setSelectedProdotto(prodotto);
+    setShowSearchModal(false);
     setShowProdottoModal(true);
     setLoadingAnalisi(true);
     setProdottoSearch('');
-    setShowSuggestions(false);
     try {
       const response = await axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi`);
       setProdottoAnalisi(response.data);
@@ -87,7 +106,7 @@ export default function Dashboard() {
 
   const filteredProdotti = prodotti.filter(p => 
     p.nome.toLowerCase().includes(prodottoSearch.toLowerCase())
-  ).slice(0, 8);
+  ).slice(0, 12);
 
   if (loading) return <LoadingSpinner fullScreen />;
 
@@ -96,7 +115,17 @@ export default function Dashboard() {
       <PageHeader 
         title="Dashboard" 
         subtitle="Panoramica delle attività aziendali"
-      />
+      >
+        <Button
+          variant="outline"
+          onClick={() => setShowSearchModal(true)}
+          className="gap-2"
+          data-testid="open-search-prodotto"
+        >
+          <Search className="w-4 h-4" />
+          Cerca Prodotto
+        </Button>
+      </PageHeader>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8 animate-stagger">
@@ -130,57 +159,60 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Search Prodotto - Analisi Prodotti */}
+      {/* AI Suggestion Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className="glass-card p-6 mb-8"
+        className="mb-8"
       >
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 rounded-lg bg-emerald-500/10">
-            <Box className="w-5 h-5 text-emerald-400" />
-          </div>
-          <div>
-            <h2 className="font-semibold text-lg">Analisi Prodotti</h2>
-            <p className="text-sm text-muted-foreground">Cerca un prodotto per visualizzare statistiche dettagliate</p>
-          </div>
-        </div>
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Cerca prodotto..."
-            value={prodottoSearch}
-            onChange={(e) => {
-              setProdottoSearch(e.target.value);
-              setShowSuggestions(true);
-            }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            className="pl-10"
-            data-testid="search-prodotto-dashboard"
-          />
-          {/* Suggestions dropdown */}
-          {showSuggestions && prodottoSearch && filteredProdotti.length > 0 && (
-            <div className="absolute top-full left-0 right-0 bg-card border border-border rounded-lg mt-1 max-h-64 overflow-auto z-20 shadow-xl">
-              {filteredProdotti.map((p, i) => (
-                <div
-                  key={p.id || i}
-                  className="px-4 py-3 hover:bg-muted cursor-pointer text-sm flex items-center justify-between border-b border-border/50 last:border-0"
-                  onClick={() => viewProdottoAnalisi(p)}
-                  data-testid={`prodotto-suggestion-${i}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Package className="w-4 h-4 text-emerald-500" />
-                    <span className="font-medium">{p.nome}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    Qtà: {p.quantita?.toLocaleString('it-IT') || 0}
-                  </span>
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-fuchsia-500/10 border border-purple-500/20">
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-violet-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+          
+          <div className="relative p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-purple-500/25">
+                <Sparkles className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="font-semibold text-lg text-white">Suggerimento Settimanale</h3>
+                  <span className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-300 rounded-full">AI</span>
                 </div>
-              ))}
+                
+                {loadingAi ? (
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Analisi in corso...</span>
+                  </div>
+                ) : aiSuggestion?.suggestion ? (
+                  <>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Lightbulb className="w-4 h-4 text-amber-400" />
+                      <span className="text-sm font-medium text-purple-300">{aiSuggestion.suggestion.titolo}</span>
+                    </div>
+                    <p className="text-slate-300 text-sm leading-relaxed mb-3">
+                      {aiSuggestion.suggestion.messaggio}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">
+                        Aggiornato: Settimana {aiSuggestion.week_key?.split('-W')[1] || ''}
+                      </span>
+                      <span className="px-3 py-1.5 text-xs bg-white/5 text-purple-300 rounded-lg border border-purple-500/20">
+                        {aiSuggestion.suggestion.azione}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-slate-400 text-sm">
+                    Importa più dati per ricevere suggerimenti personalizzati
+                  </p>
+                )}
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </motion.div>
 
@@ -247,7 +279,10 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-200">{item.descrizione}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{formatDate(item.data)}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {formatDate(item.data)}
+                      {item.prodotto && <span className="text-slate-600"> - {item.prodotto}</span>}
+                    </p>
                   </div>
                 </div>
                 <span className="font-mono text-sm font-semibold text-emerald-400">
@@ -278,6 +313,71 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
+      {/* Modal Ricerca Prodotti */}
+      <Dialog open={showSearchModal} onOpenChange={setShowSearchModal}>
+        <DialogContent className="max-w-xl" data-testid="search-prodotto-modal">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl uppercase flex items-center gap-3">
+              <Box className="w-5 h-5 text-emerald-500" />
+              Cerca Prodotto
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="mt-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Digita il nome del prodotto..."
+                value={prodottoSearch}
+                onChange={(e) => setProdottoSearch(e.target.value)}
+                className="pl-10 h-12 text-base"
+                autoFocus
+                data-testid="search-prodotto-input"
+              />
+            </div>
+            
+            <div className="mt-4 max-h-[400px] overflow-auto">
+              {prodottoSearch ? (
+                filteredProdotti.length > 0 ? (
+                  <div className="space-y-1">
+                    {filteredProdotti.map((p, i) => (
+                      <button
+                        key={p.id || i}
+                        className="w-full px-4 py-3 hover:bg-muted rounded-lg cursor-pointer text-left flex items-center justify-between transition-colors"
+                        onClick={() => viewProdottoAnalisi(p)}
+                        data-testid={`prodotto-result-${i}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Package className="w-5 h-5 text-emerald-500" />
+                          <span className="font-medium">{p.nome}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className={cn(
+                            "text-sm font-mono",
+                            (p.quantita || 0) <= 0 ? "text-red-400" : "text-slate-400"
+                          )}>
+                            Qtà: {p.quantita?.toLocaleString('it-IT') || 0}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Nessun prodotto trovato per "{prodottoSearch}"
+                  </div>
+                )
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>Inizia a digitare per cercare...</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal Analisi Prodotto */}
       <Dialog open={showProdottoModal} onOpenChange={setShowProdottoModal}>
         <DialogContent className="max-w-lg" data-testid="prodotto-analisi-modal">
@@ -294,23 +394,33 @@ export default function Dashboard() {
             <div className="space-y-4 mt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Totale Venduto</p>
+                  <p className="text-sm text-muted-foreground mb-1">Fatturato Mensile</p>
                   <p className="font-heading text-2xl font-bold text-emerald-400">
-                    {prodottoAnalisi.totaleVenduto?.toLocaleString('it-IT') || 0}
+                    {formatCurrency(prodottoAnalisi.fatturatoMensile || 0)}
                   </p>
-                  <p className="text-xs text-muted-foreground">unità</p>
+                  <p className="text-xs text-muted-foreground">media 6 mesi</p>
                 </div>
                 <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Media Mensile</p>
-                  <p className="font-heading text-2xl font-bold">
-                    {prodottoAnalisi.mediaMensile?.toLocaleString('it-IT') || 0}
-                  </p>
-                  <p className="text-xs text-muted-foreground">unità/mese</p>
+                  <p className="text-sm text-muted-foreground mb-1">Trend Vendite</p>
+                  <div className="flex items-center gap-2">
+                    {(prodottoAnalisi.trendPercentuale || 0) >= 0 ? (
+                      <TrendingUp className="w-5 h-5 text-emerald-400" />
+                    ) : (
+                      <TrendingDown className="w-5 h-5 text-red-400" />
+                    )}
+                    <p className={cn(
+                      "font-heading text-2xl font-bold",
+                      (prodottoAnalisi.trendPercentuale || 0) >= 0 ? "text-emerald-400" : "text-red-400"
+                    )}>
+                      {prodottoAnalisi.trendPercentuale > 0 ? '+' : ''}{prodottoAnalisi.trendPercentuale || 0}%
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">vs mese prec.</p>
                 </div>
                 <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Ultima Vendita</p>
-                  <p className="font-heading text-xl font-bold">
-                    {prodottoAnalisi.ultimaVendita || 'N/A'}
+                  <p className="text-sm text-muted-foreground mb-1">Clienti Unici</p>
+                  <p className="font-heading text-2xl font-bold text-blue-400">
+                    {prodottoAnalisi.clientiUnici || 0}
                   </p>
                 </div>
                 <div className="p-4 bg-muted rounded-lg">
@@ -347,9 +457,9 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-sm">Prezzo medio:</span>
+                    <span className="text-sm">Vendita media mensile:</span>
                     <span className="font-mono">
-                      {formatCurrency(selectedProdotto.prezzo_medio || 0)}
+                      {prodottoAnalisi.mediaMensile?.toLocaleString('it-IT') || 0} unità
                     </span>
                   </div>
                 </div>
@@ -357,7 +467,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              Nessun dato disponibile per questo prodotto
+              Nessun dato di vendita per questo prodotto
             </div>
           )}
         </DialogContent>
