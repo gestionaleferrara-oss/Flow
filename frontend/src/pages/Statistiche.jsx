@@ -338,6 +338,9 @@ export default function Statistiche() {
                       </g>
                     );
                   }}
+                  activeIndex={activePieIndex}
+                  onMouseEnter={(_, index) => setActivePieIndex(index)}
+                  onMouseLeave={() => setActivePieIndex(-1)}
                 >
                   {(data?.topClienti || []).map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
