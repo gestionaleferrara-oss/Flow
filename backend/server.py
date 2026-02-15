@@ -245,25 +245,91 @@ def serialize_doc(doc: dict) -> dict:
 
 # ======================= CSV PROCESSING =======================
 
-async def process_csv_row(row: dict, stats: dict):
+def auto_detect_columns(headers: list) -> dict:
+    """Auto-detect CSV columns by matching common patterns"""
+    mapping = {
+        'movimento': None,
+        'data': None,
+        'codice_cliente_fornitore': None,
+        'nome_cliente_fornitore': None,
+        'codice_prodotto': None,
+        'nome_prodotto': None,
+        'quantita': None,
+        'importo_unitario': None,
+        'importo_totale': None,
+        'causale': None
+    }
+    
+    for i, header in enumerate(headers):
+        h = header.lower().strip()
+        
+        # Movimento
+        if 'movimento' in h or 'tipo' in h:
+            mapping['movimento'] = header
+        # Data
+        elif h == 'data' or 'data' in h:
+            mapping['data'] = header
+        # Codice Cliente/Fornitore
+        elif 'codice cl' in h or 'cod. cl' in h or 'cod cl' in h:
+            mapping['codice_cliente_fornitore'] = header
+        # Nome Cliente/Fornitore
+        elif 'decodifica cl' in h or 'nome cl' in h or 'cliente' in h:
+            mapping['nome_cliente_fornitore'] = header
+        # Codice Prodotto
+        elif h == 'codice' or (('codice' in h or 'cod' in h) and 'cl' not in h and 'fo' not in h):
+            mapping['codice_prodotto'] = header
+        # Nome Prodotto / Decodifica
+        elif h == 'decodifica' or ('decodifica' in h and 'cl' not in h and 'fo' not in h):
+            mapping['nome_prodotto'] = header
+        # Quantita - handles encoding issues with à
+        elif 'quantit' in h or 'qty' in h or 'qta' in h:
+            mapping['quantita'] = header
+        # Importo Unitario (PREZZO)
+        elif 'importo unitario' in h or 'prezzo' in h or 'prezzo unitario' in h or 'unit' in h:
+            mapping['importo_unitario'] = header
+        # Importo Totale (TOTALE PAGATO)
+        elif 'importo totale' in h or 'totale' in h:
+            mapping['importo_totale'] = header
+        # Causale
+        elif 'causale' in h:
+            mapping['causale'] = header
+    
+    return mapping
+
+
+async def process_csv_row(row: dict, stats: dict, col_mapping: dict):
     """Process a single CSV row and update database"""
     
-    movimento = row.get('Movimento', '').strip()
-    data = parse_italian_date(row.get('Data', ''))
-    codice_cliente_fornitore = row.get('Codice Cl./Fo.', '').strip()
-    nome_cliente_fornitore = row.get('Decodifica Cl./Fo.', '').strip()
-    codice_prodotto = row.get('Codice', '').strip()
-    nome_prodotto = row.get('Decodifica', '').strip()
-    quantita = parse_float(row.get('Quantità', row.get('Quantita', '0')))
-    importo_unitario = parse_float(row.get('Importo Unitario', '0'))
-    importo_totale = parse_float(row.get('Importo Totale', '0'))
+    # Use auto-detected column mapping
+    movimento = row.get(col_mapping['movimento'] or 'Movimento', '').strip()
+    data = parse_italian_date(row.get(col_mapping['data'] or 'Data', ''))
+    codice_cliente_fornitore = row.get(col_mapping['codice_cliente_fornitore'] or 'Codice Cl./Fo.', '').strip()
+    nome_cliente_fornitore = row.get(col_mapping['nome_cliente_fornitore'] or 'Decodifica Cl./Fo.', '').strip()
+    codice_prodotto = row.get(col_mapping['codice_prodotto'] or 'Codice', '').strip()
+    nome_prodotto = row.get(col_mapping['nome_prodotto'] or 'Decodifica', '').strip()
+    
+    # Auto-detect quantity column (handles encoding issues)
+    quantita_val = '0'
+    for key in row.keys():
+        if 'quantit' in key.lower() or 'qty' in key.lower():
+            quantita_val = row[key]
+            break
+    if col_mapping['quantita']:
+        quantita_val = row.get(col_mapping['quantita'], quantita_val)
+    quantita = parse_float(quantita_val)
+    
+    # Auto-detect price and total columns
+    importo_unitario = parse_float(row.get(col_mapping['importo_unitario'] or 'Importo Unitario', '0'))
+    importo_totale = parse_float(row.get(col_mapping['importo_totale'] or 'Importo Totale', '0'))
+    
+    causale = row.get(col_mapping['causale'] or 'Causale', '')
     
     # Skip empty rows
     if not nome_prodotto and not nome_cliente_fornitore:
         return
     
     # Determine if it's a sale (Scarico) or purchase (Carico)
-    is_vendita = movimento.upper() == 'SCARICO' or 'VEN' in str(row.get('Causale', '')).upper()
+    is_vendita = movimento.upper() == 'SCARICO' or 'VEN' in str(causale).upper()
     
     if is_vendita and nome_cliente_fornitore:
         # Process as sale - create/update cliente
