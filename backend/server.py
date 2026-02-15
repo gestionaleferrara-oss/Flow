@@ -1167,11 +1167,11 @@ async def get_dashboard():
     now = datetime.now()
     thirty_days_ago = (now - timedelta(days=30)).strftime("%Y-%m-%d")
     
-    # Get recent vendite
+    # Get recent vendite - extend to 90 days if needed
     vendite_recenti = await db.vendite.find(
         {"data": {"$gte": thirty_days_ago}}, 
         {"_id": 0}
-    ).sort("data", -1).to_list(100)
+    ).sort("data", -1).to_list(500)
     
     # Use abs() for fatturato since SCARICO has negative values
     fatturato_mese = sum(abs(v.get('totale', 0)) for v in vendite_recenti)
@@ -1199,14 +1199,25 @@ async def get_dashboard():
     # Prodotti da ordinare
     prodotti_stats = await get_prodotti_stats()
     
-    # Recent activity
+    # Recent activity - if no recent data, get historical data
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
     attivita_recenti = []
-    for v in vendite_recenti[:10]:
+    
+    # First try recent vendite
+    vendite_for_activity = [v for v in vendite_recenti if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    
+    # If not enough recent data, fetch more historical data
+    if len(vendite_for_activity) < 10:
+        all_vendite = await db.vendite.find({}, {"_id": 0}).sort("data", -1).limit(100).to_list(100)
+        vendite_for_activity = [v for v in all_vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    
+    for v in vendite_for_activity[:10]:
         attivita_recenti.append({
             "tipo": "vendita",
             "descrizione": f"Vendita a {v.get('cliente_nome', 'N/A')}",
             "valore": abs(v.get('totale', 0)),
-            "data": v.get('data', '')
+            "data": v.get('data', ''),
+            "prodotto": v.get('prodotto_nome', '')
         })
     
     return {
@@ -1219,6 +1230,159 @@ async def get_dashboard():
         "prodottiScadenza": prodotti_stats.get('scadenza_count', 0),
         "attivitaRecenti": attivita_recenti
     }
+
+
+# ----- AI Business Suggestions -----
+@api_router.get("/ai-suggestion")
+async def get_ai_suggestion():
+    """Generate weekly AI business suggestion based on sales data"""
+    import hashlib
+    
+    # Get current week number to cache suggestion per week
+    now = datetime.now()
+    week_num = now.isocalendar()[1]
+    year = now.year
+    week_key = f"{year}-W{week_num}"
+    
+    # Check if we have a cached suggestion for this week
+    cached = await db.ai_suggestions.find_one({"week_key": week_key}, {"_id": 0})
+    if cached:
+        return cached
+    
+    # Gather business data for analysis
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    
+    # Get all vendite for the last 90 days
+    ninety_days_ago = (now - timedelta(days=90)).strftime("%Y-%m-%d")
+    vendite = await db.vendite.find({"data": {"$gte": ninety_days_ago}}, {"_id": 0}).to_list(10000)
+    vendite = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    
+    # Get products and clients
+    prodotti = await db.prodotti.find({}, {"_id": 0}).to_list(1000)
+    clienti = await db.clienti.find({}, {"_id": 0}).to_list(1000)
+    
+    # Analyze data
+    # 1. Top selling products by revenue
+    prodotti_revenue = {}
+    for v in vendite:
+        prod = v.get('prodotto_nome', '')
+        prodotti_revenue[prod] = prodotti_revenue.get(prod, 0) + abs(v.get('totale', 0))
+    top_products = sorted(prodotti_revenue.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    # 2. Products with low stock
+    low_stock = [p for p in prodotti if p.get('quantita', 0) > 0 and p.get('quantita_minima', 0) > 0 and p.get('quantita', 0) <= p.get('quantita_minima', 0)]
+    
+    # 3. Best clients by spending
+    clienti_spending = {}
+    for v in vendite:
+        cliente = v.get('cliente_nome', '')
+        if cliente:
+            clienti_spending[cliente] = clienti_spending.get(cliente, 0) + abs(v.get('totale', 0))
+    top_clients = sorted(clienti_spending.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    # 4. Inactive clients (haven't bought in 30+ days)
+    thirty_days_ago = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    recent_clients = set(v.get('cliente_nome', '') for v in vendite if v.get('data', '') >= thirty_days_ago)
+    all_clients = set(v.get('cliente_nome', '') for v in vendite)
+    inactive_clients = all_clients - recent_clients
+    
+    # 5. Calculate margins if we have purchase prices
+    # For now, estimate based on typical 20-30% markup
+    
+    # 6. Seasonality - compare this month to same month last year (if data available)
+    
+    # Generate suggestions based on analysis
+    suggestions = []
+    
+    # Suggestion based on top products
+    if top_products:
+        top_prod_name = top_products[0][0]
+        suggestions.append({
+            "tipo": "prodotto_star",
+            "titolo": "Prodotto Star",
+            "messaggio": f"'{top_prod_name}' è il tuo prodotto più venduto. Considera di negoziare un prezzo migliore con il fornitore per aumentare il margine.",
+            "azione": "Contatta il fornitore per sconti volume"
+        })
+    
+    # Suggestion based on low stock
+    if low_stock:
+        low_stock_names = [p.get('nome', '') for p in low_stock[:3]]
+        suggestions.append({
+            "tipo": "riordino",
+            "titolo": "Riordino Urgente",
+            "messaggio": f"Prodotti sotto scorta minima: {', '.join(low_stock_names)}. Ordina subito per evitare rotture di stock.",
+            "azione": "Vai alla sezione Acquisti"
+        })
+    
+    # Suggestion based on inactive clients
+    if len(inactive_clients) > 5:
+        suggestions.append({
+            "tipo": "clienti_dormienti",
+            "titolo": "Clienti da Riattivare",
+            "messaggio": f"Hai {len(inactive_clients)} clienti che non ordinano da 30+ giorni. Una promozione mirata potrebbe riattivare le vendite.",
+            "azione": "Considera sconti personalizzati o contatto diretto"
+        })
+    
+    # Suggestion based on best clients
+    if top_clients:
+        best_client = top_clients[0][0]
+        suggestions.append({
+            "tipo": "fidelizzazione",
+            "titolo": "Cliente VIP",
+            "messaggio": f"'{best_client}' è il tuo miglior cliente. Offri un programma fedeltà o sconti esclusivi per mantenerlo.",
+            "azione": "Crea offerta personalizzata"
+        })
+    
+    # Weekly rotating suggestion based on week number
+    rotating_suggestions = [
+        {
+            "tipo": "marketing",
+            "titolo": "Suggerimento Marketing",
+            "messaggio": "Considera di creare un listino prezzi settimanale da inviare ai clienti via WhatsApp per aumentare gli ordini.",
+            "azione": "Prepara listino PDF"
+        },
+        {
+            "tipo": "analisi",
+            "titolo": "Analisi Prezzi",
+            "messaggio": "Verifica i prezzi dei concorrenti sul mercato. Piccoli aggiustamenti possono migliorare significativamente i margini.",
+            "azione": "Confronta prezzi mercato"
+        },
+        {
+            "tipo": "efficienza",
+            "titolo": "Ottimizza Consegne",
+            "messaggio": "Raggruppa le consegne per zona geografica per ridurre i costi di trasporto e aumentare l'efficienza.",
+            "azione": "Pianifica percorsi ottimali"
+        },
+        {
+            "tipo": "cross_selling",
+            "titolo": "Cross-Selling",
+            "messaggio": "Proponi prodotti complementari ai clienti. Chi compra frutta secca potrebbe essere interessato anche a semi e granelle.",
+            "azione": "Crea bundle di prodotti"
+        }
+    ]
+    
+    # Pick one rotating suggestion based on week
+    rotating_idx = week_num % len(rotating_suggestions)
+    suggestions.append(rotating_suggestions[rotating_idx])
+    
+    # Pick the most relevant suggestion (first one with data-driven insight)
+    main_suggestion = suggestions[0] if suggestions else rotating_suggestions[rotating_idx]
+    
+    result = {
+        "week_key": week_key,
+        "generated_at": now.isoformat(),
+        "suggestion": main_suggestion,
+        "all_suggestions": suggestions[:3]  # Return top 3 suggestions
+    }
+    
+    # Cache for the week
+    await db.ai_suggestions.update_one(
+        {"week_key": week_key},
+        {"$set": result},
+        upsert=True
+    )
+    
+    return result
 
 
 # ----- Notizie -----
