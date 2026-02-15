@@ -95,7 +95,7 @@ export default function Vendite() {
                   <td className="text-right tabular-nums font-medium text-primary">
                     {formatCurrency(vendita.totale)}
                   </td>
-                </motion.tr>
+                </tr>
               ))}
             </tbody>
           </table>
