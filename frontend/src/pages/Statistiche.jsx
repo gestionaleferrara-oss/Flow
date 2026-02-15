@@ -28,7 +28,8 @@ import {
   Filter,
   Calendar,
   RefreshCw,
-  ShoppingBag
+  ShoppingBag,
+  Truck
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
