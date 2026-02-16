@@ -874,16 +874,28 @@ Il tuo compito è generare report aziendali chiari, professionali e actionable i
 Usa un tono professionale ma accessibile. Struttura il report in sezioni chiare.
 Fornisci sempre suggerimenti concreti e specifici basati sui dati.""").with_model("openai", "gpt-4o")
 
-        prompt = f"""Genera un report {report_type} professionale basato sui seguenti dati aziendali.
-
-{data_summary}
-
-Il report deve includere:
+        if report_type == "dashboard":
+            prompt_tipo = "DASHBOARD (analisi completa della situazione attuale con confronto mese precedente)"
+            sezioni = """Il report deve includere:
+1. **Situazione Attuale** - stato dell'attività con confronto mese precedente
+2. **Performance** - analisi fatturato, trend, variazioni percentuali
+3. **Alert e Criticità** - prodotti sotto scorta, clienti da riattivare
+4. **Top Performers** - migliori prodotti e clienti del periodo
+5. **Azioni Immediate** - 3-5 azioni prioritarie da eseguire subito"""
+        else:
+            prompt_tipo = f"{report_type}"
+            sezioni = """Il report deve includere:
 1. **Sommario Esecutivo** - panoramica rapida dei risultati chiave
 2. **Performance Vendite** - analisi del fatturato e trend
 3. **Prodotti** - analisi dei best seller e suggerimenti
 4. **Clienti** - analisi dei top clienti e strategia per clienti inattivi
-5. **Raccomandazioni** - 3-5 azioni concrete
+5. **Raccomandazioni** - 3-5 azioni concrete"""
+
+        prompt = f"""Genera un report {prompt_tipo} professionale basato sui seguenti dati aziendali.
+
+{data_summary}
+
+{sezioni}
 
 Formatta il report in markdown."""
 
