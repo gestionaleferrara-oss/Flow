@@ -159,7 +159,7 @@ export default function Notizie() {
           </div>
         </motion.div>
 
-        {/* Breaking News Ticker - Today and yesterday's news with LIVE badge */}
+        {/* Breaking News Ticker - Today and yesterday's news with LIVE badge - Expanded */}
         {tickerNews.length > 0 && (() => {
           const today = new Date();
           const todayStr = today.toISOString().split('T')[0];
@@ -179,27 +179,27 @@ export default function Notizie() {
             }
           });
           
-          // Show recent news (today + yesterday) or fallback to latest 6
-          const displayNews = recentNews.length > 0 ? recentNews.slice(0, 6) : tickerNews.slice(0, 6);
+          // Show recent news (today + yesterday) or fallback to latest 8
+          const displayNews = recentNews.length > 0 ? recentNews.slice(0, 8) : tickerNews.slice(0, 8);
           const hasRecentNews = recentNews.length > 0;
           
           return (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-              className="rounded-xl border border-white/[0.08] p-3 md:col-span-2 lg:col-span-1"
+              className="rounded-xl border border-white/[0.08] p-4 md:col-span-2 lg:col-span-1"
               style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-red-500/20 text-red-400 rounded animate-pulse">Live</span>
-                <span className="text-xs font-semibold text-white">Breaking News</span>
-                {!hasRecentNews && <span className="text-[8px] text-slate-500">(archivio)</span>}
+              <div className="flex items-center gap-2 mb-3">
+                <span className="px-2 py-1 text-[9px] font-bold uppercase bg-red-500/20 text-red-400 rounded animate-pulse">Live</span>
+                <span className="text-sm font-semibold text-white">Breaking News</span>
+                {!hasRecentNews && <span className="text-[9px] text-slate-500">(archivio)</span>}
               </div>
-              <div className="space-y-1 max-h-[140px] overflow-y-auto pr-1">
+              <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1">
                 {displayNews.map((n, i) => (
                   <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-start gap-1.5 p-1.5 rounded bg-white/[0.02] border border-white/[0.04] hover:bg-cyan-500/[0.05] transition-all group">
-                    <span className="w-1 h-1 rounded-full bg-cyan-500/60 shrink-0 mt-1.5" />
+                    className="flex items-start gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-cyan-500/[0.05] transition-all group">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/60 shrink-0 mt-1.5" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-slate-300 group-hover:text-white line-clamp-2 leading-tight">{n.titolo}</p>
-                      <p className="text-[8px] text-slate-600 mt-0.5">{n.fonte}</p>
+                      <p className="text-[11px] text-slate-300 group-hover:text-white line-clamp-2 leading-snug">{n.titolo}</p>
+                      <p className="text-[9px] text-slate-600 mt-0.5">{n.fonte}</p>
                     </div>
                   </a>
                 ))}
