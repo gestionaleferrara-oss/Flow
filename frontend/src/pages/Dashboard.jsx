@@ -101,9 +101,12 @@ export default function Dashboard() {
     } finally { setLoadingAnalisi(false); }
   };
 
-  const filteredProdotti = prodotti.filter(p =>
-    p.nome.toLowerCase().includes(prodottoSearch.toLowerCase())
-  ).slice(0, 12);
+  const filteredProdotti = prodottoSearch.trim().length > 0 
+    ? prodotti.filter(p =>
+        p.nome.toLowerCase().includes(prodottoSearch.toLowerCase()) ||
+        (p.codice && p.codice.toLowerCase().includes(prodottoSearch.toLowerCase()))
+      ).slice(0, 20)
+    : [];
 
   if (loading) return <LoadingSpinner fullScreen />;
 
