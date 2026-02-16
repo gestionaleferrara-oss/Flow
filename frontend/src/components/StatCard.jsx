@@ -24,8 +24,9 @@ export default function StatCard({
   label, value, trend, trendValue, icon: Icon,
   format = 'number', gradient = 'blue', subtitle, className, blurred = false
 }) {
-  const [revealed, setRevealed] = useState(false);
-  const isBlurred = blurred && !revealed;
+  const [pinned, setPinned] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const isBlurred = blurred && !pinned && !hovered;
 
   const formattedValue = format === 'currency' 
     ? formatCurrency(value) 
@@ -47,8 +48,8 @@ export default function StatCard({
         className
       )} 
       data-testid="stat-card"
-      onMouseEnter={blurred ? () => setRevealed(true) : undefined}
-      onMouseLeave={blurred ? () => setRevealed(false) : undefined}
+      onMouseEnter={blurred ? () => setHovered(true) : undefined}
+      onMouseLeave={blurred ? () => setHovered(false) : undefined}
     >
       <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-white/5 blur-2xl" />
       
@@ -94,10 +95,10 @@ export default function StatCard({
           )}
           {blurred && (
             <button
-              onClick={(e) => { e.stopPropagation(); setRevealed(r => !r); }}
+              onClick={(e) => { e.stopPropagation(); setPinned(p => !p); }}
               className={cn(
                 "p-1.5 rounded-lg transition-all duration-300",
-                revealed ? "bg-white/10 text-white" : "bg-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/10"
+                pinned ? "bg-white/10 text-white" : "bg-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/10"
               )}
               data-testid="stat-card-eye"
             >
