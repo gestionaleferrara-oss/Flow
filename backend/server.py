@@ -1998,7 +1998,6 @@ async def refresh_ai_suggestion():
 @api_router.get("/alerts")
 async def get_management_alerts():
     """Get management alerts: low stock, inactive clients, expiring products"""
-    now = datetime.now()
     EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
     
     alerts = {
@@ -2025,8 +2024,18 @@ async def get_management_alerts():
     alerts["prodottiSottoScorta"] = alerts["prodottiSottoScorta"][:8]
     
     # 2. Inactive clients (no orders in 30+ days but had orders before)
-    ninety_days_ago = (now - timedelta(days=90)).strftime("%Y-%m-%d")
-    thirty_days_ago = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    # Use most recent date in the database as reference, not current date
+    latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
+    if latest_sale and latest_sale.get('data'):
+        try:
+            reference_date = datetime.strptime(latest_sale['data'], "%Y-%m-%d")
+        except:
+            reference_date = datetime.now()
+    else:
+        reference_date = datetime.now()
+    
+    ninety_days_ago = (reference_date - timedelta(days=90)).strftime("%Y-%m-%d")
+    thirty_days_ago = (reference_date - timedelta(days=30)).strftime("%Y-%m-%d")
     
     vendite = await db.vendite.find({"data": {"$gte": ninety_days_ago}}, {"_id": 0}).to_list(10000)
     vendite = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
@@ -2044,7 +2053,7 @@ async def get_management_alerts():
     
     for cliente, last_order in client_last_order.items():
         if last_order < thirty_days_ago:
-            days_inactive = (now - datetime.strptime(last_order, "%Y-%m-%d")).days
+            days_inactive = (reference_date - datetime.strptime(last_order, "%Y-%m-%d")).days
             alerts["clientiInattivi"].append({
                 "nome": cliente,
                 "ultimo_ordine": last_order,
