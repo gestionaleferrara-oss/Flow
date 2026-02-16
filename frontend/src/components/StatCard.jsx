@@ -1,5 +1,6 @@
 import { cn, formatCurrency } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Eye } from 'lucide-react';
+import { useState } from 'react';
 
 const gradientClasses = {
   blue: 'from-blue-500/20 to-blue-600/5 border-blue-500/20',
@@ -20,16 +21,12 @@ const iconColorClasses = {
 };
 
 export default function StatCard({ 
-  label, 
-  value, 
-  trend, 
-  trendValue, 
-  icon: Icon,
-  format = 'number',
-  gradient = 'blue',
-  subtitle,
-  className 
+  label, value, trend, trendValue, icon: Icon,
+  format = 'number', gradient = 'blue', subtitle, className, blurred = false
 }) {
+  const [revealed, setRevealed] = useState(false);
+  const isBlurred = blurred && !revealed;
+
   const formattedValue = format === 'currency' 
     ? formatCurrency(value) 
     : format === 'percent'
@@ -50,43 +47,64 @@ export default function StatCard({
         className
       )} 
       data-testid="stat-card"
+      onMouseEnter={blurred ? () => setRevealed(true) : undefined}
+      onMouseLeave={blurred ? () => setRevealed(false) : undefined}
     >
-      {/* Decorative gradient blob */}
       <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-white/5 blur-2xl" />
       
       <div className="relative z-10 flex items-start justify-between">
-        <div>
-          <p className="text-3xl font-bold tracking-tight text-white mb-1">
-            {formattedValue}
-          </p>
+        <div className="flex-1 min-w-0">
+          <div className={cn("transition-all duration-500 ease-out", isBlurred && "blur-md select-none")}>
+            <p className="text-3xl font-bold tracking-tight text-white mb-1">
+              {formattedValue}
+            </p>
+          </div>
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             {label}
           </p>
           {subtitle && (
-            <p className="text-xs text-slate-500 mt-1 whitespace-pre-line">
-              {subtitle}
-            </p>
+            <div className={cn("transition-all duration-500 ease-out", isBlurred && "blur-sm select-none")}>
+              <p className="text-xs text-slate-500 mt-1 whitespace-pre-line">
+                {subtitle}
+              </p>
+            </div>
           )}
           {trendValue !== undefined && (
-            <div className={cn(
-              'inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-md text-xs font-semibold',
-              trend === 'up' && 'bg-emerald-500/10 text-emerald-400',
-              trend === 'down' && 'bg-red-500/10 text-red-400',
-              !trend && 'bg-slate-500/10 text-slate-400'
-            )}>
-              <TrendIcon size={12} />
-              <span>{Math.abs(trendValue)}%</span>
+            <div className={cn("transition-all duration-500 ease-out", isBlurred && "blur-sm select-none")}>
+              <div className={cn(
+                'inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-md text-xs font-semibold',
+                trend === 'up' && 'bg-emerald-500/10 text-emerald-400',
+                trend === 'down' && 'bg-red-500/10 text-red-400',
+                !trend && 'bg-slate-500/10 text-slate-400'
+              )}>
+                <TrendIcon size={12} />
+                <span>{Math.abs(trendValue)}%</span>
+              </div>
             </div>
           )}
         </div>
-        {Icon && (
-          <div className={cn(
-            'p-3 rounded-xl',
-            iconColorClasses[gradient] || iconColorClasses.blue
-          )}>
-            <Icon className="w-5 h-5" />
-          </div>
-        )}
+        <div className="flex flex-col items-center gap-2">
+          {Icon && (
+            <div className={cn(
+              'p-3 rounded-xl',
+              iconColorClasses[gradient] || iconColorClasses.blue
+            )}>
+              <Icon className="w-5 h-5" />
+            </div>
+          )}
+          {blurred && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setRevealed(r => !r); }}
+              className={cn(
+                "p-1.5 rounded-lg transition-all duration-300",
+                revealed ? "bg-white/10 text-white" : "bg-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/10"
+              )}
+              data-testid="stat-card-eye"
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
