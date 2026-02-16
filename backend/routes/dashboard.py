@@ -249,6 +249,104 @@ async def get_management_alerts():
     return alerts
 
 
+@router.get("/margine-vendite")
+async def get_margine_vendite():
+    """Calculate profit margin on sales where we know purchase price"""
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    
+    # Get reference date from latest sale
+    latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
+    if latest_sale and latest_sale.get('data'):
+        try:
+            reference_date = datetime.strptime(latest_sale['data'], "%Y-%m-%d")
+        except Exception:
+            reference_date = datetime.now()
+    else:
+        reference_date = datetime.now()
+    
+    current_month_start = reference_date.replace(day=1).strftime("%Y-%m-%d")
+    
+    # Get current month sales
+    vendite = await db.vendite.find({"data": {"$gte": current_month_start}}, {"_id": 0}).to_list(100000)
+    vendite = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    
+    # Build a map of last purchase price per product
+    prodotti_nomi = list(set(v.get('prodotto_nome', '') for v in vendite if v.get('prodotto_nome')))
+    prezzi_acquisto = {}
+    
+    for nome in prodotti_nomi:
+        ultimo_ordine = await db.ordini.find_one(
+            {"prodotto_nome": nome, "prezzo_unitario": {"$gt": 0}},
+            {"_id": 0, "prezzo_unitario": 1},
+            sort=[("data", -1)]
+        )
+        if ultimo_ordine:
+            prezzi_acquisto[nome] = ultimo_ordine.get('prezzo_unitario', 0)
+    
+    # Calculate margin for each sale
+    totale_fatturato = 0
+    totale_costo = 0
+    prodotti_con_margine = 0
+    margini_prodotto = []
+    
+    prodotti_vendite = {}
+    for v in vendite:
+        nome = v.get('prodotto_nome', '')
+        prezzo_vendita = v.get('prezzo_unitario', 0)
+        quantita = abs(v.get('quantita', 0))
+        totale_vendita = abs(v.get('totale', 0))
+        
+        if nome in prezzi_acquisto and prezzo_vendita > 0:
+            prezzo_acquisto = prezzi_acquisto[nome]
+            
+            if nome not in prodotti_vendite:
+                prodotti_vendite[nome] = {
+                    'fatturato': 0, 'costo': 0, 'quantita': 0,
+                    'prezzo_vendita': prezzo_vendita, 'prezzo_acquisto': prezzo_acquisto
+                }
+            
+            prodotti_vendite[nome]['fatturato'] += totale_vendita
+            prodotti_vendite[nome]['costo'] += prezzo_acquisto * quantita
+            prodotti_vendite[nome]['quantita'] += quantita
+    
+    for nome, dati in prodotti_vendite.items():
+        if dati['fatturato'] > 0 and dati['costo'] > 0:
+            margine_pct = ((dati['fatturato'] - dati['costo']) / dati['costo']) * 100
+            profitto = dati['fatturato'] - dati['costo']
+            
+            totale_fatturato += dati['fatturato']
+            totale_costo += dati['costo']
+            prodotti_con_margine += 1
+            
+            margini_prodotto.append({
+                'prodotto': nome,
+                'fatturato': round(dati['fatturato'], 2),
+                'costo': round(dati['costo'], 2),
+                'profitto': round(profitto, 2),
+                'margine_pct': round(margine_pct, 1),
+                'prezzo_vendita': round(dati['prezzo_vendita'], 2),
+                'prezzo_acquisto': round(dati['prezzo_acquisto'], 2)
+            })
+    
+    # Sort by profit
+    margini_prodotto.sort(key=lambda x: x['profitto'], reverse=True)
+    
+    # Calculate averages
+    margine_medio_pct = ((totale_fatturato - totale_costo) / totale_costo * 100) if totale_costo > 0 else 0
+    profitto_totale = totale_fatturato - totale_costo
+    
+    return {
+        "mese_riferimento": current_month_start[:7],
+        "margine_medio_pct": round(margine_medio_pct, 1),
+        "profitto_totale": round(profitto_totale, 2),
+        "totale_fatturato": round(totale_fatturato, 2),
+        "totale_costo": round(totale_costo, 2),
+        "prodotti_con_margine": prodotti_con_margine,
+        "top_margini": margini_prodotto[:10],
+        "worst_margini": sorted(margini_prodotto, key=lambda x: x['margine_pct'])[:5]
+    }
+
+
 @router.get("/sales-insight")
 async def get_sales_insight():
     latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
