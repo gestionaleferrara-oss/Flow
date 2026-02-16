@@ -2708,37 +2708,43 @@ async def scrape_freshplaza_market_links():
 
 @api_router.get("/prezzi-mercati")
 async def get_prezzi_mercati():
-    """Get list of market price links from FreshPlaza - dynamically scraped"""
+    """Get direct links to market price PDFs - reliable and always working"""
     
-    # Check cache (refresh every 2 hours for freshness)
-    cache_valid = (
-        _market_price_cache.get("last_updated") and 
-        _market_price_cache.get("links") and
-        len(_market_price_cache.get("links", [])) > 0 and
-        (datetime.now(timezone.utc) - _market_price_cache["last_updated"]).total_seconds() < 7200
-    )
-    
-    if cache_valid:
-        return _market_price_cache["links"]
-    
-    # Try to scrape fresh data from FreshPlaza
-    links = await scrape_freshplaza_market_links()
-    
-    # If scraping succeeded, return the links
-    if links and len(links) > 0:
-        return links
-    
-    # Fallback to reliable direct sources if FreshPlaza scraping fails
-    fallback_mercati = [
-        {"nome": "Cesena", "url": "https://www.freshplaza.it/search/?q=prezzi+cesena"},
-        {"nome": "Lusia", "url": "https://www.freshplaza.it/search/?q=prezzi+lusia"},
-        {"nome": "Torino", "url": "https://www.freshplaza.it/search/?q=prezzi+torino"},
-        {"nome": "Verona", "url": "https://www.freshplaza.it/search/?q=prezzi+verona"},
-        {"nome": "Bologna", "url": "https://www.freshplaza.it/search/?q=prezzi+bologna"},
-        {"nome": "Milano", "url": "https://www.freshplaza.it/search/?q=prezzi+milano"}
+    # Direct links to official market price PDFs
+    mercati = [
+        {
+            "nome": "Cesena",
+            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Cesena.pdf",
+            "tipo": "PDF"
+        },
+        {
+            "nome": "Lusia",
+            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Lusia.pdf",
+            "tipo": "PDF"
+        },
+        {
+            "nome": "Torino",
+            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Torino.pdf",
+            "tipo": "PDF"
+        },
+        {
+            "nome": "Verona",
+            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Verona.pdf",
+            "tipo": "PDF"
+        },
+        {
+            "nome": "Bologna",
+            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Bologna.pdf",
+            "tipo": "PDF"
+        },
+        {
+            "nome": "Milano",
+            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Milano.pdf",
+            "tipo": "PDF"
+        }
     ]
     
-    return fallback_mercati
+    return mercati
 
 
 # ----- Meteo (usando Open-Meteo API gratuita) -----
