@@ -372,118 +372,128 @@ async def get_sales_insight():
     prev_month_start = prev_month.replace(day=1).strftime("%Y-%m-%d")
     prev_month_end = prev_month.strftime("%Y-%m-%d")
     last_30_days = (reference_date - timedelta(days=30)).strftime("%Y-%m-%d")
-
-    all_vendite = await db.vendite.find({}, {"_id": 0}).to_list(100000)
-    all_prodotti = await db.prodotti.find({}, {"_id": 0}).to_list(10000)
-    all_clienti = await db.clienti.find({}, {"_id": 0}).to_list(10000)
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
 
     insights = []
-    vendite_mese = [v for v in all_vendite if v.get('data', '') >= current_month_start]
-    prodotti_mese = {}
-    for v in vendite_mese:
-        prod = v.get('prodotto_nome', '')
-        if prod:
-            if prod not in prodotti_mese:
-                prodotti_mese[prod] = {'qty': 0, 'fatturato': 0}
-            prodotti_mese[prod]['qty'] += abs(v.get('quantita', 0))
-            prodotti_mese[prod]['fatturato'] += abs(v.get('totale', 0))
+
+    # 1. Top product & client this month + prev month products (single query each via aggregation)
+    prodotti_mese_pipeline = [
+        {"$match": {"data": {"$gte": current_month_start}}},
+        {"$group": {"_id": "$prodotto_nome", "fatturato": {"$sum": {"$abs": "$totale"}}, "qty": {"$sum": {"$abs": "$quantita"}}}}
+    ]
+    prodotti_mese_agg = await db.vendite.aggregate(prodotti_mese_pipeline).to_list(5000)
+    prodotti_mese = {p['_id']: {'fatturato': p['fatturato'], 'qty': p['qty']} for p in prodotti_mese_agg if p['_id']}
 
     if prodotti_mese:
-        best_prod = max(prodotti_mese.items(), key=lambda x: x[1]['fatturato'])
-        insights.append({"tipo": "top_product", "icona": "🏆", "titolo": "Prodotto Top del Mese", "valore": best_prod[0], "dettaglio": f"€{best_prod[1]['fatturato']:,.0f} • {best_prod[1]['qty']:,.0f} unità", "colore": "emerald"})
+        best_prod_name = max(prodotti_mese, key=lambda k: prodotti_mese[k]['fatturato'])
+        best_prod = prodotti_mese[best_prod_name]
+        insights.append({"tipo": "top_product", "icona": "\U0001F3C6", "titolo": "Prodotto Top del Mese", "valore": best_prod_name, "dettaglio": f"\u20ac{best_prod['fatturato']:,.0f} \u2022 {best_prod['qty']:,.0f} unit\u00e0", "colore": "emerald"})
 
-    vendite_prev_mese = [v for v in all_vendite if prev_month_start <= v.get('data', '') <= prev_month_end]
-    prodotti_prev = {}
-    for v in vendite_prev_mese:
-        prod = v.get('prodotto_nome', '')
-        if prod:
-            prodotti_prev[prod] = prodotti_prev.get(prod, 0) + abs(v.get('totale', 0))
+    # 2. Growth product vs prev month
+    prodotti_prev_pipeline = [
+        {"$match": {"data": {"$gte": prev_month_start, "$lte": prev_month_end}}},
+        {"$group": {"_id": "$prodotto_nome", "fatturato": {"$sum": {"$abs": "$totale"}}}}
+    ]
+    prodotti_prev_agg = await db.vendite.aggregate(prodotti_prev_pipeline).to_list(5000)
+    prodotti_prev = {p['_id']: p['fatturato'] for p in prodotti_prev_agg if p['_id']}
 
-    crescite = []
+    best_growth = None
     for prod, curr_data in prodotti_mese.items():
         prev_fatt = prodotti_prev.get(prod, 0)
-        curr_fatt = curr_data['fatturato']
-        if prev_fatt > 0 and curr_fatt > prev_fatt:
-            crescita_pct = ((curr_fatt - prev_fatt) / prev_fatt) * 100
-            if crescita_pct > 10:
-                crescite.append((prod, crescita_pct, curr_fatt))
-    if crescite:
-        best_growth = max(crescite, key=lambda x: x[1])
-        insights.append({"tipo": "growth_product", "icona": "📈", "titolo": "Crescita Maggiore", "valore": best_growth[0], "dettaglio": f"+{best_growth[1]:.0f}% vs mese prec. • €{best_growth[2]:,.0f}", "colore": "cyan"})
+        if prev_fatt > 0 and curr_data['fatturato'] > prev_fatt:
+            crescita_pct = ((curr_data['fatturato'] - prev_fatt) / prev_fatt) * 100
+            if crescita_pct > 10 and (not best_growth or crescita_pct > best_growth[1]):
+                best_growth = (prod, crescita_pct, curr_data['fatturato'])
+    if best_growth:
+        insights.append({"tipo": "growth_product", "icona": "\U0001F4C8", "titolo": "Crescita Maggiore", "valore": best_growth[0], "dettaglio": f"+{best_growth[1]:.0f}% vs mese prec. \u2022 \u20ac{best_growth[2]:,.0f}", "colore": "cyan"})
 
-    clienti_mese = {}
-    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
-    for v in vendite_mese:
-        cliente = v.get('cliente_nome', '')
-        if cliente and cliente.upper() not in [c.upper() for c in EXCLUDED_CLIENTS]:
-            clienti_mese[cliente] = clienti_mese.get(cliente, 0) + abs(v.get('totale', 0))
-    if clienti_mese:
-        best_cliente = max(clienti_mese.items(), key=lambda x: x[1])
-        insights.append({"tipo": "top_client", "icona": "👤", "titolo": "Miglior Cliente del Mese", "valore": best_cliente[0][:25] + ('...' if len(best_cliente[0]) > 25 else ''), "dettaglio": f"€{best_cliente[1]:,.0f} di acquisti", "colore": "violet"})
+    # 3. Top client this month
+    clienti_mese_pipeline = [
+        {"$match": {"data": {"$gte": current_month_start}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+        {"$group": {"_id": "$cliente_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
+        {"$sort": {"totale": -1}},
+        {"$limit": 1}
+    ]
+    top_client_agg = await db.vendite.aggregate(clienti_mese_pipeline).to_list(1)
+    if top_client_agg and top_client_agg[0]['_id']:
+        tc = top_client_agg[0]
+        nome = tc['_id']
+        insights.append({"tipo": "top_client", "icona": "\U0001F464", "titolo": "Miglior Cliente del Mese", "valore": nome[:25] + ('...' if len(nome) > 25 else ''), "dettaglio": f"\u20ac{tc['totale']:,.0f} di acquisti", "colore": "violet"})
 
-    prodotti_critici = []
-    for p in all_prodotti:
-        qty = p.get('quantita', 0)
-        minima = p.get('quantita_minima', 0)
-        nome = p.get('nome', '')
-        if qty > 0 and minima > 0 and qty <= minima * 1.2:
-            prodotti_critici.append((nome, qty, minima))
+    # 4. Restock alert (from prodotti collection - fast)
+    prodotti_critici = await db.prodotti.find(
+        {"quantita_minima": {"$gt": 0}, "$expr": {"$and": [{"$gt": ["$quantita", 0]}, {"$lte": ["$quantita", {"$multiply": ["$quantita_minima", 1.2]}]}]}},
+        {"_id": 0, "nome": 1, "quantita": 1, "quantita_minima": 1}
+    ).sort("quantita", 1).limit(1).to_list(1)
     if prodotti_critici:
-        prodotti_critici.sort(key=lambda x: x[1] / max(x[2], 0.1))
-        critical = prodotti_critici[0]
-        insights.append({"tipo": "restock_alert", "icona": "⚠️", "titolo": "Da Riordinare Presto", "valore": critical[0][:20] + ('...' if len(critical[0]) > 20 else ''), "dettaglio": f"Rimaste {critical[1]:.0f} (min: {critical[2]:.0f})", "colore": "amber"})
+        c = prodotti_critici[0]
+        nome = c.get('nome', '')
+        insights.append({"tipo": "restock_alert", "icona": "\u26a0\ufe0f", "titolo": "Da Riordinare Presto", "valore": nome[:20] + ('...' if len(nome) > 20 else ''), "dettaglio": f"Rimaste {c.get('quantita', 0):.0f} (min: {c.get('quantita_minima', 0):.0f})", "colore": "amber"})
 
-    clienti_recenti = []
-    for c in all_clienti:
-        vendite_cliente = [v for v in all_vendite if v.get('cliente_nome', '') == c.get('nome', '')]
-        if vendite_cliente:
-            prima_vendita = min(v.get('data', '9999') for v in vendite_cliente)
-            if prima_vendita >= current_month_start:
-                totale_cliente = sum(abs(v.get('totale', 0)) for v in vendite_cliente if v.get('data', '') >= current_month_start)
-                clienti_recenti.append((c.get('nome', ''), totale_cliente, prima_vendita))
-    if clienti_recenti:
-        best_new = max(clienti_recenti, key=lambda x: x[1])
-        insights.append({"tipo": "new_client", "icona": "🆕", "titolo": "Nuovo Cliente Acquisito", "valore": best_new[0][:25] + ('...' if len(best_new[0]) > 25 else ''), "dettaglio": f"€{best_new[1]:,.0f} dal {best_new[2]}", "colore": "blue"})
+    # 5. New client this month (aggregation: find clients whose first sale is this month)
+    new_client_pipeline = [
+        {"$match": {"cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+        {"$group": {"_id": "$cliente_nome", "prima_vendita": {"$min": "$data"}, "totale_mese": {"$sum": {"$cond": [{"$gte": ["$data", current_month_start]}, {"$abs": "$totale"}, 0]}}}},
+        {"$match": {"prima_vendita": {"$gte": current_month_start}}},
+        {"$sort": {"totale_mese": -1}},
+        {"$limit": 1}
+    ]
+    new_clients = await db.vendite.aggregate(new_client_pipeline).to_list(1)
+    if new_clients and new_clients[0]['_id']:
+        nc = new_clients[0]
+        nome = nc['_id']
+        insights.append({"tipo": "new_client", "icona": "\U0001F195", "titolo": "Nuovo Cliente Acquisito", "valore": nome[:25] + ('...' if len(nome) > 25 else ''), "dettaglio": f"\u20ac{nc['totale_mese']:,.0f} dal {nc['prima_vendita']}", "colore": "blue"})
 
-    margini = []
-    for p in all_prodotti:
-        nome = p.get('nome', '')
-        prezzo_acquisto = p.get('prezzo_medio', 0)
-        if prezzo_acquisto > 0 and nome in prodotti_mese:
-            vendite_prod = [v for v in vendite_mese if v.get('prodotto_nome', '') == nome]
-            if vendite_prod:
-                prezzi_vendita = [v.get('prezzo_unitario', 0) for v in vendite_prod if v.get('prezzo_unitario', 0) > 0]
-                if prezzi_vendita:
-                    prezzo_vendita_medio = sum(prezzi_vendita) / len(prezzi_vendita)
-                    if prezzo_vendita_medio > prezzo_acquisto:
-                        margine_pct = ((prezzo_vendita_medio - prezzo_acquisto) / prezzo_acquisto) * 100
-                        fatturato = prodotti_mese[nome]['fatturato']
-                        if fatturato > 100:
-                            margini.append((nome, margine_pct, prezzo_vendita_medio, prezzo_acquisto, fatturato))
-    if margini:
-        margini.sort(key=lambda x: x[1] * min(x[4], 1000), reverse=True)
-        best_margin = margini[0]
-        insights.append({"tipo": "best_margin", "icona": "💰", "titolo": "Margine Migliore", "valore": best_margin[0][:20] + ('...' if len(best_margin[0]) > 20 else ''), "dettaglio": f"+{best_margin[1]:.0f}% (€{best_margin[2]:.2f} vs €{best_margin[3]:.2f})", "colore": "emerald"})
+    # 6. Best margin (from prodotti with prezzo_medio + current month sales)
+    prodotti_con_prezzo = await db.prodotti.find({"prezzo_medio": {"$gt": 0}}, {"_id": 0, "nome": 1, "prezzo_medio": 1}).to_list(5000)
+    prezzo_acquisto_map = {p['nome']: p['prezzo_medio'] for p in prodotti_con_prezzo}
 
-    vendite_30d = [v for v in all_vendite if v.get('data', '') >= last_30_days]
-    velocita = {}
-    for v in vendite_30d:
-        prod = v.get('prodotto_nome', '')
-        if prod:
-            velocita[prod] = velocita.get(prod, 0) + abs(v.get('quantita', 0))
-    if velocita:
-        fastest = max(velocita.items(), key=lambda x: x[1])
-        media_giornaliera = fastest[1] / 30
-        insights.append({"tipo": "velocity", "icona": "🚀", "titolo": "Prodotto Più Venduto (30gg)", "valore": fastest[0][:20] + ('...' if len(fastest[0]) > 20 else ''), "dettaglio": f"{fastest[1]:,.0f} unità • ~{media_giornaliera:.1f}/giorno", "colore": "rose"})
+    margine_pipeline = [
+        {"$match": {"data": {"$gte": current_month_start}, "prodotto_nome": {"$in": list(prezzo_acquisto_map.keys())}, "prezzo_unitario": {"$gt": 0}}},
+        {"$group": {"_id": "$prodotto_nome", "prezzo_medio_vendita": {"$avg": "$prezzo_unitario"}, "fatturato": {"$sum": {"$abs": "$totale"}}}}
+    ]
+    margini_agg = await db.vendite.aggregate(margine_pipeline).to_list(5000)
+    best_margin = None
+    for m in margini_agg:
+        nome = m['_id']
+        pa = prezzo_acquisto_map.get(nome, 0)
+        pv = m['prezzo_medio_vendita']
+        fatt = m['fatturato']
+        if pa > 0 and pv > pa and fatt > 100:
+            margine_pct = ((pv - pa) / pa) * 100
+            score = margine_pct * min(fatt, 1000)
+            if not best_margin or score > best_margin[5]:
+                best_margin = (nome, margine_pct, pv, pa, fatt, score)
+    if best_margin:
+        insights.append({"tipo": "best_margin", "icona": "\U0001F4B0", "titolo": "Margine Migliore", "valore": best_margin[0][:20] + ('...' if len(best_margin[0]) > 20 else ''), "dettaglio": f"+{best_margin[1]:.0f}% (\u20ac{best_margin[2]:.2f} vs \u20ac{best_margin[3]:.2f})", "colore": "emerald"})
 
-    if vendite_mese:
-        biggest_sale = max(vendite_mese, key=lambda x: abs(x.get('totale', 0)))
-        if abs(biggest_sale.get('totale', 0)) > 100:
-            insights.append({"tipo": "big_sale", "icona": "🎯", "titolo": "Vendita Più Grande del Mese", "valore": f"€{abs(biggest_sale.get('totale', 0)):,.0f}", "dettaglio": f"{biggest_sale.get('cliente_nome', 'N/A')[:20]} • {biggest_sale.get('prodotto_nome', 'N/A')[:15]}", "colore": "orange"})
+    # 7. Fastest selling product (30 days)
+    velocity_pipeline = [
+        {"$match": {"data": {"$gte": last_30_days}}},
+        {"$group": {"_id": "$prodotto_nome", "qty": {"$sum": {"$abs": "$quantita"}}}},
+        {"$sort": {"qty": -1}},
+        {"$limit": 1}
+    ]
+    fastest = await db.vendite.aggregate(velocity_pipeline).to_list(1)
+    if fastest and fastest[0]['_id']:
+        f = fastest[0]
+        media_g = f['qty'] / 30
+        nome = f['_id']
+        insights.append({"tipo": "velocity", "icona": "\U0001F680", "titolo": "Prodotto Pi\u00f9 Venduto (30gg)", "valore": nome[:20] + ('...' if len(nome) > 20 else ''), "dettaglio": f"{f['qty']:,.0f} unit\u00e0 \u2022 ~{media_g:.1f}/giorno", "colore": "rose"})
 
-    fatturato_mese = sum(abs(v.get('totale', 0)) for v in vendite_mese)
-    fatturato_prev = sum(abs(v.get('totale', 0)) for v in vendite_prev_mese)
+    # Summary stats
+    fatturato_mese = sum(d['fatturato'] for d in prodotti_mese.values())
+    fatturato_prev = sum(prodotti_prev.values())
     diff_pct = ((fatturato_mese - fatturato_prev) / fatturato_prev * 100) if fatturato_prev > 0 else 0
+
+    # Count unique clients
+    clienti_count_pipeline = [
+        {"$match": {"data": {"$gte": current_month_start}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+        {"$group": {"_id": "$cliente_nome"}},
+        {"$count": "total"}
+    ]
+    clienti_count = await db.vendite.aggregate(clienti_count_pipeline).to_list(1)
+    num_clienti = clienti_count[0]['total'] if clienti_count else 0
 
     mesi_it = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
     mese_nome = mesi_it[reference_date.month - 1]
@@ -491,7 +501,7 @@ async def get_sales_insight():
     return {
         "mese_riferimento": f"{mese_nome} {reference_date.year}",
         "data_aggiornamento": reference_date.strftime("%Y-%m-%d"),
-        "riepilogo": {"fatturato_mese": round(fatturato_mese, 2), "fatturato_prev": round(fatturato_prev, 2), "variazione_pct": round(diff_pct, 1), "num_vendite": len(vendite_mese), "num_clienti_attivi": len(clienti_mese), "num_prodotti_venduti": len(prodotti_mese)},
+        "riepilogo": {"fatturato_mese": round(fatturato_mese, 2), "fatturato_prev": round(fatturato_prev, 2), "variazione_pct": round(diff_pct, 1), "num_vendite": 0, "num_clienti_attivi": num_clienti, "num_prodotti_venduti": len(prodotti_mese)},
         "insights": insights[:6]
     }
 
