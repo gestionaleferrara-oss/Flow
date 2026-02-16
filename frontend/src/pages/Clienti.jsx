@@ -222,48 +222,111 @@ export default function Clienti() {
 
       {/* Analisi Modal con campi editabili */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-2xl" data-testid="analisi-modal">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto" data-testid="analisi-modal">
           <DialogHeader>
             <DialogTitle className="font-heading text-xl uppercase">
               Analisi Cliente: {selectedCliente?.nome}
             </DialogTitle>
           </DialogHeader>
           
-          {analisi ? (
-            <div className="space-y-6 mt-4">
+          {/* Periodo Selector */}
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Periodo:</span>
+            {PERIODI.map(p => (
+              <button
+                key={p.value}
+                onClick={() => handlePeriodoChange(p.value)}
+                disabled={loadingAnalisi}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                  periodoAnalisi === p.value 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          
+          {loadingAnalisi ? (
+            <div className="flex items-center justify-center h-40">
+              <LoadingSpinner />
+            </div>
+          ) : analisi ? (
+            <div className="space-y-6">
               {/* Statistiche */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Speso Ultimo Mese</p>
-                  <p className="font-heading text-2xl font-bold text-primary">
-                    {formatCurrency(analisi.totaleSpesoMese)}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Totale Speso</p>
+                  <p className="font-heading text-xl font-bold text-primary">
+                    {formatCurrency(analisi.totaleSpeso)}
                   </p>
                 </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Ordini Ultimo Mese</p>
-                  <p className="font-heading text-2xl font-bold">
-                    {analisi.ordiniMese}
-                  </p>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Ultimo Ordine</p>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Num. Visite</p>
                   <p className="font-heading text-xl font-bold">
+                    {analisi.numOrdini}
+                  </p>
+                </div>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Ultima Visita</p>
+                  <p className="font-heading text-lg font-bold">
                     {analisi.ultimoOrdine}
                   </p>
                 </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Media per Ordine</p>
-                  <p className="font-heading text-2xl font-bold">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Media/Visita</p>
+                  <p className="font-heading text-xl font-bold">
                     {formatCurrency(analisi.mediaOrdine)}
                   </p>
                 </div>
               </div>
               
-              <div className="p-4 bg-primary/10 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-1">Prodotti Più Acquistati</p>
-                <p className="font-medium text-primary">
-                  {analisi.prodottiPiuAcquistati || 'Nessun dato'}
-                </p>
+              {/* Lista Visite */}
+              {analisi.listaVisite && analisi.listaVisite.length > 0 && (
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <div className="px-3 py-2 bg-muted/50 border-b border-border flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-semibold">Storico Visite</span>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/30 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Data</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Totale</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analisi.listaVisite.map((v, i) => (
+                          <tr key={i} className="border-t border-border/50 hover:bg-muted/20">
+                            <td className="px-3 py-2">{v.data}</td>
+                            <td className="px-3 py-2 text-right font-medium text-primary">{formatCurrency(v.totale)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              
+              {/* Prodotti Più Acquistati */}
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-2">Prodotti Più Acquistati</p>
+                {analisi.topProdotti && analisi.topProdotti.length > 0 ? (
+                  <div className="space-y-1">
+                    {analisi.topProdotti.slice(0, 5).map((p, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <span className="truncate flex-1 mr-2">{p.nome}</span>
+                        <span className="text-primary font-medium">{formatCurrency(p.totale)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nessun dato</p>
+                )}
               </div>
 
               {/* Campi Editabili */}
@@ -299,6 +362,29 @@ export default function Clienti() {
                     <Textarea
                       placeholder="Note sul cliente..."
                       value={editFields.note}
+                      onChange={(e) => setEditFields({ ...editFields, note: e.target.value })}
+                      className="flex-1"
+                      rows={3}
+                      data-testid="edit-note"
+                    />
+                  </div>
+                  <Button onClick={handleSaveClienteDetails} disabled={saving} className="w-full">
+                    <Save className="w-4 h-4 mr-2" />
+                    {saving ? 'Salvataggio...' : 'Salva Modifiche'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-40 text-muted-foreground">
+              Nessun dato disponibile
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </PageWrapper>
+  );
+}
                       onChange={(e) => setEditFields({ ...editFields, note: e.target.value })}
                       className="flex-1 min-h-[80px]"
                       data-testid="edit-note"
