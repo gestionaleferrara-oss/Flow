@@ -54,29 +54,91 @@ async def delete_cliente(cliente_id: str):
 
 
 @router.get("/clienti/{cliente_id}/analisi")
-async def get_cliente_analisi(cliente_id: str):
+async def get_cliente_analisi(cliente_id: str, periodo: str = "mese"):
+    """
+    Analisi cliente con periodo selezionabile.
+    periodo: 'mese' (default), '3mesi', '6mesi', 'anno', 'tutto'
+    """
+    from datetime import datetime, timedelta
+    
     cliente = await db.clienti.find_one({"id": cliente_id}, {"_id": 0})
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente non trovato")
+    
     nome = cliente.get('nome', '')
-    vendite = await db.vendite.find({"cliente_nome": nome}, {"_id": 0}).to_list(10000)
+    
+    # Calculate date range based on periodo
+    oggi = datetime.now()
+    if periodo == "mese":
+        start_date = oggi.replace(day=1).strftime("%Y-%m-%d")
+    elif periodo == "3mesi":
+        start_date = (oggi - timedelta(days=90)).strftime("%Y-%m-%d")
+    elif periodo == "6mesi":
+        start_date = (oggi - timedelta(days=180)).strftime("%Y-%m-%d")
+    elif periodo == "anno":
+        start_date = (oggi - timedelta(days=365)).strftime("%Y-%m-%d")
+    else:  # tutto
+        start_date = "2000-01-01"
+    
+    end_date = oggi.strftime("%Y-%m-%d")
+    
+    # Get all sales for this client in period
+    query = {"cliente_nome": nome, "data": {"$gte": start_date, "$lte": end_date}}
+    vendite = await db.vendite.find(query, {"_id": 0}).sort("data", -1).to_list(10000)
+    
     totale_speso = sum(abs(v.get('totale', 0)) for v in vendite)
+    
+    # Products purchased
     prodotti_acquistati = {}
     for v in vendite:
         prod = v.get('prodotto_nome', '')
         prodotti_acquistati[prod] = prodotti_acquistati.get(prod, 0) + abs(v.get('totale', 0))
     top_prodotti = [{"nome": k, "totale": round(v, 2)} for k, v in sorted(prodotti_acquistati.items(), key=lambda x: x[1], reverse=True)[:10]]
+    
+    # Count unique visits (orders) by date
+    visite_per_data = {}
+    for v in vendite:
+        data = v.get('data', '')
+        if data:
+            visite_per_data[data] = visite_per_data.get(data, 0) + abs(v.get('totale', 0))
+    
+    num_visite = len(visite_per_data)
+    
+    # List of visits with totals
+    lista_visite = [{"data": data, "totale": round(tot, 2)} 
+                    for data, tot in sorted(visite_per_data.items(), reverse=True)[:20]]
+    
+    # Last visit
+    ultimo_ordine = lista_visite[0]["data"] if lista_visite else "N/A"
+    
+    # Average per visit
+    media_ordine = totale_speso / num_visite if num_visite > 0 else 0
+    
+    # Monthly breakdown
     vendite_mensili = {}
     for v in vendite:
         mese = v.get('data', '')[:7]
         vendite_mensili[mese] = vendite_mensili.get(mese, 0) + abs(v.get('totale', 0))
     mensili = [{"mese": k, "totale": round(v, 2)} for k, v in sorted(vendite_mensili.items())]
+    
+    # Top products as string for old compatibility
+    prodotti_str = ", ".join([p["nome"] for p in top_prodotti[:3]]) if top_prodotti else "Nessun dato"
+    
     return {
         "cliente": cliente,
         "totaleSpeso": round(totale_speso, 2),
-        "numOrdini": len(vendite),
+        "totaleSpesoMese": round(totale_speso, 2),  # Alias for frontend
+        "numOrdini": num_visite,
+        "ordiniMese": num_visite,  # Alias for frontend
+        "ultimoOrdine": ultimo_ordine,
+        "mediaOrdine": round(media_ordine, 2),
         "topProdotti": top_prodotti,
-        "venditeMensili": mensili
+        "prodottiPiuAcquistati": prodotti_str,
+        "venditeMensili": mensili,
+        "listaVisite": lista_visite,
+        "periodo": periodo,
+        "dataInizio": start_date,
+        "dataFine": end_date
     }
 
 
