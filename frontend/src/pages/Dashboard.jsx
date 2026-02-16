@@ -199,63 +199,38 @@ export default function Dashboard() {
         <StatCard label="Alert" value={totalAlerts} icon={AlertTriangle} gradient="amber" />
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
-        {/* AI Suggestion - Compact inline style - Fixed width */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="lg:col-span-8 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden h-fit">
-          <div className="px-3 py-2 flex items-center gap-3">
-            <div className="p-1.5 rounded-md bg-violet-500/15 shrink-0">
-              <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-            </div>
-            <div className="flex-1 min-w-0 overflow-hidden">
-              {aiSuggestion?.suggestion ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-wide shrink-0">{aiSuggestion.suggestion.titolo}</span>
-                  <span className="text-xs text-slate-300 truncate flex-1">{aiSuggestion.suggestion.messaggio}</span>
-                  <span className="text-[9px] px-1.5 py-0.5 bg-violet-500/10 text-violet-300 rounded border border-violet-500/20 shrink-0 whitespace-nowrap">{aiSuggestion.suggestion.azione}</span>
-                </div>
-              ) : (
-                <span className="text-xs text-slate-500">Importa dati per suggerimenti AI</span>
-              )}
-            </div>
-            <Button variant="ghost" size="sm" onClick={refreshAiSuggestion} disabled={loadingAi}
-              className="text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 h-7 px-2 shrink-0">
-              <RefreshCw className={cn("w-3 h-3", loadingAi && "animate-spin")} />
-            </Button>
-          </div>
-        </motion.div>
-
+      {/* Main Content Grid - 2 widgets per row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         {/* Sales Insight - improved text visibility */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="lg:col-span-4 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden"
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+          className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden"
           data-testid="sales-insight-widget">
-          <div className="px-3 py-2.5 border-b border-white/[0.06] flex items-center gap-2">
-            <div className="p-1.5 rounded-md bg-amber-500/15">
-              <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+            <div className="p-2 rounded-md bg-amber-500/15">
+              <Lightbulb className="w-4 h-4 text-amber-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-xs font-semibold text-white">Sales Insight</h3>
-              <p className="text-[9px] text-slate-500 truncate">{salesInsight?.mese_riferimento || ''}</p>
+              <h3 className="text-sm font-semibold text-white">Sales Insight</h3>
+              <p className="text-xs text-slate-500 truncate">{salesInsight?.mese_riferimento || ''}</p>
             </div>
           </div>
-          <div className="p-2">
+          <div className="p-3">
             {insightLoading ? (
               <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 text-slate-600 animate-spin" /></div>
             ) : salesInsight?.insights?.length > 0 ? (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {salesInsight.insights.slice(0, 4).map((ins) => (
-                  <div key={ins.tipo} className={cn("px-2.5 py-2 rounded-lg border", insightColors[ins.colore] || insightColors.emerald)}>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-sm">{ins.icona}</span>
-                      <span className="font-semibold text-xs truncate flex-1">{ins.valore}</span>
+                  <div key={ins.tipo} className={cn("px-3 py-2.5 rounded-lg border", insightColors[ins.colore] || insightColors.emerald)}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-base">{ins.icona}</span>
+                      <span className="font-semibold text-sm truncate flex-1">{ins.valore}</span>
                     </div>
-                    <p className="text-[11px] text-slate-300 leading-relaxed pl-6">{ins.dettaglio || ins.titolo}</p>
+                    <p className="text-xs text-slate-300 leading-relaxed pl-7">{ins.dettaglio || ins.titolo}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-center py-4 text-[10px] text-slate-500">Nessun insight</p>
+              <p className="text-center py-4 text-xs text-slate-500">Nessun insight</p>
             )}
           </div>
         </motion.div>
