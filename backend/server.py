@@ -1875,8 +1875,17 @@ async def get_fornitori_trend():
 async def get_dashboard():
     """Get dashboard overview data"""
     
-    now = datetime.now()
-    thirty_days_ago = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    # Use most recent date in database as reference
+    latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
+    if latest_sale and latest_sale.get('data'):
+        try:
+            reference_date = datetime.strptime(latest_sale['data'], "%Y-%m-%d")
+        except:
+            reference_date = datetime.now()
+    else:
+        reference_date = datetime.now()
+    
+    thirty_days_ago = (reference_date - timedelta(days=30)).strftime("%Y-%m-%d")
     
     # Get recent vendite - extend to 90 days if needed
     vendite_recenti = await db.vendite.find(
@@ -1889,7 +1898,7 @@ async def get_dashboard():
     ordini_mese = len(vendite_recenti)
     
     # Previous 30 days for comparison
-    sixty_days_ago = (now - timedelta(days=60)).strftime("%Y-%m-%d")
+    sixty_days_ago = (reference_date - timedelta(days=60)).strftime("%Y-%m-%d")
     vendite_precedenti = await db.vendite.find(
         {"data": {"$gte": sixty_days_ago, "$lt": thirty_days_ago}}, 
         {"_id": 0}
