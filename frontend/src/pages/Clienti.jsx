@@ -40,6 +40,8 @@ export default function Clienti() {
     note: ''
   });
   const [saving, setSaving] = useState(false);
+  const [selectedYear, setSelectedYear] = useState('');
+  const [availableYears, setAvailableYears] = useState([]);
 
   // Read search param from URL on mount
   useEffect(() => {
@@ -52,13 +54,22 @@ export default function Clienti() {
 
   useEffect(() => {
     loadClienti();
-  }, [search]);
+  }, [search, selectedYear]);
 
   const loadClienti = async () => {
     try {
-      const params = search ? `?search=${search}` : '';
-      const response = await axios.get(`${API}/clienti${params}`);
-      setClienti(response.data);
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (selectedYear) params.append('anno', selectedYear);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const response = await axios.get(`${API}/clienti${qs}`);
+      const data = response.data;
+      setClienti(data.clienti || []);
+      const anni = data.anni_disponibili || [];
+      if (anni.length > 0 && availableYears.length === 0) {
+        setAvailableYears(anni);
+        if (!selectedYear) setSelectedYear(anni[0]);
+      }
     } catch (error) {
       console.error('Error loading clienti:', error);
     } finally {
@@ -165,7 +176,23 @@ export default function Clienti() {
             <tr>
               <th>Cliente</th>
               <th>Codice</th>
-              <th className="text-right">Fatturato</th>
+              <th className="text-right">
+                <div className="flex items-center justify-end gap-2">
+                  <span>Fatturato</span>
+                  {availableYears.length > 0 && (
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(e.target.value)}
+                      className="bg-slate-800 border border-slate-600 rounded px-2 py-0.5 text-xs font-normal text-slate-300 cursor-pointer hover:border-slate-500 focus:outline-none focus:border-blue-500"
+                      data-testid="year-selector"
+                    >
+                      {availableYears.map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </th>
               <th>WhatsApp</th>
               <th>Email</th>
               <th>Note</th>
