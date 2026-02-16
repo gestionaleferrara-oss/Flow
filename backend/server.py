@@ -1619,7 +1619,19 @@ async def get_statistiche(
     if end_date:
         query.setdefault("data", {})["$lte"] = end_date
     
-    vendite = await db.vendite.find(query, {"_id": 0}).to_list(100000)
+    # Use aggregation pipeline for better performance
+    pipeline = [
+        {"$match": query},
+        {"$project": {
+            "_id": 0,
+            "data": 1,
+            "cliente_nome": 1,
+            "prodotto_nome": 1,
+            "totale": 1,
+            "quantita": 1
+        }}
+    ]
+    vendite = await db.vendite.aggregate(pipeline).to_list(100000)
     
     # Calculate KPIs - use absolute values since SCARICO has negative values
     totale_euro = sum(abs(v.get('totale', 0)) for v in vendite)
