@@ -11,7 +11,8 @@ import {
   Truck,
   Package,
   ShoppingCart,
-  X
+  X,
+  Files
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
@@ -21,14 +22,14 @@ import { cn } from '@/lib/utils';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function UploadCSV() {
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
   const onDrop = useCallback((acceptedFiles) => {
     if (acceptedFiles.length > 0) {
-      setFile(acceptedFiles[0]);
+      setFiles(prev => [...prev, ...acceptedFiles]);
       setResult(null);
       setError(null);
     }
@@ -41,33 +42,52 @@ export default function UploadCSV() {
       'application/vnd.ms-excel': ['.csv'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
     },
-    maxFiles: 1
+    multiple: true
   });
 
+  const removeFile = (index) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleUpload = async () => {
-    if (!file) return;
+    if (files.length === 0) return;
 
     setUploading(true);
     setError(null);
 
     const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await axios.post(`${API}/upload-csv`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+    
+    if (files.length === 1) {
+      formData.append('file', files[0]);
+      try {
+        const response = await axios.post(`${API}/upload-csv`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        setResult(response.data);
+        setFiles([]);
+      } catch (err) {
+        setError(err.response?.data?.detail || 'Errore durante il caricamento');
+      }
+    } else {
+      files.forEach(file => {
+        formData.append('files', file);
       });
-      setResult(response.data);
-      setFile(null);
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Errore durante il caricamento');
-    } finally {
-      setUploading(false);
+      try {
+        const response = await axios.post(`${API}/upload-multiple`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        setResult(response.data);
+        setFiles([]);
+      } catch (err) {
+        setError(err.response?.data?.detail || 'Errore durante il caricamento');
+      }
     }
+    
+    setUploading(false);
   };
 
   const resetUpload = () => {
-    setFile(null);
+    setFiles([]);
     setResult(null);
     setError(null);
   };
