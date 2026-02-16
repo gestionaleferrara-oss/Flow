@@ -9,11 +9,11 @@ from database import db
 router = APIRouter()
 
 
-class FlussoReport(FPDF):
+class FlowReport(FPDF):
     def header(self):
         self.set_font("Helvetica", "B", 16)
         self.set_text_color(30, 58, 95)
-        self.cell(0, 10, "Flusso - Report Statistiche", new_x="LMARGIN", new_y="NEXT", align="C")
+        self.cell(0, 10, "Flow - Report Statistiche", new_x="LMARGIN", new_y="NEXT", align="C")
         self.set_draw_color(0, 180, 216)
         self.set_line_width(0.6)
         self.line(10, 18, 200, 18)
