@@ -27,8 +27,29 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# Create indexes for better performance
+async def create_indexes():
+    try:
+        await db.vendite.create_index([("data", -1)])
+        await db.vendite.create_index([("cliente_nome", 1)])
+        await db.vendite.create_index([("prodotto_nome", 1)])
+        await db.vendite.create_index([("cliente_id", 1)])
+        await db.ordini.create_index([("data", -1)])
+        await db.ordini.create_index([("fornitore_nome", 1)])
+        await db.ordini.create_index([("prodotto_nome", 1)])
+        await db.prodotti.create_index([("nome", 1)])
+        await db.clienti.create_index([("nome", 1)])
+        await db.fornitori.create_index([("nome", 1)])
+        logger.info("Database indexes created successfully")
+    except Exception as e:
+        logger.error(f"Error creating indexes: {e}")
+
 # Create the main app without a prefix
 app = FastAPI()
+
+@app.on_event("startup")
+async def startup_event():
+    await create_indexes()
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
