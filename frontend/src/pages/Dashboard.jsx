@@ -269,7 +269,7 @@ export default function Dashboard() {
                 {ordinaPerOptions.map(o => (
                   <button key={o.v} onClick={(e) => { e.stopPropagation(); setTrendsOrdinaPer(o.v); loadTrendsVendite(trendsPeriodo, o.v, 5); }}
                     data-testid={`trend-ordina-${o.v}`}
-                    className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
+                    className={cn("px-2.5 py-1.5 rounded-md text-xs font-medium transition-all",
                       trendsOrdinaPer === o.v ? "bg-emerald-500/20 text-emerald-300 shadow-sm" : "text-slate-500 hover:text-slate-300"
                     )}>{o.l}</button>
                 ))}
@@ -278,21 +278,21 @@ export default function Dashboard() {
               <button 
                 onClick={() => { setShowTrendsPopup(true); loadTrendsVendite(trendsPeriodo, trendsOrdinaPer, 20); }}
                 data-testid="trends-expand-btn"
-                className="p-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 transition-all hover:scale-105"
+                className="p-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 transition-all hover:scale-105"
                 title="Mostra top 20"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4" />
               </button>
             </div>
           </div>
-          <div className="p-2">
+          <div className="p-3">
             {trendsVendite?.top_prodotti ? (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {trendsVendite.top_prodotti.slice(0, 5).map((t, idx) => (
-                  <div key={t.prodotto} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-white/[0.02] border border-white/[0.04]">
-                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-bold flex items-center justify-center">{idx + 1}</span>
-                    <span className="flex-1 text-[11px] text-slate-300 truncate">{t.prodotto}</span>
-                    <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded",
+                  <div key={t.prodotto} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
+                    <span className="flex-1 text-sm text-slate-300 truncate">{t.prodotto}</span>
+                    <span className={cn("text-xs font-semibold px-2 py-1 rounded",
                       t.trend === 'up' ? 'text-emerald-400 bg-emerald-500/10' : t.trend === 'down' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 bg-slate-500/10'
                     )}>{t.variazione_qty_pct > 0 ? '+' : ''}{t.variazione_qty_pct}%</span>
                   </div>
