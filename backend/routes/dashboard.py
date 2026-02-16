@@ -542,9 +542,19 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
         date_start = (ref - timedelta(days=30)).strftime("%Y-%m-%d")
     elif periodo == "90gg":
         date_start = (ref - timedelta(days=90)).strftime("%Y-%m-%d")
+    elif periodo == "mese_prec":
+        date_start = prev_start
+        date_end = prev_end
     else:
         date_start = month_start
-    periodo_labels = {"mese": "Mese corrente", "30gg": "Ultimi 30 giorni", "90gg": "Ultimi 90 giorni"}
+    
+    # For mese_prec, we need to filter by date range
+    if periodo == "mese_prec":
+        date_filter = {"$gte": date_start, "$lte": date_end}
+    else:
+        date_filter = {"$gte": date_start}
+    
+    periodo_labels = {"mese": "Mese corrente", "30gg": "Ultimi 30 giorni", "90gg": "Ultimi 90 giorni", "mese_prec": "Mese precedente"}
 
     if card_type == "fatturato":
         daily_pipeline = [
