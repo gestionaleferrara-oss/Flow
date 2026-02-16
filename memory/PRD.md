@@ -1,58 +1,54 @@
 # Flow - Business Analytics App
 
-## Descrizione Prodotto
-Applicazione web full-stack per la gestione vendite, magazzino, clienti, fornitori e analytics business con funzionalità AI. Migrazione da Google Apps Script.
+## Descrizione
+App full-stack per gestione vendite, magazzino, clienti, fornitori e analytics business con AI.
 
-## Stack Tecnologico
-- **Frontend**: React.js, Tailwind CSS, Recharts, Framer Motion
-- **Backend**: FastAPI, Pydantic
-- **Database**: MongoDB
-- **AI**: Google Gemini (Emergent LLM Key)
+## Stack
+- Frontend: React.js, Tailwind, Recharts
+- Backend: FastAPI
+- Database: MongoDB
+- AI: Gemini (Emergent LLM Key)
 
-## Funzionalità Implementate
+## Funzionalità
 
-### Core Features
-- ✅ Import dati CSV/XLSX con gestione automatica clienti/prodotti
-- ✅ Dashboard interattiva con 4 card principali (blur/reveal hover/click)
-- ✅ Gestione Magazzino con scorte minime
-- ✅ Pagina Clienti e Fornitori con analisi
-- ✅ Sistema Alert (prodotti sotto scorta, clienti inattivi)
-- ✅ Widget Trend Prodotti e Sales Insight
-- ✅ News feed con ticker live
+### Dashboard
+- 4 card principali con blur/reveal (hover desktop, tap mobile)
+- Selettori periodo: Mese corrente, Mese prec., 30gg, 90gg
+- Widget Trend Prodotti e Sales Insight
 
-### AI Features
-- ✅ **Report AI** con 3 tipi:
-  - Settimanale (ultimi 7gg)
-  - Mensile (ultimi 30gg)
-  - **Dashboard** (confronto mese corrente vs precedente)
-- ✅ **Forecast AI** - Previsioni vendite per prodotto/cliente con:
-  - Analisi focalizzata SOLO sul mese target
-  - Export PDF funzionante
-  - Pulsante Reset
-  - Funziona per prodotti E clienti
+### Report AI
+- **3 tipi**: Settimanale, Mensile, Dashboard (con confronto mese precedente)
+- **Export PDF** funzionante
+- Metriche chiave e analisi AI
 
-### UX/Performance
-- ✅ Selettori periodo in TUTTI i modal (Mese corrente, Mese prec., 30gg, 90gg)
-- ✅ Navigazione fluida con lazy loading
-- ✅ Layout responsive ottimizzato
-- ✅ Favicon e titolo personalizzati
+### Forecast AI
+- Previsione vendite per **prodotto** o **cliente**
+- **Storico completo** (tutti i dati, non solo ultimo anno)
+- Analisi **focalizzata SOLO sul mese target**
+- **Counter**: Media Mese, Max Mese, Min Mese, Anni Dati
+- **Export PDF** e **Reset**
 
-## Changelog
+### Altre Funzionalità
+- Import dati CSV/XLSX
+- Gestione Magazzino
+- Pagine Clienti e Fornitori con analisi
+- Sistema Alert
+- News feed
 
-### 2025-02-16
-- **Report AI Dashboard**: Nuovo tipo report con confronto mese precedente, variazioni %, alert attivi
-- **Forecast PDF**: Corretto export PDF (fix encoding caratteri speciali)
-- **Selettore "Mese prec."**: Aggiunto a tutti i 4 modal card
-- **Forecast migliorato**: Analisi focalizzata solo sul mese, pulsanti PDF/Reset
+## Endpoints Principali
+- `GET /api/dashboard-cards` 
+- `GET /api/card-detail/{id}?periodo=`
+- `POST /api/ai-reports/generate?report_type=`
+- `POST /api/ai-reports/export-pdf`
+- `GET /api/forecast/generate?tipo=&nome=&mese_target=`
+- `POST /api/forecast/export-pdf`
 
-## Endpoints API
-- `GET /api/dashboard-cards` - Dati card
-- `GET /api/card-detail/{id}?periodo=` - Dettaglio (mese, mese_prec, 30gg, 90gg)
-- `POST /api/ai-reports/generate?report_type=` - Report (settimanale, mensile, dashboard)
-- `GET /api/forecast/generate?tipo=&nome=&mese_target=` - Previsione AI
-- `POST /api/forecast/export-pdf` - Export PDF
+## Changelog 2025-02-16
+- Report AI: aggiunto tipo Dashboard + export PDF
+- Forecast AI: storico completo, analisi solo mese target, nuovi counter
+- Fix PDF export (encoding caratteri)
 
 ## Backlog
-- P2: Migliorare interfaccia mobile
-- P3: Fix scraping immagini news
+- P2: Migliorare mobile UI
+- P3: Fix scraping news
 - P3: Refactoring Dashboard.jsx
