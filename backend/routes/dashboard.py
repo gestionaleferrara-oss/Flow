@@ -235,8 +235,8 @@ async def get_management_alerts():
             client_total[cliente] = client_total.get(cliente, 0) + abs(v.get('totale', 0))
 
     for cliente, last_order in client_last_order.items():
-        if last_order < thirty_days_ago:
-            days_inactive = (reference_date - datetime.strptime(last_order, "%Y-%m-%d")).days
+        days_inactive = (reference_date - datetime.strptime(last_order, "%Y-%m-%d")).days
+        if 7 <= days_inactive <= 30:
             alerts["clientiInattivi"].append({"nome": cliente, "ultimo_ordine": last_order, "giorni_inattivo": days_inactive, "fatturato_90gg": round(client_total.get(cliente, 0), 2)})
     alerts["clientiInattivi"].sort(key=lambda x: -x['fatturato_90gg'])
     alerts["clientiInattivi"] = alerts["clientiInattivi"][:8]
