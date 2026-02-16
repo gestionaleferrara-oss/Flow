@@ -1,31 +1,50 @@
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import os
+import asyncio
 
 from database import db, logger
 
-# Create the main app
-app = FastAPI()
 
-
-@app.on_event("startup")
-async def startup_event():
+async def create_indexes_background():
+    """Create database indexes in background to not block startup"""
     try:
-        await db.vendite.create_index([("data", -1)])
-        await db.vendite.create_index([("cliente_nome", 1)])
-        await db.vendite.create_index([("prodotto_nome", 1)])
-        await db.vendite.create_index([("cliente_id", 1)])
-        await db.vendite.create_index([("data", 1), ("prodotto_nome", 1)])
-        await db.vendite.create_index([("data", 1), ("cliente_nome", 1)])
-        await db.ordini.create_index([("data", -1)])
-        await db.ordini.create_index([("fornitore_nome", 1)])
-        await db.ordini.create_index([("prodotto_nome", 1)])
-        await db.prodotti.create_index([("nome", 1)])
-        await db.clienti.create_index([("nome", 1)])
-        await db.fornitori.create_index([("nome", 1)])
+        # Add small delay to let the app fully start
+        await asyncio.sleep(2)
+        await db.vendite.create_index([("data", -1)], background=True)
+        await db.vendite.create_index([("cliente_nome", 1)], background=True)
+        await db.vendite.create_index([("prodotto_nome", 1)], background=True)
+        await db.vendite.create_index([("cliente_id", 1)], background=True)
+        await db.vendite.create_index([("data", 1), ("prodotto_nome", 1)], background=True)
+        await db.vendite.create_index([("data", 1), ("cliente_nome", 1)], background=True)
+        await db.ordini.create_index([("data", -1)], background=True)
+        await db.ordini.create_index([("fornitore_nome", 1)], background=True)
+        await db.ordini.create_index([("prodotto_nome", 1)], background=True)
+        await db.prodotti.create_index([("nome", 1)], background=True)
+        await db.clienti.create_index([("nome", 1)], background=True)
+        await db.fornitori.create_index([("nome", 1)], background=True)
         logger.info("Database indexes created successfully")
     except Exception as e:
         logger.error(f"Error creating indexes: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: create indexes in background task (non-blocking)
+    asyncio.create_task(create_indexes_background())
+    yield
+    # Shutdown: nothing to clean up
+
+
+# Create the main app with lifespan
+app = FastAPI(lifespan=lifespan)
+
+
+# Health check endpoint for Kubernetes (MUST be at root level, not under /api)
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
 
 
 # Create a router with the /api prefix
