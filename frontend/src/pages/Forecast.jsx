@@ -329,19 +329,44 @@ export default function Forecast() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-4"
         >
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-2">
-            <div className={cn(
-              "p-2 rounded-lg",
-              tipo === 'prodotto' ? "bg-blue-500/15 text-blue-400" : "bg-cyan-500/15 text-cyan-400"
-            )}>
-              {tipo === 'prodotto' ? <Package className="w-5 h-5" /> : <Users className="w-5 h-5" />}
+          {/* Header with actions */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "p-2 rounded-lg",
+                tipo === 'prodotto' ? "bg-blue-500/15 text-blue-400" : "bg-cyan-500/15 text-cyan-400"
+              )}>
+                {tipo === 'prodotto' ? <Package className="w-5 h-5" /> : <Users className="w-5 h-5" />}
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white">{forecast.nome}</h2>
+                <p className="text-xs text-slate-500">
+                  Previsione per <span className="text-emerald-400 font-medium">{forecast.mese_target_nome}</span>
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">{forecast.nome}</h2>
-              <p className="text-xs text-slate-500">
-                Previsione per <span className="text-emerald-400 font-medium">{forecast.mese_target_nome}</span>
-              </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportPdf}
+                disabled={exporting}
+                className="gap-2"
+                data-testid="export-pdf"
+              >
+                {exporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                PDF
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReset}
+                className="gap-2"
+                data-testid="reset-forecast"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reset
+              </Button>
             </div>
           </div>
 
