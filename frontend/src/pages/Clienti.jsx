@@ -57,19 +57,30 @@ export default function Clienti() {
     }
   };
 
-  const viewAnalisi = async (cliente) => {
+  const viewAnalisi = async (cliente, periodo = 'mese') => {
     setSelectedCliente(cliente);
+    setPeriodoAnalisi(periodo);
     setEditFields({
       whatsapp: cliente.whatsapp || '',
       email: cliente.email || '',
       note: cliente.note || ''
     });
     setShowModal(true);
+    setLoadingAnalisi(true);
     try {
-      const response = await axios.get(`${API}/clienti/${cliente.id}/analisi`);
+      const response = await axios.get(`${API}/clienti/${cliente.id}/analisi?periodo=${periodo}`);
       setAnalisi(response.data);
     } catch (error) {
       console.error('Error loading analisi:', error);
+    } finally {
+      setLoadingAnalisi(false);
+    }
+  };
+
+  const handlePeriodoChange = (newPeriodo) => {
+    setPeriodoAnalisi(newPeriodo);
+    if (selectedCliente) {
+      viewAnalisi(selectedCliente, newPeriodo);
     }
   };
 
