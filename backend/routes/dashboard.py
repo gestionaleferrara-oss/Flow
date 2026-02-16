@@ -581,13 +581,13 @@ async def get_card_detail(card_type: str):
             tot_orders = sum(d["count"] for d in daily)
             tot_val = sum(d["totale"] for d in daily)
             avg_order = tot_val / tot_orders if tot_orders > 0 else 0
-        # Top products by quantity
-        qty_pipeline = [
+        # Top products by number of requests (orders count)
+        req_pipeline = [
             {"$match": {"data": {"$gte": month_start}}},
-            {"$group": {"_id": "$prodotto_nome", "quantita": {"$sum": {"$abs": "$quantita"}}, "ordini": {"$sum": 1}}},
-            {"$sort": {"quantita": -1}}, {"$limit": 5}
+            {"$group": {"_id": "$prodotto_nome", "richieste": {"$sum": 1}, "quantita": {"$sum": {"$abs": "$quantita"}}}},
+            {"$sort": {"richieste": -1}}, {"$limit": 5}
         ]
-        top_qty = await db.vendite.aggregate(qty_pipeline).to_list(5)
+        top_req = await db.vendite.aggregate(req_pipeline).to_list(5)
         # Peak days
         peak_pipeline = [
             {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
@@ -599,7 +599,7 @@ async def get_card_detail(card_type: str):
             "tipo": "ordini",
             "giornaliero": [{"data": d["_id"], "ordini": d["count"], "totale": round(d["totale"], 2)} for d in daily],
             "scontrino_medio": round(avg_order, 2),
-            "top_prodotti_qty": [{"nome": p["_id"], "quantita": round(p["quantita"], 1), "ordini": p["ordini"]} for p in top_qty],
+            "top_prodotti_richieste": [{"nome": p["_id"], "richieste": p["richieste"], "quantita": round(p["quantita"], 1)} for p in top_req],
             "giorni_picco": [{"data": p["_id"], "ordini": p["count"]} for p in peak]
         }
 
