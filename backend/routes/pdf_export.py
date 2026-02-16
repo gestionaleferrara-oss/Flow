@@ -85,12 +85,39 @@ async def export_statistiche_pdf(
         num_vendite = len(vendite)
         clienti_set = set(v.get('cliente_nome', '') for v in vendite if v.get('cliente_nome'))
 
-        # Top prodotti
-        prod_rev = {}
+        # Top prodotti with margin calculation
+        prod_data = {}
         for v in vendite:
             p = v.get('prodotto_nome', '')
-            prod_rev[p] = prod_rev.get(p, 0) + abs(v.get('totale', 0))
-        top_prod = sorted(prod_rev.items(), key=lambda x: x[1], reverse=True)[:10]
+            if p not in prod_data:
+                prod_data[p] = {'fatturato': 0, 'qty': 0, 'prezzi': []}
+            prod_data[p]['fatturato'] += abs(v.get('totale', 0))
+            prod_data[p]['qty'] += abs(v.get('quantita', 0))
+            if v.get('prezzo_unitario', 0) > 0:
+                prod_data[p]['prezzi'].append(v.get('prezzo_unitario', 0))
+        
+        # Get purchase prices and calculate margins
+        top_prod_with_margin = []
+        for nome, dati in sorted(prod_data.items(), key=lambda x: x[1]['fatturato'], reverse=True)[:10]:
+            item = {'nome': nome, 'fatturato': dati['fatturato'], 'margine': None, 'profitto': None}
+            
+            # Get last purchase price
+            ultimo_ordine = await db.ordini.find_one(
+                {"prodotto_nome": nome, "prezzo_unitario": {"$gt": 0}},
+                {"_id": 0, "prezzo_unitario": 1},
+                sort=[("data", -1)]
+            )
+            if ultimo_ordine and dati['prezzi']:
+                prezzo_acquisto = ultimo_ordine.get('prezzo_unitario', 0)
+                prezzo_vendita = sum(dati['prezzi']) / len(dati['prezzi'])
+                if prezzo_acquisto > 0:
+                    costo_totale = prezzo_acquisto * dati['qty']
+                    profitto = dati['fatturato'] - costo_totale
+                    margine = ((prezzo_vendita - prezzo_acquisto) / prezzo_acquisto) * 100
+                    item['margine'] = round(margine, 1)
+                    item['profitto'] = round(profitto, 2)
+            
+            top_prod_with_margin.append(item)
 
         # Top clienti
         cli_rev = {}
@@ -99,6 +126,10 @@ async def export_statistiche_pdf(
             if c:
                 cli_rev[c] = cli_rev.get(c, 0) + abs(v.get('totale', 0))
         top_cli = sorted(cli_rev.items(), key=lambda x: x[1], reverse=True)[:10]
+        
+        # Calculate total margin
+        totale_profitto = sum(p.get('profitto', 0) or 0 for p in top_prod_with_margin)
+        margine_medio = (totale_profitto / fatturato * 100) if fatturato > 0 else 0
 
         pdf = FlussoReport()
         pdf.add_page()
@@ -112,12 +143,20 @@ async def export_statistiche_pdf(
         pdf.kpi_row("Numero Transazioni:", f"{num_vendite:,}")
         pdf.kpi_row("Clienti Unici:", f"{len(clienti_set)}")
         pdf.kpi_row("Scontrino Medio:", f"EUR {fatturato / num_vendite:,.2f}" if num_vendite > 0 else "N/A")
+        if margine_medio > 0:
+            pdf.kpi_row("Margine Medio Stimato:", f"{margine_medio:.1f}%")
+            pdf.kpi_row("Profitto Stimato:", f"EUR {totale_profitto:,.2f}")
         pdf.ln(5)
 
-        pdf.section_title("Top 10 Prodotti")
-        pdf.table_header(["#", "Prodotto", "Fatturato"], [10, 120, 60])
-        for i, (nome, rev) in enumerate(top_prod):
-            pdf.table_row([str(i + 1), nome[:30], f"EUR {rev:,.2f}"], [10, 120, 60], ["C", "L", "R"])
+        pdf.section_title("Top 10 Prodotti (con Margine)")
+        pdf.table_header(["#", "Prodotto", "Fatturato", "Margine", "Profitto"], [8, 80, 40, 30, 32])
+        for i, item in enumerate(top_prod_with_margin):
+            margine_str = f"{item['margine']:.0f}%" if item['margine'] is not None else "N/A"
+            profitto_str = f"EUR {item['profitto']:,.0f}" if item['profitto'] is not None else "N/A"
+            pdf.table_row(
+                [str(i + 1), item['nome'][:25], f"EUR {item['fatturato']:,.0f}", margine_str, profitto_str],
+                [8, 80, 40, 30, 32], ["C", "L", "R", "R", "R"]
+            )
         pdf.ln(5)
 
         pdf.section_title("Top 10 Clienti")
