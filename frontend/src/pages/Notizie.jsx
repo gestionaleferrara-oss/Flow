@@ -68,6 +68,15 @@ export default function Notizie() {
   const [selectedCategoria, setSelectedCategoria] = useState('all');
   const [trendCategoria, setTrendCategoria] = useState('frutta-secca');
   const [trendSource, setTrendSource] = useState('vendite'); // 'vendite' or 'google'
+  
+  // NEW: Expandable trends state
+  const [trendsExpanded, setTrendsExpanded] = useState(false);
+  const [trendsPeriodo, setTrendsPeriodo] = useState('2w');
+  const [trendsOrdinaPer, setTrendsOrdinaPer] = useState('interest');
+  
+  // NEW: Sales Insight state
+  const [salesInsight, setSalesInsight] = useState(null);
+  const [insightLoading, setInsightLoading] = useState(true);
 
   const trendCategories = [
     { id: 'frutta-secca', label: 'Frutta Secca' },
