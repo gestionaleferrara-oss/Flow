@@ -17,22 +17,15 @@ Applicazione web per la gestione di magazzino, vendite e acquisti per aziende de
 - Calcolo automatico quantità magazzino
 - Indici MongoDB per query veloci
 
-### Dashboard (v1.2 - 16/02/2026) ⭐ AGGIORNATO
-- Fatturato mese corrente vs mese precedente completo
-- Percentuale crescita/decrescita
-- Ordini del mese
-- Centro Alert (clienti inattivi, prodotti in esaurimento)
-- **NUOVO: Widget Sales Insight** - Insight dinamici su vendite e prodotti:
-  - Prodotto Top del Mese
-  - Crescita Maggiore
-  - Miglior Cliente del Mese
-  - Nuovo Cliente Acquisito
-  - Margine Migliore
-  - Prodotto Più Venduto
-- **NUOVO: Widget Trend Prodotti espandibile** (5→20 items):
-  - Filtri avanzati: Periodo (1S, 2S, 1M, 3M)
-  - Ordinamento: Rilevanza, €, ↑ Crescita, ↓ Calo
-- Quick Links compatti (Importa, Statistiche, Magazzino)
+### Dashboard (v1.3 - 16/02/2026) ⭐ OTTIMIZZATO
+- KPI compatte (Fatturato, Ordini, Clienti, Alert)
+- Suggerimento AI con refresh
+- **Sales Insight** - 4 insight con hover tooltip per dettagli
+- **Trend Prodotti** - Top 5 con **popup hover** per Top 20 + filtri
+- **Quick Links** compatti (Importa, Stats, Magazzino)
+- Centro Alert compatto (Sotto Scorta, Inattivi, Esaurimento)
+- **Responsive mobile/tablet** - Grid adattivo
+- **Caricamento parallelo** - Tutte le API caricate in parallelo
 
 ### Statistiche (v1.0)
 - Grafico andamento vendite mensili
