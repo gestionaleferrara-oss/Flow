@@ -2708,38 +2708,38 @@ async def scrape_freshplaza_market_links():
 
 @api_router.get("/prezzi-mercati")
 async def get_prezzi_mercati():
-    """Get direct links to market price pages - updated for 2025/2026"""
+    """Get links to official market price sources - Borsa Merci CCIAA"""
     
-    # Updated links to actual market pages on FreshPlaza
+    # Official sources: CCIAA Borsa Merci and ISMEA
     mercati = [
         {
-            "nome": "Cesena",
-            "url": "https://www.freshplaza.it/listino-prezzi-cesena/",
+            "nome": "ISMEA Ortaggi",
+            "url": "https://www.ismeamercati.it/flex/cm/pages/ServeBLOB.php/L/IT/IDPagina/497",
             "tipo": "Web"
         },
         {
-            "nome": "Lusia",
-            "url": "https://www.freshplaza.it/listino-prezzi-lusia/",
+            "nome": "ISMEA Frutta",
+            "url": "https://www.ismeamercati.it/flex/cm/pages/ServeBLOB.php/L/IT/IDPagina/559",
             "tipo": "Web"
         },
         {
-            "nome": "Torino",
-            "url": "https://www.freshplaza.it/listino-prezzi-torino/",
+            "nome": "Bologna CCIAA",
+            "url": "https://www.bo.camcom.gov.it/it/borsa-merci/archivio-prezzi-ortofrutticoli",
             "tipo": "Web"
         },
         {
-            "nome": "Verona",
-            "url": "https://www.freshplaza.it/listino-prezzi-verona/",
+            "nome": "Firenze CCIAA",
+            "url": "https://www.fi.camcom.gov.it/tutela-di-consumatori-e-imprese/prezzi/listini-settimanali-dei-prezzi-allingrosso",
             "tipo": "Web"
         },
         {
-            "nome": "Bologna",
-            "url": "https://www.freshplaza.it/listino-prezzi-bologna/",
+            "nome": "Padova CCIAA",
+            "url": "https://www.pd.camcom.it/it/tutela-impresa-e-consumatore/prezzi/archivio-listini-prezzi-prodotti-ortofrutticoli",
             "tipo": "Web"
         },
         {
-            "nome": "Milano",
-            "url": "https://www.freshplaza.it/listino-prezzi-milano/",
+            "nome": "Bari CCIAA",
+            "url": "https://www.ba.camcom.it/bari/borsa-merci/listino-ortofrutta-e-mandorle",
             "tipo": "Web"
         }
     ]
