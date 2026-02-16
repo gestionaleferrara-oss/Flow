@@ -411,18 +411,22 @@ export default function Forecast() {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="mt-3 grid grid-cols-4 gap-2">
                 <div className="p-2 rounded-lg bg-white/[0.03] text-center">
-                  <p className="text-[10px] text-slate-500">Totale Periodo</p>
-                  <p className="text-sm font-semibold text-white">{formatCurrency(forecast.statistiche.totale_periodo)}</p>
+                  <p className="text-[10px] text-slate-500">Media Mese</p>
+                  <p className="text-sm font-semibold text-emerald-400">{formatCurrency(forecast.statistiche.stesso_mese_avg || 0)}</p>
                 </div>
                 <div className="p-2 rounded-lg bg-white/[0.03] text-center">
-                  <p className="text-[10px] text-slate-500">Media Mensile</p>
-                  <p className="text-sm font-semibold text-violet-400">{formatCurrency(forecast.statistiche.media_mensile)}</p>
+                  <p className="text-[10px] text-slate-500">Max Mese</p>
+                  <p className="text-sm font-semibold text-blue-400">{formatCurrency(forecast.statistiche.stesso_mese_max || 0)}</p>
                 </div>
                 <div className="p-2 rounded-lg bg-white/[0.03] text-center">
-                  <p className="text-[10px] text-slate-500">Mesi Dati</p>
-                  <p className="text-sm font-semibold text-white">{forecast.statistiche.num_mesi_dati}</p>
+                  <p className="text-[10px] text-slate-500">Min Mese</p>
+                  <p className="text-sm font-semibold text-amber-400">{formatCurrency(forecast.statistiche.stesso_mese_min || 0)}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-white/[0.03] text-center">
+                  <p className="text-[10px] text-slate-500">Anni Dati</p>
+                  <p className="text-sm font-semibold text-violet-400">{forecast.statistiche.anni_dati_mese || 0}</p>
                 </div>
               </div>
             </div>
