@@ -771,7 +771,7 @@ async def delete_ai_report(report_id: str):
 
 
 @router.post("/ai-reports/generate")
-async def generate_ai_report(report_type: str = Query("settimanale", enum=["settimanale", "mensile"])):
+async def generate_ai_report(report_type: str = Query("settimanale", enum=["settimanale", "mensile", "dashboard"])):
     from emergentintegrations.llm.chat import LlmChat, UserMessage
 
     EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
@@ -780,6 +780,14 @@ async def generate_ai_report(report_type: str = Query("settimanale", enum=["sett
     if report_type == "settimanale":
         start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
         period_name = "Settimana"
+    elif report_type == "dashboard":
+        # Dashboard report: analisi mese corrente con confronto mese precedente
+        month_start = now.replace(day=1).strftime("%Y-%m-%d")
+        prev_month = (now.replace(day=1) - timedelta(days=1))
+        prev_month_start = prev_month.replace(day=1).strftime("%Y-%m-%d")
+        prev_month_end = prev_month.strftime("%Y-%m-%d")
+        start_date = month_start
+        period_name = "Dashboard"
     else:
         start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
         period_name = "Mese"
