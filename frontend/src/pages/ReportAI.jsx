@@ -224,7 +224,7 @@ export default function ReportAI() {
                 </div>
 
                 {/* Quick Metrics */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
                   <div className="p-3 bg-white/5 rounded-lg">
                     <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
                       <TrendingUp className="w-3 h-3" />
@@ -245,19 +245,10 @@ export default function ReportAI() {
                   </div>
                   <div className="p-3 bg-white/5 rounded-lg">
                     <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
-                      <Package className="w-3 h-3" />
-                      Alert Scorte
-                    </div>
-                    <p className="text-lg font-semibold text-amber-400">
-                      {selectedReport.metriche?.prodotti_sotto_scorta || 0}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-white/5 rounded-lg">
-                    <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
                       <Users className="w-3 h-3" />
                       Clienti Inattivi
                     </div>
-                    <p className="text-lg font-semibold text-red-400">
+                    <p className="text-lg font-semibold text-amber-400">
                       {selectedReport.metriche?.clienti_inattivi || 0}
                     </p>
                   </div>
