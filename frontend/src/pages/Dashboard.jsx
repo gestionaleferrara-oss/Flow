@@ -882,14 +882,13 @@ export default function Dashboard() {
                 </div>
                 <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
                   <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06]">
-                    <span className="text-xs font-semibold text-white">Top 5 Prodotti per Quantita</span>
+                    <span className="text-xs font-semibold text-white">Prodotti Piu Richiesti</span>
                   </div>
-                  {cardDetail.top_prodotti_qty?.map((p, i) => (
+                  {cardDetail.top_prodotti_richieste?.map((p, i) => (
                     <div key={p.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04] hover:bg-white/[0.02]">
                       <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold flex items-center justify-center">{i+1}</span>
                       <span className="flex-1 text-xs text-slate-300 truncate">{p.nome}</span>
-                      <span className="text-xs text-slate-500">{p.ordini} ord.</span>
-                      <span className="text-xs font-medium text-emerald-400">{p.quantita.toLocaleString('it-IT')} pz</span>
+                      <span className="text-xs font-medium text-emerald-400">{p.richieste} richieste</span>
                     </div>
                   ))}
                 </div>
