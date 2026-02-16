@@ -1027,19 +1027,21 @@ export default function Dashboard() {
                     </div>
                   </div>
                   {cardDetail.clienti_inattivi?.length > 0 ? cardDetail.clienti_inattivi.map(c => (
-                    <div key={c.nome} className="px-3 py-2.5 border-t border-white/[0.04] hover:bg-white/[0.02]">
-                      <div className="flex items-center gap-2 mb-1">
+                    <div key={c.nome} className="group px-3 py-2.5 border-t border-white/[0.04] hover:bg-white/[0.04] transition-all">
+                      <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-slate-200 flex-1 truncate">{c.nome}</span>
+                        <span className="text-[10px] text-slate-500">{c.giorni_inattivo}gg</span>
                         <span className="text-xs font-medium text-amber-400">{formatCurrency(c.fatturato_90gg)}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-[10px] text-slate-500">
-                        <span>Ultimo ordine: {c.ultimo_ordine}</span>
-                        <span>{c.giorni_inattivo}gg fa</span>
-                        <span>{c.num_ordini} ordini (90gg)</span>
+                      <div className="max-h-0 overflow-hidden opacity-0 group-hover:max-h-20 group-hover:opacity-100 transition-all duration-300 ease-out">
+                        <div className="flex items-center gap-3 text-[11px] text-white/80 mt-1.5">
+                          <span>Ultimo ordine: {c.ultimo_ordine}</span>
+                          <span>{c.num_ordini} ordini (90gg)</span>
+                        </div>
+                        {c.top_prodotti?.length > 0 && (
+                          <p className="text-[11px] text-white/60 mt-0.5 truncate">Acquistava: {c.top_prodotti.join(', ')}</p>
+                        )}
                       </div>
-                      {c.top_prodotti?.length > 0 && (
-                        <p className="text-[10px] text-slate-600 mt-0.5 truncate">Acquistava: {c.top_prodotti.join(', ')}</p>
-                      )}
                     </div>
                   )) : (
                     <p className="px-3 py-4 text-center text-xs text-slate-500">Nessun cliente inattivo in questo periodo</p>
