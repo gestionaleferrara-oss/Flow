@@ -27,7 +27,7 @@ export default function ReportAI() {
   const [selectedReport, setSelectedReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [reportType, setReportType] = useState('settimanale');
+  const [reportType, setReportType] = useState('dashboard');
 
   useEffect(() => {
     loadReports();
