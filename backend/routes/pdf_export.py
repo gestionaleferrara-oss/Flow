@@ -94,22 +94,23 @@ async def export_statistiche_pdf(
             prod_data[p]['fatturato'] += abs(v.get('totale', 0))
             prod_data[p]['qty'] += abs(v.get('quantita', 0))
         
-        # Get purchase prices and calculate margins
-        top_prod_with_margin = []
+        # First pass: Calculate margin for ALL products to get accurate totals
         totale_fatturato_con_margine = 0
         somma_margini_ponderati = 0
         totale_profitto = 0
+        prodotti_margine_data = {}  # Store margin data for all products
         
-        for nome, dati in sorted(prod_data.items(), key=lambda x: x[1]['fatturato'], reverse=True)[:10]:
-            item = {'nome': nome, 'fatturato': dati['fatturato'], 'margine': None, 'profitto': None}
-            
+        for nome, dati in prod_data.items():
+            if dati['qty'] <= 0:
+                continue
+                
             # Get last purchase price
             ultimo_ordine = await db.ordini.find_one(
                 {"prodotto_nome": nome, "prezzo_unitario": {"$gt": 0}},
                 {"_id": 0, "prezzo_unitario": 1},
                 sort=[("data", -1)]
             )
-            if ultimo_ordine and dati['qty'] > 0:
+            if ultimo_ordine:
                 prezzo_acquisto = ultimo_ordine.get('prezzo_unitario', 0)
                 # Weighted average: total revenue / total quantity
                 prezzo_vendita = dati['fatturato'] / dati['qty']
@@ -124,18 +125,31 @@ async def export_statistiche_pdf(
                         
                         # Only include reasonable margins (-50% to +200%)
                         if -50 < margine < 200:
-                            item['margine'] = round(margine, 1)
-                            item['profitto'] = round(profitto, 2)
-                            
                             # Accumulate for weighted average margin calculation
                             totale_fatturato_con_margine += dati['fatturato']
                             somma_margini_ponderati += margine * dati['fatturato']
                             totale_profitto += profitto
-            
-            top_prod_with_margin.append(item)
+                            
+                            # Store for top products display
+                            prodotti_margine_data[nome] = {
+                                'margine': round(margine, 1),
+                                'profitto': round(profitto, 2)
+                            }
         
         # Calculate weighted average margin: sum(margine * fatturato) / sum(fatturato)
         margine_medio = (somma_margini_ponderati / totale_fatturato_con_margine) if totale_fatturato_con_margine > 0 else 0
+        
+        # Build top 10 products with margin data
+        top_prod_with_margin = []
+        for nome, dati in sorted(prod_data.items(), key=lambda x: x[1]['fatturato'], reverse=True)[:10]:
+            item = {'nome': nome, 'fatturato': dati['fatturato'], 'margine': None, 'profitto': None}
+            
+            # Add margin data if available
+            if nome in prodotti_margine_data:
+                item['margine'] = prodotti_margine_data[nome]['margine']
+                item['profitto'] = prodotti_margine_data[nome]['profitto']
+            
+            top_prod_with_margin.append(item)
 
         # Top clienti
         cli_rev = {}
