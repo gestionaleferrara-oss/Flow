@@ -138,6 +138,7 @@ async def generate_forecast(
     tot_fatturato = sum(s['fatturato'] for s in storico)
     media_mensile = tot_fatturato / len(storico) if storico else 0
     ultimo_mese = storico[-1] if storico else None
+    ultimo_mese_str = f"{ultimo_mese['_id']}: €{ultimo_mese['fatturato']:,.2f}" if ultimo_mese else "N/A"
     
     mesi_it = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 
                'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
