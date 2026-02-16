@@ -447,14 +447,6 @@ export default function Notizie() {
           )}
         </motion.div>
       </div>
-                </motion.a>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-32 text-xs text-slate-500">Dati non disponibili</div>
-          )}
-        </motion.div>
-      </div>
 
       {/* === CATEGORY FILTERS === */}
       <div className="flex flex-wrap items-center gap-2 mb-6" data-testid="category-filters">
