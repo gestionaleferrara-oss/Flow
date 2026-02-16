@@ -400,9 +400,9 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Product Analysis Modal */}
+      {/* Product Analysis Modal - Complete Details */}
       <Dialog open={showProdottoModal} onOpenChange={setShowProdottoModal}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-auto">
           <DialogHeader><DialogTitle>{selectedProdotto?.nome}</DialogTitle></DialogHeader>
           {loadingAnalisi ? (
             <div className="py-8 text-center"><LoadingSpinner /></div>
@@ -412,20 +412,163 @@ export default function Dashboard() {
                 <Button variant={analisiView === 'vendite' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('vendite')} data-testid="analisi-vendite-tab">Vendite</Button>
                 <Button variant={analisiView === 'acquisti' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('acquisti')} data-testid="analisi-acquisti-tab">Acquisti</Button>
               </div>
+              
               {analisiView === 'vendite' && prodottoAnalisi && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Totale Venduto</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisi.totale_venduto || prodottoAnalisi.fatturatoMensile || 0)}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Quantità</p><p className="text-lg font-bold text-white">{prodottoAnalisi.quantita_venduta || prodottoAnalisi.mediaMensile || 0}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Prezzo Medio</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisi.prezzo_medio || prodottoAnalisi.prezzoMedioVendita || 0)}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">N. Clienti</p><p className="text-lg font-bold text-white">{prodottoAnalisi.numero_clienti || prodottoAnalisi.clientiUnici || 0}</p></div>
+                <div className="space-y-4">
+                  {/* Main Stats Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">Totale Venduto</p>
+                      <p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisi.totale_venduto || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">Quantità Venduta</p>
+                      <p className="text-lg font-bold text-white">{prodottoAnalisi.quantita_venduta || 0}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">Prezzo Medio</p>
+                      <p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisi.prezzo_medio || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">N. Clienti</p>
+                      <p className="text-lg font-bold text-white">{prodottoAnalisi.numero_clienti || 0}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Secondary Stats */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                      <p className="text-[10px] text-blue-400 mb-0.5">Media Mensile (Fatturato)</p>
+                      <p className="text-base font-semibold text-white">{formatCurrency(prodottoAnalisi.fatturatoMensile || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                      <p className="text-[10px] text-emerald-400 mb-0.5">Media Mensile (Quantità)</p>
+                      <p className="text-base font-semibold text-white">{prodottoAnalisi.mediaMensile || 0}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Top Clienti */}
+                  {prodottoAnalisi.topClienti?.length > 0 && (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                      <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-cyan-400" /> Top Clienti
+                      </h4>
+                      <div className="space-y-1.5">
+                        {prodottoAnalisi.topClienti.slice(0, 5).map((c, i) => (
+                          <div key={c.nome} className="flex items-center gap-2 text-sm">
+                            <span className="w-5 h-5 rounded-full bg-cyan-500/15 text-cyan-400 text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                            <span className="flex-1 text-slate-300 truncate text-xs">{c.nome}</span>
+                            <span className="text-cyan-400 font-medium text-xs">{formatCurrency(c.totale)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Vendite Mensili */}
+                  {prodottoAnalisi.venditeMensili?.length > 0 && (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                      <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-2">
+                        <BarChart3 className="w-3.5 h-3.5 text-violet-400" /> Storico Mensile
+                      </h4>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {prodottoAnalisi.venditeMensili.slice(-8).map((m) => (
+                          <div key={m.mese} className="p-2 rounded bg-violet-500/5 border border-violet-500/10 text-center">
+                            <p className="text-[9px] text-slate-500">{m.mese}</p>
+                            <p className="text-xs font-semibold text-violet-300">{formatCurrency(m.totale)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
+              
               {analisiView === 'acquisti' && prodottoAnalisiAcquisti && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Totale Acquistato</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisiAcquisti.totale_acquistato || prodottoAnalisiAcquisti.spesoMensile || 0)}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Quantità</p><p className="text-lg font-bold text-white">{prodottoAnalisiAcquisti.quantita_acquistata || prodottoAnalisiAcquisti.mediaMensile || 0}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Costo Medio</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisiAcquisti.costo_medio || prodottoAnalisiAcquisti.prezzoMedioAcquisto || 0)}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">N. Fornitori</p><p className="text-lg font-bold text-white">{prodottoAnalisiAcquisti.numero_fornitori || prodottoAnalisiAcquisti.fornitoriUnici || 0}</p></div>
+                <div className="space-y-4">
+                  {/* Main Stats Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">Totale Acquistato</p>
+                      <p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisiAcquisti.totale_acquistato || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">Quantità Acquistata</p>
+                      <p className="text-lg font-bold text-white">{prodottoAnalisiAcquisti.quantita_acquistata || 0}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">Costo Medio</p>
+                      <p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisiAcquisti.costo_medio || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">N. Fornitori</p>
+                      <p className="text-lg font-bold text-white">{prodottoAnalisiAcquisti.numero_fornitori || 0}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Secondary Stats */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-lg bg-orange-500/5 border border-orange-500/10">
+                      <p className="text-[10px] text-orange-400 mb-0.5">Media Mensile (Spesa)</p>
+                      <p className="text-base font-semibold text-white">{formatCurrency(prodottoAnalisiAcquisti.spesoMensile || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                      <p className="text-[10px] text-amber-400 mb-0.5">Media Mensile (Quantità)</p>
+                      <p className="text-base font-semibold text-white">{prodottoAnalisiAcquisti.mediaMensile || 0}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Top Fornitori */}
+                  {prodottoAnalisiAcquisti.topFornitori?.length > 0 && (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                      <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-2">
+                        <Package className="w-3.5 h-3.5 text-orange-400" /> Top Fornitori
+                      </h4>
+                      <div className="space-y-1.5">
+                        {prodottoAnalisiAcquisti.topFornitori.slice(0, 5).map((f, i) => (
+                          <div key={f.nome} className="flex items-center gap-2 text-sm">
+                            <span className="w-5 h-5 rounded-full bg-orange-500/15 text-orange-400 text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                            <span className="flex-1 text-slate-300 truncate text-xs">{f.nome}</span>
+                            <span className="text-orange-400 font-medium text-xs">{formatCurrency(f.totale)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Acquisti Mensili */}
+                  {prodottoAnalisiAcquisti.acquistiMensili?.length > 0 && (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                      <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-2">
+                        <BarChart3 className="w-3.5 h-3.5 text-amber-400" /> Storico Mensile
+                      </h4>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {prodottoAnalisiAcquisti.acquistiMensili.slice(-8).map((m) => (
+                          <div key={m.mese} className="p-2 rounded bg-amber-500/5 border border-amber-500/10 text-center">
+                            <p className="text-[9px] text-slate-500">{m.mese}</p>
+                            <p className="text-xs font-semibold text-amber-300">{formatCurrency(m.totale)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Variazione Prezzi */}
+                  {prodottoAnalisiAcquisti.variazionePrezzi?.length > 0 && (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                      <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-2">
+                        <Activity className="w-3.5 h-3.5 text-rose-400" /> Andamento Prezzi
+                      </h4>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {prodottoAnalisiAcquisti.variazionePrezzi.slice(-8).map((p) => (
+                          <div key={p.mese} className="p-2 rounded bg-rose-500/5 border border-rose-500/10 text-center">
+                            <p className="text-[9px] text-slate-500">{p.mese}</p>
+                            <p className="text-xs font-semibold text-rose-300">{formatCurrency(p.prezzo_medio)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
