@@ -897,6 +897,17 @@ export default function Dashboard() {
 
               {/* CLIENTI detail */}
               {cardDetail.tipo === 'clienti' && (<>
+                {/* Period Selector */}
+                <div className="flex items-center gap-2 pb-2 border-b border-white/[0.06]">
+                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="text-xs text-slate-500">Periodo:</span>
+                  {[{v:'mese',l:'Mese corrente'},{v:'30gg',l:'30 giorni'},{v:'90gg',l:'90 giorni'}].map(p => (
+                    <button key={p.v} onClick={() => { setCardDetailPeriodo(p.v); openCardDetail('clienti', p.v); }}
+                      className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
+                        cardDetailPeriodo === p.v ? "bg-cyan-500/20 text-cyan-300" : "text-slate-500 hover:text-slate-300"
+                      )}>{p.l}</button>
+                  ))}
+                </div>
                 <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
                   <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06] flex items-center gap-2">
                     <Users className="w-3.5 h-3.5 text-cyan-400" />
@@ -915,7 +926,7 @@ export default function Dashboard() {
                   <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
                     <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06] flex items-center gap-2">
                       <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                      <span className="text-xs font-semibold text-white">Nuovi Clienti del Mese</span>
+                      <span className="text-xs font-semibold text-white">Nuovi Clienti nel Periodo</span>
                     </div>
                     {cardDetail.nuovi_clienti.map((c, i) => (
                       <div key={c.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04]">
