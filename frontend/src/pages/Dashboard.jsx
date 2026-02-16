@@ -233,12 +233,10 @@ export default function Dashboard() {
 
       {/* Second Row: Trends + Quick Links */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
-        {/* Trends Widget with visible selectors */}
+        {/* Trends Widget - no hover on widget, only plus button */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="lg:col-span-8 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden relative"
-          data-testid="trends-widget"
-          onMouseEnter={() => { setShowTrendsPopup(true); loadTrendsVendite(trendsPeriodo, trendsOrdinaPer, 20); }}
-          onMouseLeave={() => setShowTrendsPopup(false)}>
+          data-testid="trends-widget">
           <div className="px-3 py-2.5 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-md bg-emerald-500/15">
@@ -246,7 +244,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h3 className="text-xs font-semibold text-white">Trend Prodotti</h3>
-                <p className="text-[9px] text-slate-500">Top 5 &bull; Hover per dettagli</p>
+                <p className="text-[9px] text-slate-500">Top 5</p>
               </div>
             </div>
             {/* Visible selectors */}
@@ -271,6 +269,15 @@ export default function Dashboard() {
                     )}>{o.l}</button>
                 ))}
               </div>
+              {/* Plus button to expand */}
+              <button 
+                onClick={() => { setShowTrendsPopup(true); loadTrendsVendite(trendsPeriodo, trendsOrdinaPer, 20); }}
+                data-testid="trends-expand-btn"
+                className="p-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 transition-all hover:scale-105"
+                title="Mostra top 20"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
           <div className="p-2">
@@ -291,7 +298,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Hover Popup - Full Trends */}
+          {/* Popup Modal - Full Trends (with current filters applied) */}
           <AnimatePresence>
             {showTrendsPopup && (
               <motion.div
@@ -304,15 +311,17 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-emerald-400" />
                     <span className="text-xs font-semibold text-white">Top 20 Prodotti</span>
+                    <span className="text-[9px] text-slate-500">
+                      ({periodoOptions.find(p => p.v === trendsPeriodo)?.l} - {ordinaPerOptions.find(o => o.v === trendsOrdinaPer)?.l})
+                    </span>
                   </div>
-                  <div className="flex gap-1">
-                    {periodoOptions.map(p => (
-                      <button key={p.v} onClick={() => { setTrendsPeriodo(p.v); loadTrendsVendite(p.v, trendsOrdinaPer, 20); }}
-                        className={cn("px-1.5 py-0.5 rounded text-[9px] font-medium transition-all",
-                          trendsPeriodo === p.v ? "bg-emerald-500/20 text-emerald-300" : "text-slate-500 hover:text-slate-300"
-                        )}>{p.l}</button>
-                    ))}
-                  </div>
+                  <button 
+                    onClick={() => setShowTrendsPopup(false)}
+                    className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                    data-testid="trends-close-btn"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
                 <div className="p-2 max-h-[280px] overflow-auto">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
