@@ -2719,10 +2719,6 @@ async def get_prezzi_mercati():
     ]
     
     return mercati
-            {"nome": "FreshPlaza - Prezzi Ingrosso", "url": "https://www.freshplaza.it/"}
-        ]
-    
-    return links
 
 
 # ----- Meteo (usando Open-Meteo API gratuita) -----
