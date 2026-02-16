@@ -519,6 +519,148 @@ async def get_sales_insight():
     }
 
 
+@router.get("/dashboard/card-detail/{card_type}")
+async def get_card_detail(card_type: str):
+    """Get detailed analytics for each KPI card popup"""
+    latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
+    if latest_sale and latest_sale.get('data'):
+        try:
+            ref = datetime.strptime(latest_sale['data'], "%Y-%m-%d")
+        except Exception:
+            ref = datetime.now()
+    else:
+        ref = datetime.now()
+
+    month_start = ref.replace(day=1).strftime("%Y-%m-%d")
+    prev_m = ref.replace(day=1) - timedelta(days=1)
+    prev_start = prev_m.replace(day=1).strftime("%Y-%m-%d")
+    prev_end = prev_m.strftime("%Y-%m-%d")
+    EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+
+    if card_type == "fatturato":
+        # Daily revenue this month
+        daily_pipeline = [
+            {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$group": {"_id": "$data", "totale": {"$sum": {"$abs": "$totale"}}, "count": {"$sum": 1}}},
+            {"$sort": {"_id": 1}}
+        ]
+        daily = await db.vendite.aggregate(daily_pipeline).to_list(31)
+        # Top 5 products by revenue
+        top_prod_pipeline = [
+            {"$match": {"data": {"$gte": month_start}}},
+            {"$group": {"_id": "$prodotto_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
+            {"$sort": {"totale": -1}}, {"$limit": 5}
+        ]
+        top_prod = await db.vendite.aggregate(top_prod_pipeline).to_list(5)
+        # Weekly comparison
+        week_pipeline = [
+            {"$match": {"data": {"$gte": month_start}}},
+            {"$addFields": {"giorno": {"$dayOfMonth": {"$dateFromString": {"dateString": "$data"}}}}},
+            {"$addFields": {"settimana": {"$ceil": {"$divide": ["$giorno", 7]}}}},
+            {"$group": {"_id": "$settimana", "totale": {"$sum": {"$abs": "$totale"}}}},
+            {"$sort": {"_id": 1}}
+        ]
+        weekly = await db.vendite.aggregate(week_pipeline).to_list(5)
+        return {
+            "tipo": "fatturato",
+            "giornaliero": [{"data": d["_id"], "totale": round(d["totale"], 2), "ordini": d["count"]} for d in daily],
+            "top_prodotti": [{"nome": p["_id"], "totale": round(p["totale"], 2)} for p in top_prod],
+            "settimanale": [{"settimana": f"Sett. {w['_id']}", "totale": round(w["totale"], 2)} for w in weekly]
+        }
+
+    elif card_type == "ordini":
+        # Daily orders
+        daily_pipeline = [
+            {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$group": {"_id": "$data", "count": {"$sum": 1}, "totale": {"$sum": {"$abs": "$totale"}}}},
+            {"$sort": {"_id": 1}}
+        ]
+        daily = await db.vendite.aggregate(daily_pipeline).to_list(31)
+        avg_order = 0
+        if daily:
+            tot_orders = sum(d["count"] for d in daily)
+            tot_val = sum(d["totale"] for d in daily)
+            avg_order = tot_val / tot_orders if tot_orders > 0 else 0
+        # Top products by quantity
+        qty_pipeline = [
+            {"$match": {"data": {"$gte": month_start}}},
+            {"$group": {"_id": "$prodotto_nome", "quantita": {"$sum": {"$abs": "$quantita"}}, "ordini": {"$sum": 1}}},
+            {"$sort": {"quantita": -1}}, {"$limit": 5}
+        ]
+        top_qty = await db.vendite.aggregate(qty_pipeline).to_list(5)
+        # Peak days
+        peak_pipeline = [
+            {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$group": {"_id": "$data", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}, {"$limit": 3}
+        ]
+        peak = await db.vendite.aggregate(peak_pipeline).to_list(3)
+        return {
+            "tipo": "ordini",
+            "giornaliero": [{"data": d["_id"], "ordini": d["count"], "totale": round(d["totale"], 2)} for d in daily],
+            "scontrino_medio": round(avg_order, 2),
+            "top_prodotti_qty": [{"nome": p["_id"], "quantita": round(p["quantita"], 1), "ordini": p["ordini"]} for p in top_qty],
+            "giorni_picco": [{"data": p["_id"], "ordini": p["count"]} for p in peak]
+        }
+
+    elif card_type == "clienti":
+        # Top clients this month
+        top_pipeline = [
+            {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$group": {"_id": "$cliente_nome", "totale": {"$sum": {"$abs": "$totale"}}, "ordini": {"$sum": 1}}},
+            {"$sort": {"totale": -1}}, {"$limit": 5}
+        ]
+        top_cli = await db.vendite.aggregate(top_pipeline).to_list(5)
+        # New clients (first purchase this month)
+        new_pipeline = [
+            {"$match": {"cliente_nome": {"$nin": EXCLUDED}}},
+            {"$group": {"_id": "$cliente_nome", "prima_vendita": {"$min": "$data"}, "totale_mese": {"$sum": {"$cond": [{"$gte": ["$data", month_start]}, {"$abs": "$totale"}, 0]}}}},
+            {"$match": {"prima_vendita": {"$gte": month_start}}},
+            {"$sort": {"totale_mese": -1}}, {"$limit": 5}
+        ]
+        new_cli = await db.vendite.aggregate(new_pipeline).to_list(5)
+        # Most frequent
+        freq_pipeline = [
+            {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$group": {"_id": "$cliente_nome", "visite": {"$sum": 1}}},
+            {"$sort": {"visite": -1}}, {"$limit": 5}
+        ]
+        freq_cli = await db.vendite.aggregate(freq_pipeline).to_list(5)
+        return {
+            "tipo": "clienti",
+            "top_clienti": [{"nome": c["_id"], "totale": round(c["totale"], 2), "ordini": c["ordini"]} for c in top_cli],
+            "nuovi_clienti": [{"nome": c["_id"], "totale": round(c["totale_mese"], 2), "dal": c["prima_vendita"]} for c in new_cli],
+            "piu_frequenti": [{"nome": c["_id"], "visite": c["visite"]} for c in freq_cli]
+        }
+
+    elif card_type == "alert":
+        # Products under minimum stock
+        sotto_scorta = await db.prodotti.find(
+            {"quantita_minima": {"$gt": 0}, "$expr": {"$lte": ["$quantita", "$quantita_minima"]}},
+            {"_id": 0, "nome": 1, "quantita": 1, "quantita_minima": 1}
+        ).sort("quantita", 1).limit(10).to_list(10)
+        # Products expiring soon (next 30 days)
+        now_str = datetime.now().strftime("%Y-%m-%d")
+        exp_str = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        in_scadenza = await db.prodotti.find(
+            {"scadenza": {"$gte": now_str, "$lte": exp_str}},
+            {"_id": 0, "nome": 1, "scadenza": 1, "quantita": 1}
+        ).sort("scadenza", 1).limit(10).to_list(10)
+        # Inactive clients (purchased prev month but not this month)
+        clienti_prev = await db.vendite.distinct("cliente_nome", {"data": {"$gte": prev_start, "$lte": prev_end}, "cliente_nome": {"$nin": EXCLUDED}})
+        clienti_curr = await db.vendite.distinct("cliente_nome", {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}})
+        clienti_persi = [c for c in clienti_prev if c not in clienti_curr][:10]
+        return {
+            "tipo": "alert",
+            "sotto_scorta": [{"nome": p["nome"], "quantita": p["quantita"], "minima": p["quantita_minima"]} for p in sotto_scorta],
+            "in_scadenza": [{"nome": p["nome"], "scadenza": p.get("scadenza", ""), "quantita": p["quantita"]} for p in in_scadenza],
+            "clienti_persi": clienti_persi
+        }
+
+    raise HTTPException(status_code=400, detail="Tipo card non valido")
+
+
+
 @router.get("/ai-reports")
 async def get_ai_reports():
     reports = await db.ai_reports.find({}, {"_id": 0}).sort("created_at", -1).limit(20).to_list(20)
