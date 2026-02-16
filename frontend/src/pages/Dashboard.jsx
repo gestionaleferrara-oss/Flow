@@ -447,9 +447,7 @@ export default function Dashboard() {
                   <p className="text-sm font-medium text-slate-200 truncate">{p.nome}</p>
                   <div className="flex items-center gap-2 text-xs text-slate-500">
                     <span>Qty: {p.quantita || 0}</span>
-                    {p.ultimo_prezzo_acquisto > 0 && (
-                      <span className="text-emerald-400">Costo: €{p.ultimo_prezzo_acquisto?.toFixed(2)}</span>
-                    )}
+                    {p.codice && <span>· {p.codice}</span>}
                   </div>
                 </button>
               ))
