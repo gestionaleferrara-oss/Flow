@@ -305,7 +305,7 @@ export default function ReportAI() {
                 ) : (
                   <>
                     <Sparkles className="w-5 h-5" />
-                    Genera Report {reportType === 'settimanale' ? 'Settimanale' : 'Mensile'}
+                    Genera Report {reportType === 'settimanale' ? 'Settimanale' : reportType === 'dashboard' ? 'Dashboard' : 'Mensile'}
                   </>
                 )}
               </Button>
