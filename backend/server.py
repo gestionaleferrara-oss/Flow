@@ -1885,25 +1885,28 @@ async def get_dashboard():
     else:
         reference_date = datetime.now()
     
-    thirty_days_ago = (reference_date - timedelta(days=30)).strftime("%Y-%m-%d")
+    # Current month start and previous month dates
+    current_month_start = reference_date.replace(day=1).strftime("%Y-%m-%d")
+    prev_month_end = (reference_date.replace(day=1) - timedelta(days=1))
+    prev_month_start = prev_month_end.replace(day=1).strftime("%Y-%m-%d")
+    prev_month_end_str = prev_month_end.strftime("%Y-%m-%d")
     
-    # Get recent vendite
-    vendite_recenti = await db.vendite.find(
-        {"data": {"$gte": thirty_days_ago}}, 
+    # Get current month vendite
+    vendite_mese_corrente = await db.vendite.find(
+        {"data": {"$gte": current_month_start}}, 
         {"_id": 0}
-    ).sort("data", -1).to_list(10000)
+    ).sort("data", -1).to_list(50000)
     
     # Use abs() for fatturato since SCARICO has negative values
-    fatturato_mese = sum(abs(v.get('totale', 0)) for v in vendite_recenti)
-    ordini_mese = len(vendite_recenti)
+    fatturato_mese = sum(abs(v.get('totale', 0)) for v in vendite_mese_corrente)
+    ordini_mese = len(vendite_mese_corrente)
     
-    # Previous 30 days for comparison
-    sixty_days_ago = (reference_date - timedelta(days=60)).strftime("%Y-%m-%d")
-    vendite_precedenti = await db.vendite.find(
-        {"data": {"$gte": sixty_days_ago, "$lt": thirty_days_ago}}, 
+    # Previous full month for comparison
+    vendite_mese_prec = await db.vendite.find(
+        {"data": {"$gte": prev_month_start, "$lte": prev_month_end_str}}, 
         {"_id": 0}
-    ).to_list(1000)
-    fatturato_mese_prec = sum(abs(v.get('totale', 0)) for v in vendite_precedenti)
+    ).to_list(50000)
+    fatturato_mese_prec = sum(abs(v.get('totale', 0)) for v in vendite_mese_prec)
     
     # Calculate growth percentage
     if fatturato_mese_prec > 0:
