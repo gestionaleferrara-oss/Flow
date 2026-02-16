@@ -375,8 +375,9 @@ function PieChartCard({ data }) {
           {d.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
         </Pie>
         <Tooltip 
-          active={true}
-          contentStyle={{ background: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: 8 }}
+          contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
+          itemStyle={{ color: '#fff' }}
+          labelStyle={{ color: '#94a3b8' }}
           formatter={(v, _, props) => [formatCurrency(v), props.payload.nome]} 
         />
       </PieChart>
