@@ -1947,10 +1947,13 @@ async def get_dashboard():
     else:
         crescita_percentuale = 100.0 if fatturato_mese > 0 else 0.0
     
-    # New clienti this month
-    nuovi_clienti = await db.clienti.count_documents({
-        "created_at": {"$gte": current_month_start}
-    })
+    # Unique active clients this month (from vendite data)
+    EXCLUDED_CLIENTS_DASH = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    clienti_mese_set = set(
+        v.get('cliente_nome', '') for v in vendite_mese_corrente
+        if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS_DASH]
+    )
+    nuovi_clienti = len(clienti_mese_set)
     
     # Prodotti da ordinare
     prodotti_stats = await get_prodotti_stats()

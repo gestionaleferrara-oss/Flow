@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home, Upload, Package, Users, Truck, ShoppingCart,
-  BarChart3, Newspaper, Sparkles, Zap
+  BarChart3, Newspaper, Sparkles, Zap, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +20,7 @@ const navigation = [
   { name: 'Notizie', href: '/notizie', icon: Newspaper },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen, onMobileClose }) {
   const location = useLocation();
   const [hoveredItem, setHoveredItem] = useState(null);
   const [hoverPos, setHoverPos] = useState({ top: 0 });
@@ -43,14 +43,37 @@ export default function Sidebar() {
 
   useEffect(() => () => clearTimeout(leaveTimer.current), []);
 
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    if (mobileOpen && onMobileClose) onMobileClose();
+  }, [location.pathname]);
+
   const hoveredData = hoveredItem ? navigation.find(n => n.name === hoveredItem) : null;
   const HoveredIcon = hoveredData?.icon;
 
   return (
     <>
+      {/* Mobile backdrop overlay */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] lg:hidden"
+            onClick={onMobileClose}
+            data-testid="sidebar-overlay"
+          />
+        )}
+      </AnimatePresence>
+
       <aside
         data-testid="sidebar"
-        className="fixed left-0 top-0 h-full z-50 flex flex-col"
+        className={cn(
+          "fixed left-0 top-0 h-full z-50 flex flex-col transition-transform duration-300 ease-out",
+          "lg:translate-x-0",
+          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
         style={{
           width: 76,
           background: 'rgba(8, 12, 24, 0.65)',
@@ -61,15 +84,25 @@ export default function Sidebar() {
       >
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
 
-        {/* Logo */}
-        <Link to="/" className="flex items-center justify-center py-5 group shrink-0" data-testid="logo-link">
-          <div className="relative shrink-0">
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 blur-sm group-hover:blur-md transition-all duration-500" />
-            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:shadow-cyan-500/40 transition-all duration-500">
-              <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
+        {/* Logo + Close on mobile */}
+        <div className="flex items-center justify-center py-5 shrink-0 relative">
+          <Link to="/" className="group" data-testid="logo-link">
+            <div className="relative shrink-0">
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 blur-sm group-hover:blur-md transition-all duration-500" />
+              <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:shadow-cyan-500/40 transition-all duration-500">
+                <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+          {/* Mobile close button */}
+          <button
+            onClick={onMobileClose}
+            className="absolute right-1 top-3 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 lg:hidden"
+            data-testid="sidebar-close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
         <div className="mx-4 h-px bg-white/[0.04]" />
 
@@ -135,7 +168,7 @@ export default function Sidebar() {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.75, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 650, damping: 28 }}
-            className="fixed z-[100]"
+            className="fixed z-[100] hidden lg:block"
             style={{
               top: hoverPos.top,
               left: 10,
@@ -152,11 +185,8 @@ export default function Sidebar() {
                 boxShadow: '0 12px 48px rgba(0,0,0,0.7), 0 0 32px rgba(34,211,238,0.12), inset 0 1px 0 rgba(255,255,255,0.08)',
               }}
             >
-              {/* Glow bar */}
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-cyan-400 shadow-[0_0_16px_rgba(34,211,238,0.9)]" />
-
               <HoveredIcon size={22} className="text-cyan-400 shrink-0" />
-
               <motion.span
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -165,7 +195,6 @@ export default function Sidebar() {
               >
                 {hoveredData.name}
               </motion.span>
-
               {hoveredData.badge && (
                 <span className="ml-1 px-1.5 py-0.5 text-[9px] font-bold bg-purple-500/25 text-purple-300 rounded-md border border-purple-500/20">
                   {hoveredData.badge}

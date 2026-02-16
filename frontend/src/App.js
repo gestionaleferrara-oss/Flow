@@ -1,6 +1,8 @@
 import "@/App.css";
+import { useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
+import { Menu } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 
 // Pages
@@ -16,13 +18,28 @@ import Notizie from "@/pages/Notizie";
 import ReportAI from "@/pages/ReportAI";
 
 function App() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <BrowserRouter>
       <div className="app-container">
         {/* Noise texture overlay */}
         <div className="noise-overlay" />
-        
-        <Sidebar />
+
+        {/* Mobile top bar */}
+        <div className="mobile-topbar" data-testid="mobile-topbar">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+            data-testid="mobile-menu-toggle"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="text-sm font-semibold text-white tracking-wide">Flusso</span>
+          <div className="w-9" />
+        </div>
+
+        <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Dashboard />} />
@@ -37,8 +54,8 @@ function App() {
             <Route path="/report-ai" element={<ReportAI />} />
           </Routes>
         </main>
-        <Toaster 
-          theme="dark" 
+        <Toaster
+          theme="dark"
           position="bottom-right"
           toastOptions={{
             style: {
