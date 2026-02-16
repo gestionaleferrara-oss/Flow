@@ -435,27 +435,27 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
     
     # Create/update prodotto with quantity tracking
     if nome_prodotto:
+        # Quantity change: CARICO adds, SCARICO subtracts
+        qty_change = quantita if movimento_upper == 'CARICO' else -quantita
+        
         if nome_prodotto not in cache['prodotti']:
             existing = await db.prodotti.find_one({"nome": nome_prodotto}, {"_id": 0, "id": 1, "prezzo_medio": 1, "quantita": 1})
             if not existing:
                 # New product - set initial quantity based on movement type
-                # CARICO adds, SCARICO subtracts
-                initial_qty = quantita if not is_vendita else -quantita
-                prodotto = Prodotto(nome=nome_prodotto, codice=codice_prodotto, prezzo_medio=importo_unitario, quantita=initial_qty)
+                prodotto = Prodotto(nome=nome_prodotto, codice=codice_prodotto, prezzo_medio=importo_unitario, quantita=qty_change)
                 await db.prodotti.insert_one(serialize_doc(prodotto.model_dump()))
-                cache['prodotti'][nome_prodotto] = initial_qty
+                cache['prodotti'][nome_prodotto] = qty_change
                 stats['new_prodotti'] += 1
             else:
                 # Update price if a new CARICO has a different price
-                if not is_vendita and importo_unitario > 0:
+                if is_acquisto and importo_unitario > 0:
                     old_price = existing.get('prezzo_medio', 0)
                     if old_price != importo_unitario:
                         await db.prodotti.update_one(
                             {"nome": nome_prodotto},
                             {"$set": {"prezzo_medio": importo_unitario}}
                         )
-                # Update quantity: CARICO adds, SCARICO subtracts
-                qty_change = quantita if not is_vendita else -quantita
+                # Update quantity
                 await db.prodotti.update_one(
                     {"nome": nome_prodotto},
                     {"$inc": {"quantita": qty_change}}
@@ -464,13 +464,12 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
                 stats['existing_prodotti'] += 1
         else:
             # Product already seen in this upload - update price if CARICO
-            if not is_vendita and importo_unitario > 0:
+            if is_acquisto and importo_unitario > 0:
                 await db.prodotti.update_one(
                     {"nome": nome_prodotto},
                     {"$set": {"prezzo_medio": importo_unitario}}
                 )
-            # Update quantity: CARICO adds, SCARICO subtracts
-            qty_change = quantita if not is_vendita else -quantita
+            # Update quantity
             await db.prodotti.update_one(
                 {"nome": nome_prodotto},
                 {"$inc": {"quantita": qty_change}}
