@@ -51,6 +51,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/upload" element={<UploadCSV />} />
+              <Route path="/forecast" element={<Forecast />} />
               <Route path="/magazzino" element={<Magazzino />} />
               <Route path="/vendite" element={<Vendite />} />
               <Route path="/clienti" element={<Clienti />} />
