@@ -337,7 +337,13 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <p className="text-center py-4 text-xs text-slate-500">Nessun insight</p>
+              <div className="text-center py-6">
+                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-3">
+                  <Lightbulb className="w-6 h-6 text-amber-500/50" />
+                </div>
+                <p className="text-sm text-slate-400 mb-1">Analisi in corso...</p>
+                <p className="text-xs text-slate-600">Gli insight appariranno quando ci sono dati sufficienti</p>
+              </div>
             )}
           </div>
         </motion.div>
