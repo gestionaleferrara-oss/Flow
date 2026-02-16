@@ -794,6 +794,204 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
+
+      {/* Card Detail Modal */}
+      <Dialog open={!!cardDetailType} onOpenChange={(open) => { if (!open) { setCardDetailType(null); setCardDetail(null); } }}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-auto" data-testid="card-detail-modal">
+          <DialogHeader>
+            <DialogTitle>
+              {cardDetailType === 'fatturato' && 'Analisi Fatturato'}
+              {cardDetailType === 'ordini' && 'Analisi Ordini'}
+              {cardDetailType === 'clienti' && 'Analisi Clienti'}
+              {cardDetailType === 'alert' && 'Dettaglio Alert'}
+            </DialogTitle>
+          </DialogHeader>
+          {loadingCardDetail ? (
+            <div className="py-12 flex justify-center"><LoadingSpinner /></div>
+          ) : cardDetail ? (
+            <div className="space-y-4">
+
+              {/* FATTURATO detail */}
+              {cardDetail.tipo === 'fatturato' && (<>
+                <div className="h-48 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={cardDetail.giornaliero}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                      <XAxis dataKey="data" tick={{fontSize: 9, fill: '#94a3b8'}} tickFormatter={v => v?.slice(8)} />
+                      <YAxis tick={{fontSize: 9, fill: '#94a3b8'}} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+                      <Tooltip contentStyle={{background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12}} formatter={(v) => [`${formatCurrency(v)}`, 'Fatturato']} labelFormatter={l => `Giorno ${l?.slice(8)}`} />
+                      <Bar dataKey="totale" fill="#3b82f6" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                {cardDetail.settimanale?.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2">
+                    {cardDetail.settimanale.map(w => (
+                      <div key={w.settimana} className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/15 text-center">
+                        <p className="text-[10px] text-slate-500">{w.settimana}</p>
+                        <p className="text-sm font-bold text-blue-400">{formatCurrency(w.totale)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+                  <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06]">
+                    <span className="text-xs font-semibold text-white">Top 5 Prodotti per Fatturato</span>
+                  </div>
+                  {cardDetail.top_prodotti?.map((p, i) => (
+                    <div key={p.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04] hover:bg-white/[0.02]">
+                      <span className="w-5 h-5 rounded-full bg-blue-500/15 text-blue-400 text-[10px] font-bold flex items-center justify-center">{i+1}</span>
+                      <span className="flex-1 text-xs text-slate-300 truncate">{p.nome}</span>
+                      <span className="text-xs font-medium text-blue-400">{formatCurrency(p.totale)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>)}
+
+              {/* ORDINI detail */}
+              {cardDetail.tipo === 'ordini' && (<>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/15 text-center">
+                    <p className="text-[10px] text-slate-500">Scontrino Medio</p>
+                    <p className="text-lg font-bold text-emerald-400">{formatCurrency(cardDetail.scontrino_medio)}</p>
+                  </div>
+                  {cardDetail.giorni_picco?.slice(0,2).map(g => (
+                    <div key={g.data} className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/15 text-center">
+                      <p className="text-[10px] text-slate-500">Picco {g.data?.slice(8)}/{g.data?.slice(5,7)}</p>
+                      <p className="text-lg font-bold text-emerald-400">{g.ordini} ordini</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="h-48 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={cardDetail.giornaliero}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                      <XAxis dataKey="data" tick={{fontSize: 9, fill: '#94a3b8'}} tickFormatter={v => v?.slice(8)} />
+                      <YAxis tick={{fontSize: 9, fill: '#94a3b8'}} />
+                      <Tooltip contentStyle={{background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12}} formatter={(v,n) => [n === 'ordini' ? v : formatCurrency(v), n === 'ordini' ? 'Ordini' : 'Totale']} labelFormatter={l => `Giorno ${l?.slice(8)}`} />
+                      <Bar dataKey="ordini" fill="#10b981" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+                  <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06]">
+                    <span className="text-xs font-semibold text-white">Top 5 Prodotti per Quantita</span>
+                  </div>
+                  {cardDetail.top_prodotti_qty?.map((p, i) => (
+                    <div key={p.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04] hover:bg-white/[0.02]">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold flex items-center justify-center">{i+1}</span>
+                      <span className="flex-1 text-xs text-slate-300 truncate">{p.nome}</span>
+                      <span className="text-xs text-slate-500">{p.ordini} ord.</span>
+                      <span className="text-xs font-medium text-emerald-400">{p.quantita.toLocaleString('it-IT')} pz</span>
+                    </div>
+                  ))}
+                </div>
+              </>)}
+
+              {/* CLIENTI detail */}
+              {cardDetail.tipo === 'clienti' && (<>
+                <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+                  <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06] flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="text-xs font-semibold text-white">Top 5 Clienti per Spesa</span>
+                  </div>
+                  {cardDetail.top_clienti?.map((c, i) => (
+                    <div key={c.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04] hover:bg-white/[0.02]">
+                      <span className="w-5 h-5 rounded-full bg-cyan-500/15 text-cyan-400 text-[10px] font-bold flex items-center justify-center">{i+1}</span>
+                      <span className="flex-1 text-xs text-slate-300 truncate">{c.nome}</span>
+                      <span className="text-xs text-slate-500">{c.ordini} ord.</span>
+                      <span className="text-xs font-medium text-cyan-400">{formatCurrency(c.totale)}</span>
+                    </div>
+                  ))}
+                </div>
+                {cardDetail.nuovi_clienti?.length > 0 && (
+                  <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+                    <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06] flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="text-xs font-semibold text-white">Nuovi Clienti del Mese</span>
+                    </div>
+                    {cardDetail.nuovi_clienti.map((c, i) => (
+                      <div key={c.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04]">
+                        <span className="flex-1 text-xs text-slate-300 truncate">{c.nome}</span>
+                        <span className="text-[10px] text-slate-500">dal {c.dal}</span>
+                        <span className="text-xs font-medium text-blue-400">{formatCurrency(c.totale)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+                  <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06] flex items-center gap-2">
+                    <Activity className="w-3.5 h-3.5 text-violet-400" />
+                    <span className="text-xs font-semibold text-white">Piu Frequenti</span>
+                  </div>
+                  {cardDetail.piu_frequenti?.map((c, i) => (
+                    <div key={c.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04]">
+                      <span className="flex-1 text-xs text-slate-300 truncate">{c.nome}</span>
+                      <span className="text-xs font-medium text-violet-400">{c.visite} visite</span>
+                    </div>
+                  ))}
+                </div>
+              </>)}
+
+              {/* ALERT detail */}
+              {cardDetail.tipo === 'alert' && (<>
+                {cardDetail.sotto_scorta?.length > 0 && (
+                  <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+                    <div className="px-3 py-2 bg-red-500/10 border-b border-white/[0.06] flex items-center gap-2">
+                      <PackageX className="w-3.5 h-3.5 text-red-400" />
+                      <span className="text-xs font-semibold text-white">Sotto Scorta Minima</span>
+                      <span className="ml-auto text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded">{cardDetail.sotto_scorta.length}</span>
+                    </div>
+                    {cardDetail.sotto_scorta.map(p => (
+                      <div key={p.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04]">
+                        <span className="flex-1 text-xs text-slate-300 truncate">{p.nome}</span>
+                        <span className="text-xs text-red-400 font-medium">{p.quantita}</span>
+                        <span className="text-[10px] text-slate-500">/ {p.minima} min</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {cardDetail.clienti_persi?.length > 0 && (
+                  <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+                    <div className="px-3 py-2 bg-amber-500/10 border-b border-white/[0.06] flex items-center gap-2">
+                      <UserX className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-xs font-semibold text-white">Clienti Persi (attivi mese prec.)</span>
+                      <span className="ml-auto text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">{cardDetail.clienti_persi.length}</span>
+                    </div>
+                    {cardDetail.clienti_persi.map(c => (
+                      <div key={c} className="px-3 py-2 border-t border-white/[0.04]">
+                        <span className="text-xs text-slate-300">{c}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {cardDetail.in_scadenza?.length > 0 && (
+                  <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+                    <div className="px-3 py-2 bg-orange-500/10 border-b border-white/[0.06] flex items-center gap-2">
+                      <AlertCircle className="w-3.5 h-3.5 text-orange-400" />
+                      <span className="text-xs font-semibold text-white">In Scadenza (30gg)</span>
+                      <span className="ml-auto text-[10px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded">{cardDetail.in_scadenza.length}</span>
+                    </div>
+                    {cardDetail.in_scadenza.map(p => (
+                      <div key={p.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04]">
+                        <span className="flex-1 text-xs text-slate-300 truncate">{p.nome}</span>
+                        <span className="text-xs text-orange-400">{p.scadenza}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!cardDetail.sotto_scorta?.length && !cardDetail.clienti_persi?.length && !cardDetail.in_scadenza?.length && (
+                  <p className="text-center py-8 text-sm text-slate-500">Nessun alert attivo</p>
+                )}
+              </>)}
+
+            </div>
+          ) : (
+            <p className="text-center py-8 text-sm text-slate-500">Nessun dato disponibile</p>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* AI Floating Button */}
       <div className="fixed bottom-6 right-6 z-50">
         <AnimatePresence>
