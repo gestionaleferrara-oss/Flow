@@ -385,38 +385,3 @@ export default function Clienti() {
     </PageWrapper>
   );
 }
-                      onChange={(e) => setEditFields({ ...editFields, note: e.target.value })}
-                      className="flex-1 min-h-[80px]"
-                      data-testid="edit-note"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bottoni */}
-              <div className="flex justify-end gap-3 pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowModal(false)}
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Chiudi
-                </Button>
-                <Button
-                  onClick={handleSaveClienteDetails}
-                  disabled={saving}
-                  data-testid="save-cliente-btn"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  {saving ? 'Salvataggio...' : 'Salva Modifiche'}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <LoadingSpinner />
-          )}
-        </DialogContent>
-      </Dialog>
-    </PageWrapper>
-  );
-}
