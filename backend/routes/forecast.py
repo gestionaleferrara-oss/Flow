@@ -178,7 +178,7 @@ Fornisci:
 **STATISTICHE**:
 - Fatturato totale periodo: €{tot_fatturato:,.2f}
 - Media mensile: €{media_mensile:,.2f}
-- Ultimo mese ({ultimo_mese['_id'] if ultimo_mese else 'N/A'}): €{ultimo_mese['fatturato']:,.2f if ultimo_mese else 0}
+- Ultimo mese ({ultimo_mese['_id'] if ultimo_mese else 'N/A'}): €{ultimo_mese['fatturato']:,.2f if ultimo_mese else '0'}
 {same_month_context}
 {extra_context}
 
