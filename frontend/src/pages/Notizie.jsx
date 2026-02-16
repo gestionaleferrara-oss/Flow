@@ -288,7 +288,7 @@ export default function Notizie() {
           </div>
         </motion.div>
 
-        {/* 3. TRENDS FRUTTA SECCA */}
+        {/* 3. TRENDS WITH CATEGORY SWITCH */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -297,14 +297,34 @@ export default function Notizie() {
           style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
           data-testid="trends-widget"
         >
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-violet-500/15 flex items-center justify-center">
-              <SearchIcon className="w-3.5 h-3.5 text-violet-400" />
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-violet-500/15 flex items-center justify-center">
+                <SearchIcon className="w-3.5 h-3.5 text-violet-400" />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-white">Google Trends Italia</h3>
+                <p className="text-[10px] text-slate-500">Ultimi 3 mesi</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xs font-semibold text-white">Trend Frutta Secca</h3>
-              <p className="text-[10px] text-slate-500">Google Trends Italia — ultimi 3 mesi</p>
-            </div>
+          </div>
+
+          {/* Category Switch */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {trendCategories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => handleTrendCategoryChange(cat.id)}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all duration-200',
+                  trendCategoria === cat.id
+                    ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
+                    : 'bg-white/[0.03] text-slate-500 border border-white/[0.05] hover:bg-white/[0.06] hover:text-slate-400'
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
           </div>
 
           {trendsLoading ? (
