@@ -348,14 +348,41 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
     importo_unitario = parse_float(row.get(col_mapping['importo_unitario'] or 'Importo Unitario', '0'))
     importo_totale = parse_float(row.get(col_mapping['importo_totale'] or 'Importo Totale', '0'))
     
-    causale = row.get(col_mapping['causale'] or 'Causale', '')
+    causale = row.get(col_mapping['causale'] or 'Causale', '').strip().upper()
     
     # Skip empty rows
     if not nome_prodotto and not nome_cliente_fornitore:
         return
     
-    # Determine if it's a sale (Scarico) or purchase (Carico)
-    is_vendita = movimento.upper() == 'SCARICO' or 'VEN' in str(causale).upper()
+    # Fix negative values (file exports have negative values for sales)
+    quantita = abs(quantita)
+    importo_totale = abs(importo_totale)
+    importo_unitario = abs(importo_unitario)
+    
+    # Determine transaction type based on BOTH Movimento AND Causale
+    # Vendita: Movimento='Scarico' AND Causale='VENDITA' (or 'VEN')
+    # Acquisto: Movimento='Carico' AND Causale='C/ACQUISTO' (or 'ACQ')
+    movimento_upper = movimento.upper()
+    
+    is_vendita = movimento_upper == 'SCARICO' and ('VEN' in causale or causale == 'VENDITA')
+    is_acquisto = movimento_upper == 'CARICO' and ('ACQ' in causale or 'C/ACQUISTO' in causale)
+    
+    # Skip rows that are neither sales nor purchases (rettifiche, trasferimenti, etc.)
+    # unless they have a client/supplier name
+    if not is_vendita and not is_acquisto:
+        # Still track inventory for other movement types, but don't create sales/orders
+        if nome_prodotto:
+            if nome_prodotto not in cache['prodotti']:
+                existing = await db.prodotti.find_one({"nome": nome_prodotto}, {"_id": 0, "id": 1, "prezzo_medio": 1, "quantita": 1})
+                if existing:
+                    qty_change = quantita if movimento_upper == 'CARICO' else -quantita
+                    await db.prodotti.update_one(
+                        {"nome": nome_prodotto},
+                        {"$inc": {"quantita": qty_change}}
+                    )
+                    cache['prodotti'][nome_prodotto] = existing.get('quantita', 0) + qty_change
+                    stats['existing_prodotti'] += 1
+        return
     
     if is_vendita and nome_cliente_fornitore:
         # Check in-memory cache first
