@@ -808,7 +808,7 @@ export default function Dashboard() {
 
       {/* Card Detail Modal */}
       <Dialog open={!!cardDetailType} onOpenChange={(open) => { if (!open) { setCardDetailType(null); setCardDetail(null); } }}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-auto" data-testid="card-detail-modal">
+        <DialogContent className={cn("max-h-[85vh] overflow-y-auto overflow-x-hidden", cardDetailType === 'alert' ? "sm:max-w-lg" : "sm:max-w-2xl")} data-testid="card-detail-modal">
           <DialogHeader>
             <DialogTitle>
               {cardDetailType === 'fatturato' && 'Analisi Fatturato'}
