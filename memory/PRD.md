@@ -1,78 +1,61 @@
 # Flow - Product Requirements Document
 
-## Overview
-Flow è un'applicazione gestionale full-stack per il settore ortofrutticolo, migrata da Google Apps Script a una moderna architettura React + FastAPI + MongoDB.
+## Original Problem Statement
+Migrate a Google Apps Script application to a modern full-stack web app named "Flow" for sales/purchase management with inventory, statistics, AI features, and supplier/customer management.
 
-## Core Features
+## Core Requirements
+1. Data Import & Processing (CSV/XLSX)
+2. Inventory Management (Magazzino)
+3. Advanced Statistics (Statistiche)
+4. Modern fintech UI/UX
+5. News & Market Prices
+6. AI-Powered Features (suggestions, reports)
+7. Customizable Data Insights
+8. Margin Calculation
+9. Instant performance
+10. Suppliers Page (Fornitori) - mirrors Clienti
 
-### 1. Data Import & Processing
-- Upload CSV/XLSX sales data
-- Automatic customer/product handling
-- Price updates and stock management
-
-### 2. Inventory Management (Magazzino)
-- Current stock display with editable minimum quantity
-- Expiry date tracking
-- Alphabetical ordering by product name
-
-### 3. Advanced Statistics (Statistiche)
-- Dashboard with charts and KPIs
-- PDF/CSV export with € currency
-- Margin calculation using weighted average
-- Transaction-based average ticket calculation
-
-### 4. Dashboard
-- Fatturato card with margin and profit
-- Trend Prodotti (left) with period filters
-- Sales Insight (center-right) with clickable items
-- Quick Links (right column)
-- AI floating button (violet, bottom-right)
-- Alert section with 3 columns
-
-### 5. News & Market Prices (Notizie)
-- Hero article (larger)
-- 4-column news grid
-- Breaking News widget (today + yesterday with LIVE badge)
-- Weather and market prices
-
-### 6. Client Management (Clienti)
-- Total revenue per client
-- Analysis modal with period selector (Mese, 3 Mesi, 6 Mesi, Anno, Tutto)
-- Visit history with dates and totals
-- Contact info editing
-
-### 7. AI Features
-- Weekly AI suggestions via floating button
-- Sales insights (clickable for analysis)
-
-## Technical Stack
+## Tech Stack
 - **Frontend**: React.js, Tailwind CSS, Recharts, Framer Motion, Shadcn/UI
 - **Backend**: FastAPI, Pandas, Pydantic, FPDF2
 - **Database**: MongoDB
 - **AI**: Gemini Pro via Emergent LLM Key
 
-## API Endpoints
-- `GET /api/dashboard` - Main dashboard data
-- `GET /api/sales-insight` - Sales insights with tipos: top_product, growth_product, top_client, new_client
-- `GET /api/statistiche` - Statistics with margin calculation
-- `GET /api/statistiche/export/pdf` - PDF export with € currency
-- `GET /api/clienti/{id}/analisi?periodo=X` - Client analysis with period filter
-- `GET /api/prodotti` - Products with sorting and filter_type
-- `GET /api/trends-vendite` - Product trends with period/sort options
+## Architecture
+```
+/app/backend/
+  server.py, database.py, models.py, utils.py
+  routes/ (upload, entities, prodotti, vendite, dashboard, news, pdf_export)
+/app/frontend/src/
+  App.js
+  components/ (Sidebar, PageWrapper, StatCard, LoadingSpinner, ui/)
+  pages/ (Dashboard, UploadCSV, Magazzino, Vendite, Clienti, Fornitori, Ordini, Statistiche, Notizie, ReportAI)
+```
 
-## Completed (Feb 2026)
-- [x] Margin calculation using weighted average on ALL products
-- [x] Dashboard layout: Trends | Insight | Quick Links aligned
-- [x] AI floating button
-- [x] Client fatturato_totale via aggregation
-- [x] PDF with € instead of EUR
-- [x] Insight clickable with correct type mapping
-- [x] Improved loading message for insights
-- [x] News: Hero larger, 4-column grid
-- [x] Breaking News: today + yesterday filter with LIVE badge
-- [x] App renamed to "Flow"
+## What's Been Implemented
+- Full dashboard with KPI cards, trends, sales insights, alerts, AI suggestions (FAB)
+- CSV/XLSX upload with auto-processing
+- Inventory management with editable fields
+- Sales/purchases listing and filtering
+- Customer page with year-filtered revenue, analysis modal, editable contacts
+- Supplier page with year-filtered revenue, purchase detail modal, editable notes
+- Statistics page with charts and KPIs
+- PDF export with margin/profit calculations
+- News page with RSS feeds
+- AI Report page
+- Interactive dashboard insights: hover opens product/client analysis modals
+- Year selector on both Clienti and Fornitori pages
 
-## Pending
-- [ ] Image scraper for ilcorriereortofrutticolo
-- [ ] Dashboard.jsx refactoring into smaller components
-- [ ] Google Apps Script feature review
+## Key API Endpoints
+- GET /api/clienti?search=&anno= → {clienti, anni_disponibili}
+- GET /api/clienti/{id}/analisi?periodo= → client analysis
+- GET /api/fornitori-with-stats?search=&anno= → {fornitori, anni_disponibili}
+- GET /api/fornitori/{nome}/prodotti?mese= → {acquisti, totale_acquisti, totale_speso, mesi_disponibili, mese_selezionato, mese_riferimento}
+- GET /api/sales-insight → dashboard insights
+- GET /api/dashboard → KPI data
+- GET /api/trends-vendite → product trends
+
+## Backlog (Prioritized)
+- P2: Fix image scraping for ilcorriereortofrutticolo news source
+- P3: Refactor Dashboard.jsx into smaller components
+- P3: Review original Google Apps Script for missed features
