@@ -15,6 +15,8 @@ async def startup_event():
         await db.vendite.create_index([("cliente_nome", 1)])
         await db.vendite.create_index([("prodotto_nome", 1)])
         await db.vendite.create_index([("cliente_id", 1)])
+        await db.vendite.create_index([("data", 1), ("prodotto_nome", 1)])
+        await db.vendite.create_index([("data", 1), ("cliente_nome", 1)])
         await db.ordini.create_index([("data", -1)])
         await db.ordini.create_index([("fornitore_nome", 1)])
         await db.ordini.create_index([("prodotto_nome", 1)])
