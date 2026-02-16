@@ -2682,22 +2682,43 @@ async def scrape_freshplaza_market_links():
 
 @api_router.get("/prezzi-mercati")
 async def get_prezzi_mercati():
-    """Get list of market price links scraped from FreshPlaza"""
-    # Check cache (refresh every 6 hours)
-    cache_valid = (
-        _market_price_cache.get("last_updated") and 
-        _market_price_cache.get("links") and
-        (datetime.now(timezone.utc) - _market_price_cache["last_updated"]).total_seconds() < 21600
-    )
+    """Get list of market price links - using reliable direct sources"""
     
-    if cache_valid:
-        return _market_price_cache["links"]
+    # Fixed reliable market price sources
+    mercati = [
+        {
+            "nome": "Cesena",
+            "url": "https://www.cermac.it/listini/",
+            "tipo": "PDF aggiornato settimanalmente"
+        },
+        {
+            "nome": "Lusia (Padova)",
+            "url": "https://www.mercatilusia.it/listino-prezzi/",
+            "tipo": "Listino giornaliero"
+        },
+        {
+            "nome": "Torino (CAAT)",
+            "url": "https://caat.it/mercuriale/",
+            "tipo": "Mercuriale settimanale"
+        },
+        {
+            "nome": "Verona",
+            "url": "https://veronamercato.it/it/references-list/",
+            "tipo": "Listino aggiornato"
+        },
+        {
+            "nome": "Bologna (CAAB)",
+            "url": "https://www.caab.it/listino-prezzi/",
+            "tipo": "Prezzi all'ingrosso"
+        },
+        {
+            "nome": "Milano",
+            "url": "https://www.comune.milano.it/aree-tematiche/quartieri/sogemi",
+            "tipo": "Mercato ortofrutticolo"
+        }
+    ]
     
-    links = await scrape_freshplaza_market_links()
-    
-    # If scraping failed and we have no cache, return a helpful message
-    if not links:
-        return [
+    return mercati
             {"nome": "FreshPlaza - Prezzi Ingrosso", "url": "https://www.freshplaza.it/"}
         ]
     
