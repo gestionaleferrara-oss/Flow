@@ -818,6 +818,29 @@ async def generate_ai_report(report_type: str = Query("settimanale", enum=["sett
     inactive_clients = list(all_historical_clients - recent_clients)[:10]
     acquisti_totale = sum(abs(o.get('totale', 0)) for o in ordini)
 
+    # For dashboard report, add comparison with previous month
+    prev_month_data = ""
+    if report_type == "dashboard":
+        prev_vendite = await db.vendite.find({"data": {"$gte": prev_month_start, "$lte": prev_month_end}}, {"_id": 0}).to_list(10000)
+        prev_vendite = [v for v in prev_vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+        prev_fatturato = sum(abs(v.get('totale', 0)) for v in prev_vendite)
+        prev_num_vendite = len(prev_vendite)
+        variazione_fatt = ((fatturato_totale - prev_fatturato) / prev_fatturato * 100) if prev_fatturato > 0 else 0
+        
+        # Get alerts data
+        sotto_scorta = await db.prodotti.count_documents({"quantita_minima": {"$gt": 0}, "$expr": {"$lte": ["$quantita", "$quantita_minima"]}})
+        
+        prev_month_data = f"""
+CONFRONTO MESE PRECEDENTE:
+- Fatturato mese precedente: €{prev_fatturato:,.2f}
+- Variazione: {variazione_fatt:+.1f}%
+- Transazioni mese precedente: {prev_num_vendite}
+
+ALERT ATTIVI:
+- Prodotti sotto scorta: {sotto_scorta}
+- Clienti inattivi: {len(inactive_clients)}
+"""
+
     data_summary = f"""
 DATI AZIENDALI - {period_name} dal {start_date} al {end_date}
 
@@ -825,7 +848,7 @@ FATTURATO E VENDITE:
 - Fatturato totale: €{fatturato_totale:,.2f}
 - Numero transazioni: {num_vendite}
 - Media per transazione: €{fatturato_totale/num_vendite if num_vendite > 0 else 0:,.2f}
-
+{prev_month_data}
 TOP 5 PRODOTTI (per fatturato):
 {chr(10).join([f"- {p[0]}: €{p[1]:,.2f}" for p in top_products]) if top_products else "- Nessun dato"}
 
