@@ -6,7 +6,7 @@ import {
   Euro, ShoppingCart, Users, Package, AlertTriangle, ArrowUpRight, Upload,
   BarChart3, TrendingUp, TrendingDown, Search, Box, Sparkles, Lightbulb,
   RefreshCw, Clock, UserX, PackageX, AlertCircle, Minus, X, Filter,
-  ArrowDownAZ, Activity
+  ArrowDownAZ, Activity, Plus, ChevronRight
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import StatCard from '@/components/StatCard';
