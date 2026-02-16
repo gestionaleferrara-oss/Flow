@@ -14,7 +14,7 @@ import requests
 import os
 from urllib.parse import quote
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://flow-staging-1.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://flow-prediction-hub.preview.emergentagent.com').rstrip('/')
 
 # Test supplier for modal testing
 TEST_SUPPLIER = "PANCRAZIO SPA"
