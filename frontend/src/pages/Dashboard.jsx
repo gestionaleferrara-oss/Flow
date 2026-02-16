@@ -321,9 +321,9 @@ export default function Dashboard() {
                       if (ins.tipo === 'top_product' || ins.tipo === 'growth_product' || ins.tipo === 'velocity' || ins.tipo === 'best_margin' || ins.tipo === 'restock_alert') {
                         viewProdottoAnalisi({ nome: ins.valore.replace('...', '') });
                       } else if (ins.tipo === 'top_client' || ins.tipo === 'new_client') {
-                        // For clients, open search with client name
-                        setShowSearchModal(true);
-                        setProdottoSearch(ins.valore.replace('...', ''));
+                        // For clients, navigate to Clienti page with search
+                        const clientName = ins.valore.replace('...', '');
+                        window.location.href = `/clienti?search=${encodeURIComponent(clientName)}`;
                       }
                     }}
                     className={cn("px-3 py-2.5 rounded-lg border cursor-pointer hover:scale-[1.01] hover:brightness-110 transition-all", insightColors[ins.colore] || insightColors.emerald)}>
