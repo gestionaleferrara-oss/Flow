@@ -371,6 +371,7 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
     # unless they have a client/supplier name
     if not is_vendita and not is_acquisto:
         # Still track inventory for other movement types, but don't create sales/orders
+        stats['rows_skipped'] += 1
         if nome_prodotto:
             if nome_prodotto not in cache['prodotti']:
                 existing = await db.prodotti.find_one({"nome": nome_prodotto}, {"_id": 0, "id": 1, "prezzo_medio": 1, "quantita": 1})
