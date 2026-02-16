@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Importa Dati', href: '/upload', icon: Upload },
+  { name: 'Forecast', href: '/forecast', icon: Sparkles, badge: 'AI' },
   { name: 'Magazzino', href: '/magazzino', icon: Package },
   { name: 'Vendite', href: '/vendite', icon: BarChart3 },
   { name: 'Clienti', href: '/clienti', icon: Users },
