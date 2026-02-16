@@ -63,7 +63,7 @@ export default function StatCard({
             {label}
           </p>
           {subtitle && (
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 mt-1 whitespace-pre-line">
               {subtitle}
             </p>
           )}

@@ -237,7 +237,7 @@ export default function Dashboard() {
           subtitle={[
             margineData?.margine_medio_pct > 0 ? `Margine: +${margineData.margine_medio_pct.toFixed(1)}% · Profitto: ${formatCurrency(margineData.profitto_totale || 0)}` : null,
             data?.fatturatoMesePrec ? `Mese prec: ${formatCurrency(data.fatturatoMesePrec)}` : null
-          ].filter(Boolean).join(' | ') || null} />
+          ].filter(Boolean).join('\n') || null} />
         <StatCard label="Ordini Mese" value={data?.ordiniMese || 0} icon={ShoppingCart} gradient="emerald" />
         <StatCard label="Clienti Mese" value={data?.nuoviClienti || 0} icon={Users} gradient="cyan" />
         <StatCard label="Alert" value={totalAlerts} icon={AlertTriangle} gradient="amber" />
