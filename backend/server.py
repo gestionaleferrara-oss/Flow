@@ -2834,8 +2834,12 @@ async def get_ticker_news():
 
 # ----- Trends Prodotti Venduti (basato su vendite reali) -----
 @api_router.get("/trends-vendite")
-async def get_trends_vendite():
-    """Get top 5 MOST INTERESTING products based on sales - combining revenue impact and significant changes"""
+async def get_trends_vendite(
+    periodo: str = "2w",  # 1w, 2w, 1m, 3m
+    ordina_per: str = "interest",  # interest, fatturato, quantita, variazione
+    limit: int = 5
+):
+    """Get top products trends based on sales - with configurable period and sorting"""
     
     # Get reference date from most recent sale
     latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
@@ -2847,103 +2851,108 @@ async def get_trends_vendite():
     else:
         reference_date = datetime.now()
     
-    # Calculate date ranges
-    last_2w_end = reference_date.strftime("%Y-%m-%d")
-    last_2w_start = (reference_date - timedelta(days=14)).strftime("%Y-%m-%d")
-    prev_2w_end = (reference_date - timedelta(days=14)).strftime("%Y-%m-%d")
-    prev_2w_start = (reference_date - timedelta(days=28)).strftime("%Y-%m-%d")
+    # Calculate date ranges based on periodo
+    periodo_days = {"1w": 7, "2w": 14, "1m": 30, "3m": 90}.get(periodo, 14)
     
-    # Get sales for last 2 weeks
-    last_2w_sales = await db.vendite.find(
-        {"data": {"$gt": last_2w_start, "$lte": last_2w_end}},
+    current_end = reference_date.strftime("%Y-%m-%d")
+    current_start = (reference_date - timedelta(days=periodo_days)).strftime("%Y-%m-%d")
+    prev_end = current_start
+    prev_start = (reference_date - timedelta(days=periodo_days * 2)).strftime("%Y-%m-%d")
+    
+    # Get sales for current period
+    current_sales = await db.vendite.find(
+        {"data": {"$gt": current_start, "$lte": current_end}},
         {"_id": 0, "prodotto_nome": 1, "quantita": 1, "totale": 1}
-    ).to_list(50000)
+    ).to_list(100000)
     
-    # Get sales for previous 2 weeks
-    prev_2w_sales = await db.vendite.find(
-        {"data": {"$gt": prev_2w_start, "$lte": prev_2w_end}},
+    # Get sales for previous period
+    prev_sales = await db.vendite.find(
+        {"data": {"$gt": prev_start, "$lte": prev_end}},
         {"_id": 0, "prodotto_nome": 1, "quantita": 1, "totale": 1}
-    ).to_list(50000)
+    ).to_list(100000)
     
-    # Aggregate by product - last 2 weeks
-    last_2w_by_product = {}
-    total_fatturato_2w = 0
-    for s in last_2w_sales:
+    # Aggregate by product - current period
+    current_by_product = {}
+    total_fatturato = 0
+    for s in current_sales:
         prod = s.get('prodotto_nome', '')
         if prod:
-            if prod not in last_2w_by_product:
-                last_2w_by_product[prod] = {'qty': 0, 'totale': 0}
-            last_2w_by_product[prod]['qty'] += abs(s.get('quantita', 0))
-            last_2w_by_product[prod]['totale'] += abs(s.get('totale', 0))
-            total_fatturato_2w += abs(s.get('totale', 0))
+            if prod not in current_by_product:
+                current_by_product[prod] = {'qty': 0, 'totale': 0}
+            current_by_product[prod]['qty'] += abs(s.get('quantita', 0))
+            current_by_product[prod]['totale'] += abs(s.get('totale', 0))
+            total_fatturato += abs(s.get('totale', 0))
     
-    # Aggregate by product - previous 2 weeks
-    prev_2w_by_product = {}
-    for s in prev_2w_sales:
+    # Aggregate by product - previous period
+    prev_by_product = {}
+    for s in prev_sales:
         prod = s.get('prodotto_nome', '')
         if prod:
-            if prod not in prev_2w_by_product:
-                prev_2w_by_product[prod] = {'qty': 0, 'totale': 0}
-            prev_2w_by_product[prod]['qty'] += abs(s.get('quantita', 0))
-            prev_2w_by_product[prod]['totale'] += abs(s.get('totale', 0))
+            if prod not in prev_by_product:
+                prev_by_product[prod] = {'qty': 0, 'totale': 0}
+            prev_by_product[prod]['qty'] += abs(s.get('quantita', 0))
+            prev_by_product[prod]['totale'] += abs(s.get('totale', 0))
     
-    # Calculate trends for all products with "interest score"
+    # Calculate trends for all products
     trends = []
-    for prod, last_data in last_2w_by_product.items():
-        prev_data = prev_2w_by_product.get(prod, {'qty': 0, 'totale': 0})
+    for prod, curr_data in current_by_product.items():
+        prev_data = prev_by_product.get(prod, {'qty': 0, 'totale': 0})
         
-        last_qty = last_data['qty']
+        curr_qty = curr_data['qty']
         prev_qty = prev_data['qty']
-        last_totale = last_data['totale']
+        curr_totale = curr_data['totale']
         prev_totale = prev_data['totale']
         
-        # Calculate percentage change for quantity
-        if prev_qty > 0:
-            qty_change_pct = ((last_qty - prev_qty) / prev_qty) * 100
-        else:
-            qty_change_pct = 100.0 if last_qty > 0 else 0.0
+        # Calculate percentage changes
+        qty_change = ((curr_qty - prev_qty) / prev_qty * 100) if prev_qty > 0 else (100.0 if curr_qty > 0 else 0.0)
+        rev_change = ((curr_totale - prev_totale) / prev_totale * 100) if prev_totale > 0 else (100.0 if curr_totale > 0 else 0.0)
         
-        # Calculate percentage change for revenue
-        if prev_totale > 0:
-            revenue_change_pct = ((last_totale - prev_totale) / prev_totale) * 100
-        else:
-            revenue_change_pct = 100.0 if last_totale > 0 else 0.0
+        # Revenue share
+        rev_share = (curr_totale / total_fatturato * 100) if total_fatturato > 0 else 0
         
-        # Calculate share of total revenue (importance)
-        revenue_share = (last_totale / total_fatturato_2w * 100) if total_fatturato_2w > 0 else 0
+        # Interest score
+        interest_score = rev_share * (1 + min(abs(qty_change), 200) / 100)
         
-        # INTEREST SCORE: Products are "interesting" if they have:
-        # 1. Significant revenue share (importance for the business)
-        # 2. Significant change (either positive or negative - both are noteworthy)
-        # Formula: revenue_share * (1 + abs(change)/100)
-        # This prioritizes products that are both important AND changing
-        abs_change = abs(qty_change_pct)
-        interest_score = revenue_share * (1 + min(abs_change, 200) / 100)
-        
-        # Minimum revenue threshold to be considered (at least 0.5% of total)
-        if revenue_share >= 0.5:
-            trends.append({
-                "prodotto": prod,
-                "quantita_2w": round(last_qty, 1),
-                "quantita_prev_2w": round(prev_qty, 1),
-                "fatturato_2w": round(last_totale, 2),
-                "fatturato_prev_2w": round(prev_totale, 2),
-                "variazione_qty_pct": round(qty_change_pct, 1),
-                "variazione_fatturato_pct": round(revenue_change_pct, 1),
-                "quota_fatturato_pct": round(revenue_share, 2),
-                "interest_score": round(interest_score, 2),
-                "trend": "up" if qty_change_pct > 5 else "down" if qty_change_pct < -5 else "stable"
-            })
+        trends.append({
+            "prodotto": prod,
+            "quantita": round(curr_qty, 1),
+            "quantita_prev": round(prev_qty, 1),
+            "fatturato": round(curr_totale, 2),
+            "fatturato_prev": round(prev_totale, 2),
+            "var_qty_pct": round(qty_change, 1),
+            "var_fatturato_pct": round(rev_change, 1),
+            "quota_pct": round(rev_share, 2),
+            "interest_score": round(interest_score, 2),
+            "trend": "up" if qty_change > 5 else "down" if qty_change < -5 else "stable"
+        })
     
-    # Sort by interest score (most interesting first) and take top 5
-    trends.sort(key=lambda x: x['interest_score'], reverse=True)
-    top_5 = trends[:5]
+    # Sort based on ordina_per parameter
+    sort_keys = {
+        "interest": lambda x: x['interest_score'],
+        "fatturato": lambda x: x['fatturato'],
+        "quantita": lambda x: x['quantita'],
+        "variazione": lambda x: abs(x['var_qty_pct']),
+        "var_positiva": lambda x: x['var_qty_pct'],
+        "var_negativa": lambda x: -x['var_qty_pct']
+    }
+    sort_fn = sort_keys.get(ordina_per, sort_keys["interest"])
+    trends.sort(key=sort_fn, reverse=True)
+    
+    # Apply limit (max 50)
+    limit = min(limit, 50)
+    top_products = trends[:limit]
+    
+    periodo_labels = {"1w": "1 settimana", "2w": "2 settimane", "1m": "1 mese", "3m": "3 mesi"}
     
     return {
-        "periodo_attuale": f"{last_2w_start} - {last_2w_end}",
-        "periodo_precedente": f"{prev_2w_start} - {prev_2w_end}",
-        "fatturato_totale_2w": round(total_fatturato_2w, 2),
-        "top_prodotti": top_5
+        "periodo": periodo,
+        "periodo_label": periodo_labels.get(periodo, periodo),
+        "periodo_attuale": f"{current_start} - {current_end}",
+        "periodo_precedente": f"{prev_start} - {prev_end}",
+        "fatturato_totale": round(total_fatturato, 2),
+        "ordina_per": ordina_per,
+        "totale_prodotti": len(trends),
+        "top_prodotti": top_products
     }
 
 
