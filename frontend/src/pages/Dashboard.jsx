@@ -128,12 +128,7 @@ export default function Dashboard() {
     } finally { setLoadingAnalisi(false); }
   };
 
-  const filteredProdotti = prodottoSearch.trim().length > 0 
-    ? prodotti.filter(p =>
-        p.nome.toLowerCase().includes(prodottoSearch.toLowerCase()) ||
-        (p.codice && p.codice.toLowerCase().includes(prodottoSearch.toLowerCase()))
-      ).slice(0, 20)
-    : [];
+  const filteredProdotti = searchResults;
 
   if (loading) return <LoadingSpinner fullScreen />;
 
