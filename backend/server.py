@@ -400,7 +400,6 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
     
     # VENDITA -> create sale record
     if is_vendita and nome_cliente_fornitore:
-        if nome_cliente_fornitore not in cache['clienti']:
         # Check in-memory cache first
         if nome_cliente_fornitore not in cache['clienti']:
             existing = await db.clienti.find_one({"nome": nome_cliente_fornitore}, {"_id": 0, "id": 1})
