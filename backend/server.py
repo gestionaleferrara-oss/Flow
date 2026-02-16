@@ -566,6 +566,14 @@ async def upload_csv(file: UploadFile = File(...)):
         col_mapping = auto_detect_columns(headers)
         stats['columns_detected'] = {k: v for k, v in col_mapping.items() if v is not None}
         
+        # IMPORTANT: Clear existing vendite and ordini to prevent duplicates
+        # This is a full re-import approach - each upload replaces all data
+        await db.vendite.delete_many({})
+        await db.ordini.delete_many({})
+        
+        # Reset product quantities to 0 before recalculating from file
+        await db.prodotti.update_many({}, {"$set": {"quantita": 0}})
+        
         # In-memory cache for batch processing
         cache = {
             'clienti': {},
