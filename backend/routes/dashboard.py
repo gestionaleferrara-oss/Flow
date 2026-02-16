@@ -537,32 +537,39 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
     prev_end = prev_m.strftime("%Y-%m-%d")
     EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
 
+    # Compute date_start based on periodo for fatturato/ordini
+    if periodo == "30gg":
+        date_start = (ref - timedelta(days=30)).strftime("%Y-%m-%d")
+    elif periodo == "90gg":
+        date_start = (ref - timedelta(days=90)).strftime("%Y-%m-%d")
+    else:
+        date_start = month_start
+    periodo_labels = {"mese": "Mese corrente", "30gg": "Ultimi 30 giorni", "90gg": "Ultimi 90 giorni"}
+
     if card_type == "fatturato":
-        # Daily revenue this month
         daily_pipeline = [
-            {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"data": {"$gte": date_start}, "cliente_nome": {"$nin": EXCLUDED}}},
             {"$group": {"_id": "$data", "totale": {"$sum": {"$abs": "$totale"}}, "count": {"$sum": 1}}},
             {"$sort": {"_id": 1}}
         ]
-        daily = await db.vendite.aggregate(daily_pipeline).to_list(31)
-        # Top 5 products by revenue
+        daily = await db.vendite.aggregate(daily_pipeline).to_list(90)
         top_prod_pipeline = [
-            {"$match": {"data": {"$gte": month_start}}},
+            {"$match": {"data": {"$gte": date_start}}},
             {"$group": {"_id": "$prodotto_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
             {"$sort": {"totale": -1}}, {"$limit": 5}
         ]
         top_prod = await db.vendite.aggregate(top_prod_pipeline).to_list(5)
-        # Weekly comparison
         week_pipeline = [
-            {"$match": {"data": {"$gte": month_start}}},
+            {"$match": {"data": {"$gte": date_start}}},
             {"$addFields": {"giorno": {"$dayOfMonth": {"$dateFromString": {"dateString": "$data"}}}}},
             {"$addFields": {"settimana": {"$ceil": {"$divide": ["$giorno", 7]}}}},
             {"$group": {"_id": "$settimana", "totale": {"$sum": {"$abs": "$totale"}}}},
             {"$sort": {"_id": 1}}
         ]
-        weekly = await db.vendite.aggregate(week_pipeline).to_list(5)
+        weekly = await db.vendite.aggregate(week_pipeline).to_list(15)
         return {
             "tipo": "fatturato",
+            "periodo_label": periodo_labels.get(periodo, periodo),
             "giornaliero": [{"data": d["_id"], "totale": round(d["totale"], 2), "ordini": d["count"]} for d in daily],
             "top_prodotti": [{"nome": p["_id"], "totale": round(p["totale"], 2)} for p in top_prod],
             "settimanale": [{"settimana": f"Sett. {w['_id']}", "totale": round(w["totale"], 2)} for w in weekly]
