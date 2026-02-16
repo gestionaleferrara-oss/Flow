@@ -41,6 +41,15 @@ export default function Clienti() {
   });
   const [saving, setSaving] = useState(false);
 
+  // Read search param from URL on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const searchParam = urlParams.get('search');
+    if (searchParam) {
+      setSearch(searchParam);
+    }
+  }, []);
+
   useEffect(() => {
     loadClienti();
   }, [search]);
