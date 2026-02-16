@@ -24,6 +24,8 @@ export default function Dashboard() {
   const [prodotti, setProdotti] = useState([]);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [prodottoSearch, setProdottoSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [showProdottoModal, setShowProdottoModal] = useState(false);
   const [selectedProdotto, setSelectedProdotto] = useState(null);
   const [prodottoAnalisi, setProdottoAnalisi] = useState(null);
@@ -33,7 +35,7 @@ export default function Dashboard() {
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [alerts, setAlerts] = useState(null);
-  const [loadingAlerts, setLoadingAlerts] = useState(true);
+  const [loadingAlerts, setLoadingAlerts] = useState(false);
 
   // Trends state
   const [trendsVendite, setTrendsVendite] = useState(null);
@@ -43,7 +45,10 @@ export default function Dashboard() {
 
   // Sales Insight state
   const [salesInsight, setSalesInsight] = useState(null);
-  const [insightLoading, setInsightLoading] = useState(true);
+  const [insightLoading, setInsightLoading] = useState(false);
+  
+  // Margine state
+  const [margineData, setMargineData] = useState(null);
 
   useEffect(() => {
     const loadAll = async () => {
