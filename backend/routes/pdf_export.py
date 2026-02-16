@@ -189,22 +189,22 @@ async def export_statistiche_pdf(
         pdf.ln(5)
 
         pdf.section_title("Riepilogo Vendite")
-        pdf.kpi_row("Fatturato Totale:", f"€{fatturato:,.2f}")
+        pdf.kpi_row("Fatturato Totale:", f"{fatturato:,.2f} EUR")
         pdf.kpi_row("Numero Transazioni:", f"{num_transazioni:,}")
         pdf.kpi_row("Clienti Unici:", f"{len(clienti_set)}")
-        pdf.kpi_row("Scontrino Medio:", f"€{scontrino_medio:,.2f}" if num_transazioni > 0 else "N/A")
+        pdf.kpi_row("Scontrino Medio:", f"{scontrino_medio:,.2f} EUR" if num_transazioni > 0 else "N/A")
         if margine_medio > 0:
             pdf.kpi_row("Margine Medio Stimato:", f"{margine_medio:.1f}%")
-            pdf.kpi_row("Profitto Stimato:", f"€{totale_profitto:,.2f}")
+            pdf.kpi_row("Profitto Stimato:", f"{totale_profitto:,.2f} EUR")
         pdf.ln(5)
 
         pdf.section_title("Top 10 Prodotti (con Margine)")
         pdf.table_header(["#", "Prodotto", "Fatturato", "Margine", "Profitto"], [8, 80, 40, 30, 32])
         for i, item in enumerate(top_prod_with_margin):
             margine_str = f"{item['margine']:.0f}%" if item['margine'] is not None else "N/A"
-            profitto_str = f"€{item['profitto']:,.0f}" if item['profitto'] is not None else "N/A"
+            profitto_str = f"{item['profitto']:,.0f}" if item['profitto'] is not None else "N/A"
             pdf.table_row(
-                [str(i + 1), item['nome'][:25], f"€{item['fatturato']:,.0f}", margine_str, profitto_str],
+                [str(i + 1), item['nome'][:25], f"{item['fatturato']:,.0f}", margine_str, profitto_str],
                 [8, 80, 40, 30, 32], ["C", "L", "R", "R", "R"]
             )
         pdf.ln(5)
@@ -212,7 +212,7 @@ async def export_statistiche_pdf(
         pdf.section_title("Top 10 Clienti")
         pdf.table_header(["#", "Cliente", "Spesa", "Ordini"], [8, 100, 50, 30])
         for i, (nome, rev, num_ordini) in enumerate(top_cli):
-            pdf.table_row([str(i + 1), nome[:28], f"€{rev:,.2f}", str(num_ordini)], [8, 100, 50, 30], ["C", "L", "R", "C"])
+            pdf.table_row([str(i + 1), nome[:28], f"{rev:,.2f}", str(num_ordini)], [8, 100, 50, 30], ["C", "L", "R", "C"])
 
     elif tipo == "acquisti":
         ordini = await db.ordini.find(query, {"_id": 0}).sort("data", -1).to_list(100000)
@@ -241,7 +241,7 @@ async def export_statistiche_pdf(
         pdf.ln(5)
 
         pdf.section_title("Riepilogo Acquisti")
-        pdf.kpi_row("Totale Acquisti:", f"€{totale_speso:,.2f}")
+        pdf.kpi_row("Totale Acquisti:", f"{totale_speso:,.2f} EUR")
         pdf.kpi_row("Numero Ordini:", f"{num_ordini:,}")
         pdf.kpi_row("Fornitori Unici:", f"{len(fornitori_set)}")
         pdf.ln(5)
@@ -249,13 +249,13 @@ async def export_statistiche_pdf(
         pdf.section_title("Top 10 Fornitori")
         pdf.table_header(["#", "Fornitore", "Spesa"], [10, 120, 60])
         for i, (nome, rev) in enumerate(top_forn):
-            pdf.table_row([str(i + 1), nome[:30], f"€{rev:,.2f}"], [10, 120, 60], ["C", "L", "R"])
+            pdf.table_row([str(i + 1), nome[:30], f"{rev:,.2f}"], [10, 120, 60], ["C", "L", "R"])
         pdf.ln(5)
 
         pdf.section_title("Top 10 Prodotti Acquistati")
         pdf.table_header(["#", "Prodotto", "Spesa"], [10, 120, 60])
         for i, (nome, rev) in enumerate(top_prod):
-            pdf.table_row([str(i + 1), nome[:30], f"€{rev:,.2f}"], [10, 120, 60], ["C", "L", "R"])
+            pdf.table_row([str(i + 1), nome[:30], f"{rev:,.2f}"], [10, 120, 60], ["C", "L", "R"])
 
     else:
         raise HTTPException(status_code=400, detail="Tipo non valido. Usa 'vendite' o 'acquisti'")
