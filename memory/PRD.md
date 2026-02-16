@@ -23,41 +23,42 @@ Applicazione web full-stack per la gestione vendite, magazzino, clienti, fornito
 
 ### AI Features
 - ✅ Report AI settimanali/mensili (esclusi dati magazzino)
-- ✅ **Forecast AI** - Previsioni vendite per prodotto/cliente con analisi storica
+- ✅ **Forecast AI** - Previsioni vendite per prodotto/cliente con:
+  - Analisi focalizzata sul mese target
+  - Export PDF
+  - Tasto Reset
+  - Formattazione AI migliorata
 
 ### UX/Performance
 - ✅ Navigazione fluida con lazy loading e prefetching
 - ✅ Card dashboard: blur di default, hover reveal (desktop), tap toggle (mobile)
-- ✅ Selettori periodo nei modali (Fatturato, Ordini, Alert)
+- ✅ **Selettori periodo in TUTTI i modal** (Mese corrente, Mese prec., 30gg, 90gg)
 - ✅ Layout responsive ottimizzato
 - ✅ Favicon e titolo personalizzati ("Flow | Business Analytics")
 
 ## Changelog Recente
 
-### 2025-02-16
-- **Fix hover card desktop**: Corretto rilevamento dispositivo (`pointer: coarse` invece di `ontouchstart`)
-- **Fix modal Alert**: Ridotta larghezza (`sm:max-w-lg`) e risolto scroll orizzontale
-- **Nuova pagina Forecast AI**: 
-  - Selezione prodotto/cliente con ricerca
-  - Selettore mese target
-  - Grafico storico vendite
-  - Previsione AI con range, analisi stagionalità, suggerimenti
-- **Fix AI Reports**: Rimossi dati magazzino/stock dai report
-- **Favicon**: Aggiunto favicon personalizzato Flow
+### 2025-02-16 (Sessione corrente)
+- **Selettore "Mese precedente"**: Aggiunto a tutti i 4 modal delle card dashboard (Fatturato, Ordini, Clienti, Alert)
+- **Forecast AI migliorato**:
+  - Previsione ora focalizzata SOLO sul mese selezionato
+  - Aggiunto pulsante "PDF" per esportazione
+  - Aggiunto pulsante "Reset" per nuova ricerca
+  - Funziona sia per prodotti che per clienti
+  - Formattazione testo AI migliorata con colori e bullet points
+- **Fix hover card desktop**: Corretto rilevamento dispositivo
+- **Fix modal Alert**: Ridotta larghezza e rimosso scroll orizzontale
 
 ## Endpoints API Chiave
 - `GET /api/dashboard-cards` - Dati card principali
-- `GET /api/card-detail/{card_id}?periodo=` - Dettaglio card con periodo
-- `GET /api/sales-insight` - Widget insight (ottimizzato)
+- `GET /api/card-detail/{card_id}?periodo=` - Dettaglio card (mese, mese_prec, 30gg, 90gg)
 - `GET /api/forecast/prodotti?search=` - Ricerca prodotti per forecast
 - `GET /api/forecast/clienti?search=` - Ricerca clienti per forecast  
 - `GET /api/forecast/generate?tipo=&nome=&mese_target=` - Genera previsione AI
+- `POST /api/forecast/export-pdf` - Esporta forecast in PDF
 - `POST /api/ai-reports/generate` - Genera report AI
 
 ## Prossimi Task (Backlog)
-
-### P1
-- Aggiungere dati "mese precedente" visibili a tutte le 4 card principali
 
 ### P2
 - Migliorare interfaccia mobile (tabelle, visualizzazione dati)
@@ -72,8 +73,8 @@ Applicazione web full-stack per la gestione vendite, magazzino, clienti, fornito
 ├── backend/
 │   ├── server.py
 │   ├── routes/
-│   │   ├── dashboard.py (card, AI reports)
-│   │   ├── forecast.py (previsioni AI)
+│   │   ├── dashboard.py (card, AI reports, selettori periodo)
+│   │   ├── forecast.py (previsioni AI, export PDF)
 │   │   ├── clienti.py, fornitori.py, prodotti.py
 │   └── database.py
 └── frontend/
@@ -83,8 +84,8 @@ Applicazione web full-stack per la gestione vendite, magazzino, clienti, fornito
     │   │   ├── StatCard.jsx (card con blur/hover)
     │   │   └── Sidebar.jsx (navigazione)
     │   └── pages/
-    │       ├── Dashboard.jsx
-    │       ├── Forecast.jsx (nuovo)
+    │       ├── Dashboard.jsx (modal con selettori periodo)
+    │       ├── Forecast.jsx (PDF, Reset, ricerca clienti)
     │       ├── Clienti.jsx, Fornitori.jsx
     └── public/
         └── index.html (favicon, title)
