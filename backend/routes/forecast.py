@@ -232,14 +232,16 @@ async def export_forecast_pdf(data: dict):
         
         pdf.set_font('Helvetica', '', 11)
         pdf.set_text_color(100, 100, 100)
-        pdf.cell(0, 8, f"Previsione per {data.get('mese_target_nome', '')}", ln=True, align='C')
+        mese_target = str(data.get('mese_target_nome', '')).encode('ascii', errors='replace').decode('ascii')
+        pdf.cell(0, 8, f"Previsione per {mese_target}", ln=True, align='C')
         pdf.ln(5)
         
         # Entity info
         pdf.set_font('Helvetica', 'B', 12)
         pdf.set_text_color(0, 0, 0)
         tipo_label = "PRODOTTO" if data.get('tipo') == 'prodotto' else "CLIENTE"
-        pdf.cell(0, 8, f"{tipo_label}: {data.get('nome', '')}", ln=True)
+        nome = str(data.get('nome', '')).encode('ascii', errors='replace').decode('ascii')
+        pdf.cell(0, 8, f"{tipo_label}: {nome}", ln=True)
         pdf.ln(3)
         
         # Statistics
@@ -248,47 +250,57 @@ async def export_forecast_pdf(data: dict):
         pdf.set_fill_color(240, 240, 240)
         pdf.cell(0, 7, 'STATISTICHE STORICHE', ln=True, fill=True)
         pdf.set_font('Helvetica', '', 10)
-        pdf.cell(0, 6, f"Media mensile: EUR {stats.get('media_mensile', 0):,.2f}".replace(",", "."), ln=True)
-        pdf.cell(0, 6, f"Totale periodo analizzato: EUR {stats.get('totale_periodo', 0):,.2f}".replace(",", "."), ln=True)
+        pdf.cell(0, 6, f"Media mensile: EUR {stats.get('media_mensile', 0):.2f}", ln=True)
+        pdf.cell(0, 6, f"Totale periodo analizzato: EUR {stats.get('totale_periodo', 0):.2f}", ln=True)
         pdf.cell(0, 6, f"Mesi con dati: {stats.get('num_mesi_dati', 0)}", ln=True)
         pdf.ln(5)
         
         # AI Forecast
         pdf.set_font('Helvetica', 'B', 10)
         pdf.cell(0, 7, 'PREVISIONE AI', ln=True, fill=True)
-        pdf.set_font('Helvetica', '', 10)
+        pdf.set_font('Helvetica', '', 9)
         
-        # Clean and format AI response - replace euro symbol with EUR
-        ai_text = data.get('previsione_ai', '')
+        # Clean and format AI response
+        ai_text = str(data.get('previsione_ai', ''))
         ai_text = ai_text.replace('€', 'EUR ')
-        # Remove markdown formatting
         ai_text = re.sub(r'\*\*([^*]+)\*\*', r'\1', ai_text)
         ai_text = re.sub(r'\*([^*]+)\*', r'\1', ai_text)
         ai_text = re.sub(r'#{1,3}\s*', '', ai_text)
-        ai_text = re.sub(r'- ', '  * ', ai_text)
+        ai_text = ai_text.encode('ascii', errors='replace').decode('ascii')
         
-        # Split into lines and add to PDF
+        # Simple text output - each line
         for line in ai_text.split('\n'):
             line = line.strip()
-            if line:
-                # Check if it's a header-like line
-                if line.isupper() or (line.endswith(':') and len(line) < 50):
-                    pdf.set_font('Helvetica', 'B', 10)
-                    pdf.ln(2)
-                else:
-                    pdf.set_font('Helvetica', '', 10)
-                # Handle encoding issues
-                try:
-                    pdf.multi_cell(0, 5, line.encode('latin-1', errors='replace').decode('latin-1'))
-                except:
-                    pdf.multi_cell(0, 5, line.encode('ascii', errors='replace').decode('ascii'))
+            if not line:
+                pdf.ln(2)
+                continue
+            # Check if it's a header
+            if line.isupper() or (len(line) < 40 and line.endswith(':')):
+                pdf.set_font('Helvetica', 'B', 10)
+                pdf.ln(2)
+                pdf.cell(0, 5, line, ln=True)
+            else:
+                pdf.set_font('Helvetica', '', 9)
+                # Wrap long lines manually
+                words = line.split()
+                current_line = ""
+                for word in words:
+                    test_line = current_line + " " + word if current_line else word
+                    if pdf.get_string_width(test_line) < 180:
+                        current_line = test_line
+                    else:
+                        if current_line:
+                            pdf.cell(0, 4, current_line, ln=True)
+                        current_line = word
+                if current_line:
+                    pdf.cell(0, 4, current_line, ln=True)
         
         pdf.ln(8)
         
         # Footer
         pdf.set_font('Helvetica', 'I', 8)
         pdf.set_text_color(150, 150, 150)
-        generated_at = data.get('generated_at', '')[:10] if data.get('generated_at') else ''
+        generated_at = str(data.get('generated_at', ''))[:10] if data.get('generated_at') else ''
         pdf.cell(0, 6, f"Generato il {generated_at} - Flow Business Analytics", ln=True, align='C')
         
         # Output PDF
@@ -297,7 +309,7 @@ async def export_forecast_pdf(data: dict):
         return Response(
             content=bytes(pdf_bytes),
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=forecast_{data.get('nome', 'report').replace(' ', '_')}.pdf"}
+            headers={"Content-Disposition": f"attachment; filename=forecast.pdf"}
         )
         
     except Exception as e:
