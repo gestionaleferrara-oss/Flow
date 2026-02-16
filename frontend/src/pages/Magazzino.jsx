@@ -59,6 +59,9 @@ export default function Magazzino() {
       if (filter) params.append('filter_type', filter);
       params.append('skip', (page - 1) * perPage);
       params.append('limit', perPage);
+      // Default alphabetical sorting by product name
+      params.append('sort_by', 'nome');
+      params.append('sort_order', '1');
       const response = await axios.get(`${API}/prodotti?${params}`);
       setProdotti(response.data);
     } catch (error) {

@@ -85,16 +85,14 @@ async def export_statistiche_pdf(
         num_vendite = len(vendite)
         clienti_set = set(v.get('cliente_nome', '') for v in vendite if v.get('cliente_nome'))
 
-        # Top prodotti with margin calculation
+        # Top prodotti with margin calculation using WEIGHTED average
         prod_data = {}
         for v in vendite:
             p = v.get('prodotto_nome', '')
             if p not in prod_data:
-                prod_data[p] = {'fatturato': 0, 'qty': 0, 'prezzi': []}
+                prod_data[p] = {'fatturato': 0, 'qty': 0}
             prod_data[p]['fatturato'] += abs(v.get('totale', 0))
             prod_data[p]['qty'] += abs(v.get('quantita', 0))
-            if v.get('prezzo_unitario', 0) > 0:
-                prod_data[p]['prezzi'].append(v.get('prezzo_unitario', 0))
         
         # Get purchase prices and calculate margins
         top_prod_with_margin = []
@@ -107,15 +105,23 @@ async def export_statistiche_pdf(
                 {"_id": 0, "prezzo_unitario": 1},
                 sort=[("data", -1)]
             )
-            if ultimo_ordine and dati['prezzi']:
+            if ultimo_ordine and dati['qty'] > 0:
                 prezzo_acquisto = ultimo_ordine.get('prezzo_unitario', 0)
-                prezzo_vendita = sum(dati['prezzi']) / len(dati['prezzi'])
-                if prezzo_acquisto > 0:
-                    costo_totale = prezzo_acquisto * dati['qty']
-                    profitto = dati['fatturato'] - costo_totale
-                    margine = ((prezzo_vendita - prezzo_acquisto) / prezzo_acquisto) * 100
-                    item['margine'] = round(margine, 1)
-                    item['profitto'] = round(profitto, 2)
+                # Weighted average: total revenue / total quantity
+                prezzo_vendita = dati['fatturato'] / dati['qty']
+                
+                # Filter out anomalous prices
+                if prezzo_acquisto > 0 and prezzo_acquisto < 500:
+                    # Skip if sale price is unreasonably different from purchase price
+                    if prezzo_vendita <= prezzo_acquisto * 5 and prezzo_vendita >= prezzo_acquisto * 0.2:
+                        costo_totale = prezzo_acquisto * dati['qty']
+                        profitto = dati['fatturato'] - costo_totale
+                        margine = ((prezzo_vendita - prezzo_acquisto) / prezzo_acquisto) * 100
+                        
+                        # Only include reasonable margins (-50% to +200%)
+                        if -50 < margine < 200:
+                            item['margine'] = round(margine, 1)
+                            item['profitto'] = round(profitto, 2)
             
             top_prod_with_margin.append(item)
 

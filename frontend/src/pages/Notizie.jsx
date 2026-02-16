@@ -62,8 +62,16 @@ export default function Notizie() {
   };
 
   const filtered = selectedCategoria === 'all' ? notizie : notizie.filter(n => n.categoria === selectedCategoria);
-  const heroArticle = filtered[0];
-  const restArticles = filtered.slice(1);
+  
+  // Sort by date to ensure most recent article is hero
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    const dateA = a.data_pubblicazione ? new Date(a.data_pubblicazione) : new Date(0);
+    const dateB = b.data_pubblicazione ? new Date(b.data_pubblicazione) : new Date(0);
+    return dateB - dateA;
+  });
+  
+  const heroArticle = sortedFiltered[0];
+  const restArticles = sortedFiltered.slice(1);
 
   if (loading) return <LoadingSpinner fullScreen />;
 
@@ -151,29 +159,50 @@ export default function Notizie() {
           </div>
         </motion.div>
 
-        {/* Breaking News Ticker */}
-        {tickerNews.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="rounded-xl border border-white/[0.08] p-3 md:col-span-2 lg:col-span-1"
-            style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-red-500/20 text-red-400 rounded animate-pulse">Live</span>
-              <span className="text-xs font-semibold text-white">Breaking News</span>
-            </div>
-            <div className="space-y-1 max-h-[140px] overflow-y-auto pr-1">
-              {tickerNews.slice(0, 6).map((n, i) => (
-                <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-start gap-1.5 p-1.5 rounded bg-white/[0.02] border border-white/[0.04] hover:bg-cyan-500/[0.05] transition-all group">
-                  <span className="w-1 h-1 rounded-full bg-cyan-500/60 shrink-0 mt-1.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-slate-300 group-hover:text-white line-clamp-2 leading-tight">{n.titolo}</p>
-                    <p className="text-[8px] text-slate-600 mt-0.5">{n.fonte}</p>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </motion.div>
-        )}
+        {/* Breaking News Ticker - Only today's news */}
+        {tickerNews.length > 0 && (() => {
+          const today = new Date().toISOString().split('T')[0];
+          const todayNews = tickerNews.filter(n => {
+            if (!n.data) return false;
+            // Parse various date formats
+            try {
+              const newsDate = new Date(n.data);
+              return newsDate.toISOString().split('T')[0] === today;
+            } catch {
+              return false;
+            }
+          });
+          // If no today's news, show latest 6 with a different label
+          const displayNews = todayNews.length > 0 ? todayNews.slice(0, 6) : tickerNews.slice(0, 6);
+          const isToday = todayNews.length > 0;
+          
+          return (
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+              className="rounded-xl border border-white/[0.08] p-3 md:col-span-2 lg:col-span-1"
+              style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}>
+              <div className="flex items-center gap-2 mb-2">
+                {isToday ? (
+                  <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-red-500/20 text-red-400 rounded animate-pulse">Live</span>
+                ) : (
+                  <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-slate-500/20 text-slate-400 rounded">Recenti</span>
+                )}
+                <span className="text-xs font-semibold text-white">{isToday ? 'Breaking News' : 'Ultime Notizie'}</span>
+              </div>
+              <div className="space-y-1 max-h-[140px] overflow-y-auto pr-1">
+                {displayNews.map((n, i) => (
+                  <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-start gap-1.5 p-1.5 rounded bg-white/[0.02] border border-white/[0.04] hover:bg-cyan-500/[0.05] transition-all group">
+                    <span className="w-1 h-1 rounded-full bg-cyan-500/60 shrink-0 mt-1.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-slate-300 group-hover:text-white line-clamp-2 leading-tight">{n.titolo}</p>
+                      <p className="text-[8px] text-slate-600 mt-0.5">{n.fonte}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </motion.div>
+          );
+        })()}
       </div>
 
       {/* Category Filters - Scrollable on mobile */}
