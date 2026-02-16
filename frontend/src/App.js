@@ -35,7 +35,7 @@ function App() {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="text-sm font-semibold text-white tracking-wide">Flusso</span>
+          <span className="text-sm font-semibold text-white tracking-wide">Flow</span>
           <div className="w-9" />
         </div>
 

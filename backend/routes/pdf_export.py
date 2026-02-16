@@ -181,7 +181,7 @@ async def export_statistiche_pdf(
         top_cli = [(nome, fatturato, ordini_per_cliente.get(nome, 0)) 
                    for nome, fatturato in sorted(cli_rev.items(), key=lambda x: x[1], reverse=True)[:10]]
 
-        pdf = FlussoReport()
+        pdf = FlowReport()
         pdf.add_page()
         pdf.set_font("Helvetica", "", 10)
         pdf.set_text_color(100, 100, 100)
@@ -233,7 +233,7 @@ async def export_statistiche_pdf(
             prod_rev[p] = prod_rev.get(p, 0) + abs(o.get('totale', 0))
         top_prod = sorted(prod_rev.items(), key=lambda x: x[1], reverse=True)[:10]
 
-        pdf = FlussoReport()
+        pdf = FlowReport()
         pdf.add_page()
         pdf.set_font("Helvetica", "", 10)
         pdf.set_text_color(100, 100, 100)

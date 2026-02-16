@@ -109,7 +109,7 @@ export default function Statistiche() {
       const url = `${API}/statistiche/export?${p}`;
       const a = document.createElement('a');
       a.href = url;
-      a.download = `flusso_${viewMode}.${formato === 'excel' ? 'xlsx' : 'csv'}`;
+      a.download = `flow_${viewMode}.${formato === 'excel' ? 'xlsx' : 'csv'}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
