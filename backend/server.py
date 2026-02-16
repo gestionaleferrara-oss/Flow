@@ -1626,14 +1626,23 @@ async def get_statistiche(
     totale_articoli = sum(abs(v.get('quantita', 0)) for v in vendite)
     clienti_attivi = len(set(v.get('cliente_nome', '') for v in vendite))
     
-    # Current month revenue
-    now = datetime.now()
-    current_month_start = now.replace(day=1).strftime("%Y-%m-%d")
+    # Use most recent date in database as reference (not system date)
+    latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
+    if latest_sale and latest_sale.get('data'):
+        try:
+            reference_date = datetime.strptime(latest_sale['data'], "%Y-%m-%d")
+        except:
+            reference_date = datetime.now()
+    else:
+        reference_date = datetime.now()
+    
+    # Current month revenue (based on most recent data)
+    current_month_start = reference_date.replace(day=1).strftime("%Y-%m-%d")
     current_month_vendite = [v for v in vendite if v.get('data', '') >= current_month_start]
     fatturato_mese = sum(abs(v.get('totale', 0)) for v in current_month_vendite)
     
     # Previous month revenue
-    prev_month = now.replace(day=1) - timedelta(days=1)
+    prev_month = reference_date.replace(day=1) - timedelta(days=1)
     prev_month_start = prev_month.replace(day=1).strftime("%Y-%m-%d")
     prev_month_end = prev_month.strftime("%Y-%m-%d")
     prev_month_vendite = [v for v in vendite if prev_month_start <= v.get('data', '') <= prev_month_end]
