@@ -82,8 +82,18 @@ async def export_statistiche_pdf(
         vendite = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
 
         fatturato = sum(abs(v.get('totale', 0)) for v in vendite)
-        num_vendite = len(vendite)
+        num_righe = len(vendite)
         clienti_set = set(v.get('cliente_nome', '') for v in vendite if v.get('cliente_nome'))
+        
+        # Calculate unique transactions (date + client combinations)
+        transazioni_uniche = set()
+        transazioni_totali = {}
+        for v in vendite:
+            key = (v.get('data', ''), v.get('cliente_nome', ''))
+            transazioni_uniche.add(key)
+            transazioni_totali[key] = transazioni_totali.get(key, 0) + abs(v.get('totale', 0))
+        num_transazioni = len(transazioni_uniche)
+        scontrino_medio = fatturato / num_transazioni if num_transazioni > 0 else 0
 
         # Top prodotti with margin calculation using WEIGHTED average
         prod_data = {}
