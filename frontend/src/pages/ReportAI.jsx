@@ -10,7 +10,7 @@ import {
   Clock,
   TrendingUp,
   Users,
-  Package,
+  FileDown,
   ChevronRight,
   Download,
   Trash2
@@ -27,6 +27,7 @@ export default function ReportAI() {
   const [selectedReport, setSelectedReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [reportType, setReportType] = useState('dashboard');
 
   useEffect(() => {
