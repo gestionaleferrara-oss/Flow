@@ -29,7 +29,12 @@ export default function StatCard({
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 1024 || 'ontouchstart' in window);
+    // Check if truly mobile: small screen AND touch-only (no mouse)
+    const check = () => {
+      const isSmallScreen = window.innerWidth < 1024;
+      const isTouchOnly = window.matchMedia('(pointer: coarse)').matches;
+      setIsMobile(isSmallScreen && isTouchOnly);
+    };
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
