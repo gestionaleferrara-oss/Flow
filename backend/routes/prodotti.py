@@ -199,8 +199,8 @@ async def get_prodotto_analisi_acquisti(prodotto_nome: str, periodo: str = "all"
     fornitori_set = set(o.get('fornitore_nome', '') for o in ordini if o.get('fornitore_nome'))
     mesi = set(o.get('data', '')[:7] for o in ordini if o.get('data'))
     num_mesi = max(len(mesi), 1)
-    prezzi = [o.get('prezzo_unitario', 0) for o in ordini if o.get('prezzo_unitario', 0) > 0]
-    prezzo_medio = sum(prezzi) / len(prezzi) if prezzi else 0
+    # Costo medio ponderato = totale speso / quantità totale
+    prezzo_medio = totale_speso / totale_qty if totale_qty > 0 else 0
     fornitori_spesa = {}
     for o in ordini:
         f = o.get('fornitore_nome', '')
