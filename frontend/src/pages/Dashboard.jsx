@@ -236,36 +236,36 @@ export default function Dashboard() {
         </motion.div>
       </div>
 
-      {/* Second Row: Trends + Quick Links */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
-        {/* Trends Widget - no hover on widget, only plus button */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-          className="lg:col-span-8 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden relative"
+      {/* Second Row: Trends + Quick Links - 2 columns aligned */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        {/* Trends Widget */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden relative"
           data-testid="trends-widget">
-          <div className="px-3 py-2.5 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-md bg-emerald-500/15">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="p-2 rounded-md bg-emerald-500/15">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
               </div>
               <div>
-                <h3 className="text-xs font-semibold text-white">Trend Prodotti</h3>
-                <p className="text-[9px] text-slate-500">Top 5</p>
+                <h3 className="text-sm font-semibold text-white">Trend Prodotti</h3>
+                <p className="text-xs text-slate-500">Top 5</p>
               </div>
             </div>
             {/* Visible selectors */}
             <div className="flex items-center gap-2" data-testid="trends-selectors">
               <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
-                <Clock className="w-3 h-3 text-slate-500 ml-1" />
+                <Clock className="w-3.5 h-3.5 text-slate-500 ml-1" />
                 {periodoOptions.map(p => (
                   <button key={p.v} onClick={(e) => { e.stopPropagation(); setTrendsPeriodo(p.v); loadTrendsVendite(p.v, trendsOrdinaPer, 5); }}
                     data-testid={`trend-periodo-${p.v}`}
-                    className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
+                    className={cn("px-2.5 py-1.5 rounded-md text-xs font-medium transition-all",
                       trendsPeriodo === p.v ? "bg-emerald-500/20 text-emerald-300 shadow-sm" : "text-slate-500 hover:text-slate-300"
                     )}>{p.l}</button>
                 ))}
               </div>
               <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
-                <ArrowDownAZ className="w-3 h-3 text-slate-500 ml-1" />
+                <ArrowDownAZ className="w-3.5 h-3.5 text-slate-500 ml-1" />
                 {ordinaPerOptions.map(o => (
                   <button key={o.v} onClick={(e) => { e.stopPropagation(); setTrendsOrdinaPer(o.v); loadTrendsVendite(trendsPeriodo, o.v, 5); }}
                     data-testid={`trend-ordina-${o.v}`}
