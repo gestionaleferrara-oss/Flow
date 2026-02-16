@@ -102,7 +102,7 @@ export default function StatCard({
               )}
               data-testid="stat-card-eye"
             >
-              <{pinned ? Eye : EyeOff} className="w-3.5 h-3.5" />
+              {pinned ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
             </button>
           )}
         </div>
