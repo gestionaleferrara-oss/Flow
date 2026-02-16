@@ -53,6 +53,9 @@ export default function Dashboard() {
   
   // Margine state
   const [margineData, setMargineData] = useState(null);
+  
+  // AI Floating state
+  const [showAiPopup, setShowAiPopup] = useState(false);
 
   useEffect(() => {
     // Load all data in parallel - non-blocking
