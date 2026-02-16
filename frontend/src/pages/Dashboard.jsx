@@ -318,19 +318,19 @@ export default function Dashboard() {
                   <div key={ins.tipo} 
                     onClick={() => {
                       // Determine if it's a product or client insight and open appropriate modal
-                      if (ins.tipo === 'top_prodotto' || ins.tipo === 'prodotto_crescita') {
-                        viewProdottoAnalisi({ nome: ins.valore });
-                      } else if (ins.tipo === 'top_cliente' || ins.tipo === 'nuovo_cliente') {
-                        // For clients, we need to search and open
+                      if (ins.tipo === 'top_product' || ins.tipo === 'growth_product' || ins.tipo === 'velocity' || ins.tipo === 'best_margin' || ins.tipo === 'restock_alert') {
+                        viewProdottoAnalisi({ nome: ins.valore.replace('...', '') });
+                      } else if (ins.tipo === 'top_client' || ins.tipo === 'new_client') {
+                        // For clients, open search with client name
                         setShowSearchModal(true);
-                        setProdottoSearch(ins.valore);
+                        setProdottoSearch(ins.valore.replace('...', ''));
                       }
                     }}
-                    className={cn("px-3 py-2.5 rounded-lg border cursor-pointer hover:scale-[1.01] transition-all", insightColors[ins.colore] || insightColors.emerald)}>
+                    className={cn("px-3 py-2.5 rounded-lg border cursor-pointer hover:scale-[1.01] hover:brightness-110 transition-all", insightColors[ins.colore] || insightColors.emerald)}>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-base">{ins.icona}</span>
                       <span className="font-semibold text-sm truncate flex-1">{ins.valore}</span>
-                      <Eye className="w-3.5 h-3.5 text-slate-500 opacity-50" />
+                      <Eye className="w-3.5 h-3.5 text-white/40 group-hover:text-white/70" />
                     </div>
                     <p className="text-xs text-slate-300 leading-relaxed pl-7">{ins.dettaglio || ins.titolo}</p>
                   </div>
