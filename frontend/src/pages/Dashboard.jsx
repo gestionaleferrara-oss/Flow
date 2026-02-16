@@ -628,6 +628,72 @@ export default function Dashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* AI Floating Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <AnimatePresence>
+          {showAiPopup && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.9 }}
+              className="absolute bottom-16 right-0 w-80 bg-slate-900/95 backdrop-blur-xl border border-violet-500/30 rounded-xl shadow-2xl shadow-violet-500/20 overflow-hidden"
+            >
+              <div className="px-4 py-3 border-b border-violet-500/20 bg-violet-500/10 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-violet-400" />
+                  <span className="text-sm font-semibold text-white">AI Suggerimento</span>
+                </div>
+                <button onClick={() => setShowAiPopup(false)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                  <X className="w-4 h-4 text-slate-400" />
+                </button>
+              </div>
+              <div className="p-4">
+                {aiSuggestion?.suggestion ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-1 text-xs font-bold uppercase bg-violet-500/20 text-violet-400 rounded">
+                        {aiSuggestion.suggestion.titolo}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed">{aiSuggestion.suggestion.messaggio}</p>
+                    <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                      <span className="text-xs px-2 py-1 bg-violet-500/15 text-violet-300 rounded border border-violet-500/25">
+                        {aiSuggestion.suggestion.azione}
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={refreshAiSuggestion} disabled={loadingAi}
+                        className="text-violet-400 hover:text-violet-300 hover:bg-violet-500/10">
+                        <RefreshCw className={cn("w-3.5 h-3.5", loadingAi && "animate-spin")} />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <Sparkles className="w-8 h-8 text-violet-500/40 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500">Importa dati per ricevere suggerimenti AI</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Floating AI Button */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowAiPopup(!showAiPopup)}
+          className={cn(
+            "w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-300",
+            showAiPopup 
+              ? "bg-violet-600 shadow-violet-500/40" 
+              : "bg-gradient-to-br from-violet-500 to-violet-700 shadow-violet-500/30 hover:shadow-violet-500/50"
+          )}
+          data-testid="ai-floating-btn"
+        >
+          <Sparkles className="w-6 h-6 text-white" />
+        </motion.button>
+      </div>
     </PageWrapper>
   );
 }
