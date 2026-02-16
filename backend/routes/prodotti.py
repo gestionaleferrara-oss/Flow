@@ -117,12 +117,28 @@ async def recalculate_quantities():
 
 
 @router.get("/prodotti/{prodotto_nome:path}/analisi")
-async def get_prodotto_analisi(prodotto_nome: str):
+async def get_prodotto_analisi(prodotto_nome: str, periodo: str = "all"):
     from urllib.parse import unquote
+    from datetime import datetime, timedelta
+    
     prodotto_nome = unquote(prodotto_nome)
-    vendite = await db.vendite.find({"prodotto_nome": prodotto_nome}, {"_id": 0}).to_list(10000)
+    
+    # Calculate date filter based on periodo
+    date_filter = None
+    if periodo == "1m":
+        date_filter = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    elif periodo == "3m":
+        date_filter = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
+    elif periodo == "6m":
+        date_filter = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
+    
+    query = {"prodotto_nome": prodotto_nome}
+    if date_filter:
+        query["data"] = {"$gte": date_filter}
+    
+    vendite = await db.vendite.find(query, {"_id": 0}).to_list(10000)
     if not vendite:
-        return {"messaggio": "Nessuna vendita trovata", "fatturatoMensile": 0, "mediaMensile": 0, "prezzoMedioVendita": 0, "clientiUnici": 0, "topClienti": [], "venditeMensili": []}
+        return {"messaggio": "Nessuna vendita trovata", "fatturatoMensile": 0, "mediaMensile": 0, "prezzoMedioVendita": 0, "clientiUnici": 0, "topClienti": [], "venditeMensili": [], "totale_venduto": 0, "quantita_venduta": 0, "prezzo_medio": 0, "numero_clienti": 0}
     totale_fatturato = sum(abs(v.get('totale', 0)) for v in vendite)
     totale_qty = sum(abs(v.get('quantita', 0)) for v in vendite)
     clienti_set = set(v.get('cliente_nome', '') for v in vendite if v.get('cliente_nome'))
