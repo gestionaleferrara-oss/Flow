@@ -144,10 +144,6 @@ async def export_statistiche_pdf(
             if c:
                 cli_rev[c] = cli_rev.get(c, 0) + abs(v.get('totale', 0))
         top_cli = sorted(cli_rev.items(), key=lambda x: x[1], reverse=True)[:10]
-        
-        # Calculate total margin
-        totale_profitto = sum(p.get('profitto', 0) or 0 for p in top_prod_with_margin)
-        margine_medio = (totale_profitto / fatturato * 100) if fatturato > 0 else 0
 
         pdf = FlussoReport()
         pdf.add_page()
