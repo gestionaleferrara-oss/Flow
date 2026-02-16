@@ -210,9 +210,9 @@ async def export_statistiche_pdf(
         pdf.ln(5)
 
         pdf.section_title("Top 10 Clienti")
-        pdf.table_header(["#", "Cliente", "Spesa"], [10, 120, 60])
-        for i, (nome, rev) in enumerate(top_cli):
-            pdf.table_row([str(i + 1), nome[:30], f"EUR {rev:,.2f}"], [10, 120, 60], ["C", "L", "R"])
+        pdf.table_header(["#", "Cliente", "Spesa", "Ordini"], [8, 100, 50, 30])
+        for i, (nome, rev, num_ordini) in enumerate(top_cli):
+            pdf.table_row([str(i + 1), nome[:28], f"EUR {rev:,.2f}", str(num_ordini)], [8, 100, 50, 30], ["C", "L", "R", "C"])
 
     elif tipo == "acquisti":
         ordini = await db.ordini.find(query, {"_id": 0}).sort("data", -1).to_list(100000)
