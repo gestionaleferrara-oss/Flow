@@ -837,8 +837,7 @@ Il report deve includere:
 2. **Performance Vendite** - analisi del fatturato e trend
 3. **Prodotti** - analisi dei best seller e suggerimenti
 4. **Clienti** - analisi dei top clienti e strategia per clienti inattivi
-5. **Magazzino** - alert scorte e suggerimenti di riordino
-6. **Raccomandazioni** - 3-5 azioni concrete
+5. **Raccomandazioni** - 3-5 azioni concrete
 
 Formatta il report in markdown."""
 
