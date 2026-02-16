@@ -1,101 +1,78 @@
-# Flusso - Gestione Magazzino e Vendite
+# Flow - Product Requirements Document
 
-## Descrizione
-Applicazione web per la gestione di magazzino, vendite e acquisti per aziende del settore ortofrutticolo. Migrazione da Google Apps Script a stack moderno.
+## Overview
+Flow è un'applicazione gestionale full-stack per il settore ortofrutticolo, migrata da Google Apps Script a una moderna architettura React + FastAPI + MongoDB.
 
-## Stack Tecnologico
-- **Frontend**: React.js, Tailwind CSS, Framer Motion, Recharts
-- **Backend**: FastAPI, Python, Pandas
+## Core Features
+
+### 1. Data Import & Processing
+- Upload CSV/XLSX sales data
+- Automatic customer/product handling
+- Price updates and stock management
+
+### 2. Inventory Management (Magazzino)
+- Current stock display with editable minimum quantity
+- Expiry date tracking
+- Alphabetical ordering by product name
+
+### 3. Advanced Statistics (Statistiche)
+- Dashboard with charts and KPIs
+- PDF/CSV export with € currency
+- Margin calculation using weighted average
+- Transaction-based average ticket calculation
+
+### 4. Dashboard
+- Fatturato card with margin and profit
+- Trend Prodotti (left) with period filters
+- Sales Insight (center-right) with clickable items
+- Quick Links (right column)
+- AI floating button (violet, bottom-right)
+- Alert section with 3 columns
+
+### 5. News & Market Prices (Notizie)
+- Hero article (larger)
+- 4-column news grid
+- Breaking News widget (today + yesterday with LIVE badge)
+- Weather and market prices
+
+### 6. Client Management (Clienti)
+- Total revenue per client
+- Analysis modal with period selector (Mese, 3 Mesi, 6 Mesi, Anno, Tutto)
+- Visit history with dates and totals
+- Contact info editing
+
+### 7. AI Features
+- Weekly AI suggestions via floating button
+- Sales insights (clickable for analysis)
+
+## Technical Stack
+- **Frontend**: React.js, Tailwind CSS, Recharts, Framer Motion, Shadcn/UI
+- **Backend**: FastAPI, Pandas, Pydantic, FPDF2
 - **Database**: MongoDB
-- **Integrazioni**: Google Trends (pytrends), RSS feeds, Web scraping
+- **AI**: Gemini Pro via Emergent LLM Key
 
-## Funzionalità Implementate
+## API Endpoints
+- `GET /api/dashboard` - Main dashboard data
+- `GET /api/sales-insight` - Sales insights with tipos: top_product, growth_product, top_client, new_client
+- `GET /api/statistiche` - Statistics with margin calculation
+- `GET /api/statistiche/export/pdf` - PDF export with € currency
+- `GET /api/clienti/{id}/analisi?periodo=X` - Client analysis with period filter
+- `GET /api/prodotti` - Products with sorting and filter_type
+- `GET /api/trends-vendite` - Product trends with period/sort options
 
-### Data Import & Processing (v1.0 - 16/02/2026)
-- Upload singolo e multiplo di file CSV/XLSX
-- Gestione automatica di tutte le causali
-- Calcolo automatico quantità magazzino
-- Indici MongoDB per query veloci
+## Completed (Feb 2026)
+- [x] Margin calculation using weighted average on ALL products
+- [x] Dashboard layout: Trends | Insight | Quick Links aligned
+- [x] AI floating button
+- [x] Client fatturato_totale via aggregation
+- [x] PDF with € instead of EUR
+- [x] Insight clickable with correct type mapping
+- [x] Improved loading message for insights
+- [x] News: Hero larger, 4-column grid
+- [x] Breaking News: today + yesterday filter with LIVE badge
+- [x] App renamed to "Flow"
 
-### Dashboard (v1.3 - 16/02/2026) ⭐ OTTIMIZZATO
-- KPI compatte (Fatturato, Ordini, Clienti, Alert)
-- Suggerimento AI con refresh
-- **Sales Insight** - 4 insight con hover tooltip per dettagli
-- **Trend Prodotti** - Top 5 con **popup hover** per Top 20 + filtri
-- **Quick Links** compatti (Importa, Stats, Magazzino)
-- Centro Alert compatto (Sotto Scorta, Inattivi, Esaurimento)
-- **Responsive mobile/tablet** - Grid adattivo
-- **Caricamento parallelo** - Tutte le API caricate in parallelo
-
-### Statistiche (v1.0)
-- Grafico andamento vendite mensili
-- Grafico a torta Top Clienti con tooltip funzionante
-- Top Prodotti per fatturato
-- Export CSV/Excel
-
-### Notizie & Mercati (v1.4 - 16/02/2026) ⭐ RESPONSIVE
-- Widget Meteo compatto (previsioni 5 giorni)
-- **Listini Mercato DINAMICI** - Scraping automatico da FreshPlaza
-- **Breaking News LIVE** - ticker compatto
-- Hero Article con immagine
-- Griglia notizie responsive
-- **Filtri categoria** scrollabili su mobile
-- **Responsive mobile/tablet** - Layout adattivo
-- **Lazy loading** immagini per performance
-
-### Magazzino (v1.0)
-- Visualizzazione prodotti con quantità
-- Quantità minima e scadenza editabili
-
-### Vendite/Ordini (v1.0)
-- Storico vendite/acquisti raggruppati
-- Dettaglio espandibile
-
-### Clienti/Fornitori (v1.0)
-- Schede con statistiche dettagliate
-
-### Report AI (v1.0)
-- Generazione report con Gemini Pro
-
-## API Endpoints Principali
-
-### Dashboard & Stats
-- GET /api/dashboard
-- GET /api/statistiche
-- GET /api/alerts
-
-### Data Import
-- POST /api/upload-csv
-- POST /api/upload-multiple
-
-### Notizie & Trends
-- GET /api/notizie
-- POST /api/notizie/refresh
-- GET /api/meteo
-- GET /api/prezzi-mercati
-- GET /api/trends-vendite (NEW - Top 5 prodotti venduti)
-- GET /api/trends/{categoria} (Google Trends)
-- GET /api/ticker-news
-
-## Backlog / Future Tasks
-
-### P2 - Media Priorità
-- [ ] Export PDF statistiche
-
-### P3 - Bassa Priorità
-- [ ] Refactoring server.py in moduli
-- [ ] Miglioramento scraper immagini notizie
-
-## Note Tecniche
-
-### Trends Vendite
-- Confronto ultime 2 settimane vs 2 settimane precedenti
-- Basato sulla data più recente nel database
-- Mostra Top 5 per quantità venduta
-
-### Performance
-- Indici MongoDB su campi: data, cliente_nome, prodotto_nome
-- Cache 6 ore per Google Trends
-
-## Ultimo Aggiornamento
-16 Febbraio 2026
+## Pending
+- [ ] Image scraper for ilcorriereortofrutticolo
+- [ ] Dashboard.jsx refactoring into smaller components
+- [ ] Google Apps Script feature review
