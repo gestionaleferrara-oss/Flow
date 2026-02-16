@@ -22,7 +22,7 @@ const iconColorClasses = {
 
 export default function StatCard({ 
   label, value, trend, trendValue, icon: Icon,
-  format = 'number', gradient = 'blue', subtitle, className, blurred = false
+  format = 'number', gradient = 'blue', subtitle, className, blurred = false, onIconClick
 }) {
   const [pinned, setPinned] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -86,10 +86,15 @@ export default function StatCard({
         </div>
         <div className="flex flex-col items-center gap-2">
           {Icon && (
-            <div className={cn(
-              'p-3 rounded-xl',
-              iconColorClasses[gradient] || iconColorClasses.blue
-            )}>
+            <div 
+              onClick={onIconClick ? (e) => { e.stopPropagation(); onIconClick(); } : undefined}
+              className={cn(
+                'p-3 rounded-xl',
+                iconColorClasses[gradient] || iconColorClasses.blue,
+                onIconClick && 'cursor-pointer hover:scale-110 hover:brightness-125 transition-all'
+              )}
+              data-testid="stat-card-icon"
+            >
               <Icon className="w-5 h-5" />
             </div>
           )}
