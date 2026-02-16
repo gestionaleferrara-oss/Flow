@@ -449,6 +449,53 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
         cache['ordini_batch'].append(serialize_doc(ordine.model_dump()))
         stats['ordini_created'] += 1
     
+    # Handle CESSIONI/OMAGGI as sales with 0 value (for tracking)
+    elif is_cessione and nome_cliente_fornitore:
+        if nome_cliente_fornitore not in cache['clienti']:
+            existing = await db.clienti.find_one({"nome": nome_cliente_fornitore}, {"_id": 0, "id": 1})
+            if not existing:
+                cliente = Cliente(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
+                await db.clienti.insert_one(serialize_doc(cliente.model_dump()))
+                cache['clienti'][nome_cliente_fornitore] = cliente.id
+                stats['new_clienti'] += 1
+            else:
+                cache['clienti'][nome_cliente_fornitore] = existing.get('id')
+        
+        cliente_id = cache['clienti'].get(nome_cliente_fornitore)
+        vendita = Vendita(
+            data=data, cliente_id=cliente_id, cliente_nome=nome_cliente_fornitore,
+            prodotto_nome=nome_prodotto, quantita=quantita,
+            prezzo_unitario=0, totale=0, movimento=movimento, causale=causale
+        )
+        cache['vendite_batch'].append(serialize_doc(vendita.model_dump()))
+        stats['cessioni_created'] = stats.get('cessioni_created', 0) + 1
+    
+    # Handle RESI as negative orders (returns to supplier)
+    elif is_reso and nome_cliente_fornitore:
+        if nome_cliente_fornitore not in cache['fornitori']:
+            existing = await db.fornitori.find_one({"nome": nome_cliente_fornitore}, {"_id": 0, "id": 1})
+            if not existing:
+                fornitore = Fornitore(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
+                await db.fornitori.insert_one(serialize_doc(fornitore.model_dump()))
+                cache['fornitori'][nome_cliente_fornitore] = fornitore.id
+                stats['new_fornitori'] += 1
+            else:
+                cache['fornitori'][nome_cliente_fornitore] = existing.get('id')
+        
+        fornitore_id = cache['fornitori'].get(nome_cliente_fornitore)
+        # Resi are recorded as negative totals
+        ordine = Ordine(
+            data=data, fornitore_id=fornitore_id, fornitore_nome=nome_cliente_fornitore,
+            prodotto_nome=nome_prodotto, quantita=-quantita,
+            prezzo_unitario=importo_unitario, totale=-importo_totale
+        )
+        cache['ordini_batch'].append(serialize_doc(ordine.model_dump()))
+        stats['resi_created'] = stats.get('resi_created', 0) + 1
+    
+    # Track other movements for statistics but don't create sales/orders
+    else:
+        stats['other_movements'] = stats.get('other_movements', 0) + 1
+    
     # Create/update prodotto with quantity tracking
     if nome_prodotto:
         # Quantity change: CARICO adds, SCARICO subtracts
