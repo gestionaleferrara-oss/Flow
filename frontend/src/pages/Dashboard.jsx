@@ -104,11 +104,14 @@ export default function Dashboard() {
   }, []);
 
   // Load card detail for popup
-  const openCardDetail = async (type) => {
+  const [cardDetailPeriodo, setCardDetailPeriodo] = useState('mese');
+  const openCardDetail = async (type, periodo) => {
+    const p = periodo || (type === 'clienti' ? cardDetailPeriodo : undefined);
     setCardDetailType(type);
     setLoadingCardDetail(true);
     try {
-      const res = await axios.get(`${API}/dashboard/card-detail/${type}`);
+      const params = p ? `?periodo=${p}` : '';
+      const res = await axios.get(`${API}/dashboard/card-detail/${type}${params}`);
       setCardDetail(res.data);
     } catch (e) { setCardDetail(null); }
     finally { setLoadingCardDetail(false); }
