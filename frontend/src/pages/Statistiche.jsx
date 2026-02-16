@@ -288,10 +288,25 @@ export default function Statistiche() {
       {/* KPI Cards - solo con filtri attivi */}
       {hasActiveFilters && (
         viewMode === 'vendite' ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" data-testid="kpi-cards-vendite">
-            <StatCard label="Fatturato Periodo" value={data?.totaleEuro || 0} format="currency" icon={Euro} />
-            <StatCard label="Articoli Venduti" value={data?.totaleArticoli || 0} icon={Package} />
-            <StatCard label="Clienti Attivi" value={data?.clientiAttivi || 0} icon={Users} />
+          <div className="space-y-3 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6" data-testid="kpi-cards-vendite">
+              <StatCard label="Fatturato Periodo" value={data?.totaleEuro || 0} format="currency" icon={Euro} />
+              <StatCard label="Articoli Venduti" value={data?.totaleArticoli || 0} icon={Package} />
+              <StatCard label="Clienti Attivi" value={data?.clientiAttivi || 0} icon={Users} />
+            </div>
+            {/* Margine Banner */}
+            {data?.margineStimato > 0 && (
+              <div className="flex items-center gap-4 px-4 py-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs text-slate-400">Margine Stimato:</span>
+                  <span className="text-sm font-semibold text-emerald-400">+{data.margineStimato.toFixed(1)}%</span>
+                </div>
+                <div className="text-xs text-slate-500">
+                  Profitto: <span className="text-emerald-400 font-medium">{formatCurrency(data.profittoStimato || 0)}</span>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" data-testid="kpi-cards-acquisti">
