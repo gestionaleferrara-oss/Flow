@@ -17,6 +17,7 @@ function PageLoader() {
 // Lazy-loaded pages for instant navigation
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const UploadCSV = lazy(() => import("@/pages/UploadCSV"));
+const Forecast = lazy(() => import("@/pages/Forecast"));
 const Magazzino = lazy(() => import("@/pages/Magazzino"));
 const Vendite = lazy(() => import("@/pages/Vendite"));
 const Clienti = lazy(() => import("@/pages/Clienti"));
