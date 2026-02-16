@@ -168,8 +168,9 @@ export default function Dashboard() {
     try {
       // First get cliente by name to get ID
       const clientiRes = await axios.get(`${API}/clienti`, { params: { search: clienteName, limit: 1 } });
-      if (clientiRes.data && clientiRes.data.length > 0) {
-        const cliente = clientiRes.data[0];
+      const clientiList = clientiRes.data?.clienti || clientiRes.data || [];
+      if (clientiList.length > 0) {
+        const cliente = clientiList[0];
         setSelectedCliente(cliente);
         const analisiRes = await axios.get(`${API}/clienti/${cliente.id}/analisi`, { params: { periodo } });
         setClienteAnalisi(analisiRes.data);
