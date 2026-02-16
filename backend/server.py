@@ -2708,39 +2708,39 @@ async def scrape_freshplaza_market_links():
 
 @api_router.get("/prezzi-mercati")
 async def get_prezzi_mercati():
-    """Get direct links to market price PDFs - reliable and always working"""
+    """Get direct links to market price pages - updated for 2025/2026"""
     
-    # Direct links to official market price PDFs
+    # Updated links to actual market pages on FreshPlaza
     mercati = [
         {
             "nome": "Cesena",
-            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Cesena.pdf",
-            "tipo": "PDF"
+            "url": "https://www.freshplaza.it/listino-prezzi-cesena/",
+            "tipo": "Web"
         },
         {
             "nome": "Lusia",
-            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Lusia.pdf",
-            "tipo": "PDF"
+            "url": "https://www.freshplaza.it/listino-prezzi-lusia/",
+            "tipo": "Web"
         },
         {
             "nome": "Torino",
-            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Torino.pdf",
-            "tipo": "PDF"
+            "url": "https://www.freshplaza.it/listino-prezzi-torino/",
+            "tipo": "Web"
         },
         {
             "nome": "Verona",
-            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Verona.pdf",
-            "tipo": "PDF"
+            "url": "https://www.freshplaza.it/listino-prezzi-verona/",
+            "tipo": "Web"
         },
         {
             "nome": "Bologna",
-            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Bologna.pdf",
-            "tipo": "PDF"
+            "url": "https://www.freshplaza.it/listino-prezzi-bologna/",
+            "tipo": "Web"
         },
         {
             "nome": "Milano",
-            "url": "https://agfstorage.blob.core.windows.net/www-freshplaza-it/2024/01/Listino_Milano.pdf",
-            "tipo": "PDF"
+            "url": "https://www.freshplaza.it/listino-prezzi-milano/",
+            "tipo": "Web"
         }
     ]
     
