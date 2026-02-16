@@ -119,6 +119,20 @@ export default function Statistiche() {
     }
   };
 
+  const handlePdfExport = async () => {
+    try {
+      const p = new URLSearchParams();
+      p.append('tipo', viewMode === 'vendite' ? 'vendite' : 'acquisti');
+      if (filters.startDate) p.append('start_date', filters.startDate);
+      if (filters.endDate) p.append('end_date', filters.endDate);
+      const url = `${API}/statistiche/export/pdf?${p}`;
+      window.open(url, '_blank');
+      toast.success('PDF generato');
+    } catch (e) {
+      toast.error('Errore nella generazione PDF');
+    }
+  };
+
   const Autocomplete = ({ placeholder, value, field, suggestions }) => (
     <div className="relative">
       <Input
