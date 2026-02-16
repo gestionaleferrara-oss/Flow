@@ -42,6 +42,7 @@ from routes.prodotti import router as prodotti_router
 from routes.vendite import router as vendite_router
 from routes.dashboard import router as dashboard_router
 from routes.news import router as news_router
+from routes.pdf_export import router as pdf_export_router
 
 api_router.include_router(upload_router)
 api_router.include_router(entities_router)
@@ -49,6 +50,7 @@ api_router.include_router(prodotti_router)
 api_router.include_router(vendite_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(news_router)
+api_router.include_router(pdf_export_router)
 
 app.include_router(api_router)
 
