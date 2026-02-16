@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Search, Plus, Eye, Edit2, Trash2, Save, X, Phone, Mail, FileText } from 'lucide-react';
+import { Search, Plus, Eye, Edit2, Trash2, Save, X, Phone, Mail, FileText, Calendar, Clock } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,9 +13,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const PERIODI = [
+  { value: 'mese', label: 'Mese Corrente' },
+  { value: '3mesi', label: '3 Mesi' },
+  { value: '6mesi', label: '6 Mesi' },
+  { value: 'anno', label: 'Anno' },
+  { value: 'tutto', label: 'Tutto' },
+];
 
 export default function Clienti() {
   const [clienti, setClienti] = useState([]);
@@ -23,6 +31,8 @@ export default function Clienti() {
   const [search, setSearch] = useState('');
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [analisi, setAnalisi] = useState(null);
+  const [loadingAnalisi, setLoadingAnalisi] = useState(false);
+  const [periodoAnalisi, setPeriodoAnalisi] = useState('mese');
   const [showModal, setShowModal] = useState(false);
   const [editFields, setEditFields] = useState({
     whatsapp: '',
