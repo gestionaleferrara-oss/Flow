@@ -102,6 +102,17 @@ export default function Dashboard() {
     } catch (e) {}
   }, []);
 
+  // Load card detail for popup
+  const openCardDetail = async (type) => {
+    setCardDetailType(type);
+    setLoadingCardDetail(true);
+    try {
+      const res = await axios.get(`${API}/dashboard/card-detail/${type}`);
+      setCardDetail(res.data);
+    } catch (e) { setCardDetail(null); }
+    finally { setLoadingCardDetail(false); }
+  };
+
   // Server-side search for products
   const searchProdotti = useCallback(async (query) => {
     if (!query || query.trim().length === 0) {
