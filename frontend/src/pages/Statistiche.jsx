@@ -369,12 +369,16 @@ function PieChartCard({ data }) {
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Pie data={d} cx="50%" cy="50%" outerRadius={100} innerRadius={40} dataKey="spesa" nameKey="nome"
+          isAnimationActive={false}
           label={({ percent }) => percent > 0.03 ? `${(percent * 100).toFixed(0)}%` : ''}
           labelLine={{ stroke: '#475569', strokeWidth: 1 }}>
           {d.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
         </Pie>
-        <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: 8 }}
-          formatter={(v, _, props) => [formatCurrency(v), props.payload.nome]} />
+        <Tooltip 
+          active={true}
+          contentStyle={{ background: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: 8 }}
+          formatter={(v, _, props) => [formatCurrency(v), props.payload.nome]} 
+        />
       </PieChart>
     </ResponsiveContainer>
   );
