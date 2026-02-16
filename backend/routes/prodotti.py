@@ -172,12 +172,28 @@ async def get_prodotto_analisi(prodotto_nome: str, periodo: str = "all"):
 
 
 @router.get("/prodotti/{prodotto_nome:path}/analisi-acquisti")
-async def get_prodotto_analisi_acquisti(prodotto_nome: str):
+async def get_prodotto_analisi_acquisti(prodotto_nome: str, periodo: str = "all"):
     from urllib.parse import unquote
+    from datetime import datetime, timedelta
+    
     prodotto_nome = unquote(prodotto_nome)
-    ordini = await db.ordini.find({"prodotto_nome": prodotto_nome}, {"_id": 0}).to_list(10000)
+    
+    # Calculate date filter based on periodo
+    date_filter = None
+    if periodo == "1m":
+        date_filter = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    elif periodo == "3m":
+        date_filter = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
+    elif periodo == "6m":
+        date_filter = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
+    
+    query = {"prodotto_nome": prodotto_nome}
+    if date_filter:
+        query["data"] = {"$gte": date_filter}
+    
+    ordini = await db.ordini.find(query, {"_id": 0}).to_list(10000)
     if not ordini:
-        return {"messaggio": "Nessun acquisto trovato", "spesoMensile": 0, "mediaMensile": 0, "prezzoMedioAcquisto": 0, "fornitoriUnici": 0, "topFornitori": [], "acquistiMensili": []}
+        return {"messaggio": "Nessun acquisto trovato", "spesoMensile": 0, "mediaMensile": 0, "prezzoMedioAcquisto": 0, "fornitoriUnici": 0, "topFornitori": [], "acquistiMensili": [], "totale_acquistato": 0, "quantita_acquistata": 0, "costo_medio": 0, "numero_fornitori": 0, "variazionePrezzi": []}
     totale_speso = sum(abs(o.get('totale', 0)) for o in ordini)
     totale_qty = sum(abs(o.get('quantita', 0)) for o in ordini)
     fornitori_set = set(o.get('fornitore_nome', '') for o in ordini if o.get('fornitore_nome'))
@@ -198,11 +214,11 @@ async def get_prodotto_analisi_acquisti(prodotto_nome: str):
     mensili = [{"mese": k, "totale": round(v, 2)} for k, v in sorted(acquisti_mensili.items())]
     mesi_sorted = sorted(mesi) if mesi else []
     variazione_prezzi = []
-    if len(mesi_sorted) >= 2:
-        for m in mesi_sorted:
-            ordini_mese = [o for o in ordini if o.get('data', '').startswith(m)]
-            prezzi_mese = [o.get('prezzo_unitario', 0) for o in ordini_mese if o.get('prezzo_unitario', 0) > 0]
-            pm = sum(prezzi_mese) / len(prezzi_mese) if prezzi_mese else 0
+    for m in mesi_sorted:
+        ordini_mese = [o for o in ordini if o.get('data', '').startswith(m)]
+        prezzi_mese = [o.get('prezzo_unitario', 0) for o in ordini_mese if o.get('prezzo_unitario', 0) > 0]
+        pm = sum(prezzi_mese) / len(prezzi_mese) if prezzi_mese else 0
+        if pm > 0:
             variazione_prezzi.append({"mese": m, "prezzo_medio": round(pm, 4)})
     return {
         "totale_acquistato": round(totale_speso, 2),
