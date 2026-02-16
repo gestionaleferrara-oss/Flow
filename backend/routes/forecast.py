@@ -168,33 +168,29 @@ Dati storici per {target_month_name}:
             api_key=api_key, 
             session_id=f"forecast-{uuid.uuid4()}", 
             system_message="""Sei un analista business esperto nel settore ortofrutticolo italiano.
-Genera previsioni accurate e concise per il mese specifico richiesto.
-Rispondi SEMPRE in italiano con formattazione chiara e professionale.
-NON ripetere i dati storici già forniti - concentrati solo sulla previsione."""
+Genera previsioni accurate e concise SOLO per il mese specifico richiesto.
+Rispondi SEMPRE in italiano. Sii breve e diretto. 
+Basa la previsione PRINCIPALMENTE sui dati dello stesso mese negli anni precedenti."""
         ).with_model("openai", "gpt-4o")
         
-        prompt = f"""PREVISIONE VENDITE: {target_month_name} {target_year}
+        prompt = f"""PREVISIONE: {target_month_name} {target_year}
 
 {entity_type.upper()}: {entity_name}
-
-DATI RILEVANTI:
-- Media mensile storica: €{media_mensile:,.2f}
-- Ultimo mese registrato: {ultimo_mese_str}
-{same_month_context if same_month_context else f"- Nessun dato storico per {target_month_name}"}
+{same_month_context if same_month_context else f"Nessun dato storico per {target_month_name} - usa la media generale: €{media_mensile:,.2f}"}
 {extra_context}
 
-Genera una previsione SOLO per {target_month_name} {target_year}:
+Genera previsione SOLO per {target_month_name} {target_year}:
 
 ## PREVISIONE FATTURATO
-Indica: valore minimo, valore massimo, valore più probabile
+- Minimo: €X
+- Massimo: €X  
+- Probabile: €X
 
-## ANALISI MESE
-Spiega brevemente i fattori che influenzano questa previsione (stagionalità, trend, eventi)
+## ANALISI
+Breve spiegazione (2-3 righe max)
 
-## AZIONI CONSIGLIATE
-Elenca 2-3 azioni concrete per ottimizzare le vendite nel mese target
-
-Sii conciso e vai dritto al punto."""
+## AZIONI
+2-3 azioni concrete"""
 
         user_message = UserMessage(text=prompt)
         ai_response = await chat.send_message(user_message)
@@ -207,7 +203,12 @@ Sii conciso e vai dritto al punto."""
             "mese_target_nome": f"{target_month_name} {target_year}",
             "storico": [{"mese": s["_id"], "fatturato": round(s["fatturato"], 2), "quantita": round(s.get("quantita", 0), 1)} for s in storico],
             "statistiche": {
-                "totale_periodo": round(tot_fatturato, 2),
+                "media_mensile": round(media_mensile, 2),
+                "stesso_mese_avg": round(same_month_avg, 2),
+                "stesso_mese_max": round(same_month_max, 2),
+                "stesso_mese_min": round(same_month_min, 2),
+                "anni_dati_mese": len(same_month_data)
+            },
                 "media_mensile": round(media_mensile, 2),
                 "num_mesi_dati": len(storico)
             },
