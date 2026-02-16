@@ -328,7 +328,7 @@ export default function Statistiche() {
               <PieChartCard data={data?.topClienti} />
             </ChartCard>
             <ChartCard title="Top Prodotti per Fatturato">
-              <HBarChart data={data?.topProdotti} color="#10B981" label="Fatturato" />
+              <HBarChart data={data?.topProdotti} color="#10B981" label="Fatturato" showMargin={true} />
             </ChartCard>
           </>
         ) : (
