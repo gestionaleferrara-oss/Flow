@@ -190,7 +190,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <StatCard label="Fatturato" value={data?.fatturatoMese || 0} format="currency" icon={Euro} gradient="blue"
           trend={data?.crescitaPercentuale > 0 ? 'up' : data?.crescitaPercentuale < 0 ? 'down' : 'neutral'}
-          trendValue={data?.crescitaPercentuale} />
+          trendValue={data?.crescitaPercentuale}
+          subtitle={data?.fatturatoMesePrec ? `Mese prec: ${formatCurrency(data.fatturatoMesePrec)}` : null} />
         <StatCard label="Ordini Mese" value={data?.ordiniMese || 0} icon={ShoppingCart} gradient="emerald" />
         <StatCard label="Clienti Mese" value={data?.nuoviClienti || 0} icon={Users} gradient="cyan" />
         <StatCard label="Alert" value={totalAlerts} icon={AlertTriangle} gradient="amber" />
