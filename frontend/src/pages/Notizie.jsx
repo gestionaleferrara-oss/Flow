@@ -159,34 +159,38 @@ export default function Notizie() {
           </div>
         </motion.div>
 
-        {/* Breaking News Ticker - Only today's news */}
+        {/* Breaking News Ticker - Today and yesterday's news with LIVE badge */}
         {tickerNews.length > 0 && (() => {
-          const today = new Date().toISOString().split('T')[0];
-          const todayNews = tickerNews.filter(n => {
+          const today = new Date();
+          const todayStr = today.toISOString().split('T')[0];
+          const yesterday = new Date(today);
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split('T')[0];
+          
+          const recentNews = tickerNews.filter(n => {
             if (!n.data) return false;
             // Parse various date formats
             try {
               const newsDate = new Date(n.data);
-              return newsDate.toISOString().split('T')[0] === today;
+              const newsDateStr = newsDate.toISOString().split('T')[0];
+              return newsDateStr === todayStr || newsDateStr === yesterdayStr;
             } catch {
               return false;
             }
           });
-          // If no today's news, show latest 6 with a different label
-          const displayNews = todayNews.length > 0 ? todayNews.slice(0, 6) : tickerNews.slice(0, 6);
-          const isToday = todayNews.length > 0;
+          
+          // Show recent news (today + yesterday) or fallback to latest 6
+          const displayNews = recentNews.length > 0 ? recentNews.slice(0, 6) : tickerNews.slice(0, 6);
+          const hasRecentNews = recentNews.length > 0;
           
           return (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
               className="rounded-xl border border-white/[0.08] p-3 md:col-span-2 lg:col-span-1"
               style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}>
               <div className="flex items-center gap-2 mb-2">
-                {isToday ? (
-                  <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-red-500/20 text-red-400 rounded animate-pulse">Live</span>
-                ) : (
-                  <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-slate-500/20 text-slate-400 rounded">Recenti</span>
-                )}
-                <span className="text-xs font-semibold text-white">{isToday ? 'Breaking News' : 'Ultime Notizie'}</span>
+                <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-red-500/20 text-red-400 rounded animate-pulse">Live</span>
+                <span className="text-xs font-semibold text-white">Breaking News</span>
+                {!hasRecentNews && <span className="text-[8px] text-slate-500">(archivio)</span>}
               </div>
               <div className="space-y-1 max-h-[140px] overflow-y-auto pr-1">
                 {displayNews.map((n, i) => (
