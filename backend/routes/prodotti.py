@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.get("/prodotti/search")
 async def search_prodotti(q: str = "", limit: int = 30):
-    """Server-side search with batch price lookup"""
+    """Ultra-fast server-side search - no price lookup"""
     if not q or len(q.strip()) == 0:
         return []
 
@@ -22,19 +22,6 @@ async def search_prodotti(q: str = "", limit: int = 30):
         ]
     }
     prodotti = await db.prodotti.find(query, {"_id": 0}).limit(limit).to_list(limit)
-
-    if prodotti:
-        nomi = [p.get('nome', '') for p in prodotti if p.get('nome')]
-        pipeline = [
-            {"$match": {"prodotto_nome": {"$in": nomi}, "prezzo_unitario": {"$gt": 0}}},
-            {"$sort": {"data": -1}},
-            {"$group": {"_id": "$prodotto_nome", "prezzo": {"$first": "$prezzo_unitario"}}}
-        ]
-        prezzi = await db.ordini.aggregate(pipeline).to_list(len(nomi))
-        prezzi_map = {p['_id']: p['prezzo'] for p in prezzi}
-        for p in prodotti:
-            p['ultimo_prezzo_acquisto'] = prezzi_map.get(p.get('nome', ''), 0)
-
     return prodotti
 
 
