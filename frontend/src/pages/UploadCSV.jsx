@@ -252,29 +252,45 @@ export default function UploadCSV() {
               {/* Stats Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatBox
-                  label="Nuovi Clienti"
-                  value={result.stats?.new_clienti || 0}
-                  icon={Users}
-                  color="text-blue-500"
-                />
-                <StatBox
-                  label="Nuovi Fornitori"
-                  value={result.stats?.new_fornitori || 0}
-                  icon={Truck}
-                  color="text-purple-500"
-                />
-                <StatBox
-                  label="Nuovi Prodotti"
-                  value={result.stats?.new_prodotti || 0}
-                  icon={Package}
-                  color="text-amber-500"
-                />
-                <StatBox
-                  label="Vendite Create"
+                  label="Vendite"
                   value={result.stats?.vendite_created || 0}
                   icon={ShoppingCart}
                   color="text-green-500"
                 />
+                <StatBox
+                  label="Acquisti"
+                  value={result.stats?.ordini_created || 0}
+                  icon={Truck}
+                  color="text-blue-500"
+                />
+                <StatBox
+                  label="Cessioni/Omaggi"
+                  value={result.stats?.cessioni_created || 0}
+                  icon={Package}
+                  color="text-purple-500"
+                />
+                <StatBox
+                  label="Altri Mov."
+                  value={result.stats?.other_movements || 0}
+                  icon={Files}
+                  color="text-slate-500"
+                />
+              </div>
+              
+              {/* Additional Stats */}
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="p-3 bg-muted/50 rounded-sm">
+                  <p className="text-2xl font-bold text-blue-400">{result.stats?.new_clienti || 0}</p>
+                  <p className="text-xs text-muted-foreground">Nuovi Clienti</p>
+                </div>
+                <div className="p-3 bg-muted/50 rounded-sm">
+                  <p className="text-2xl font-bold text-purple-400">{result.stats?.new_fornitori || 0}</p>
+                  <p className="text-xs text-muted-foreground">Nuovi Fornitori</p>
+                </div>
+                <div className="p-3 bg-muted/50 rounded-sm">
+                  <p className="text-2xl font-bold text-amber-400">{result.stats?.new_prodotti || 0}</p>
+                  <p className="text-xs text-muted-foreground">Nuovi Prodotti</p>
+                </div>
               </div>
 
               {/* Errors if any */}
