@@ -83,6 +83,31 @@ export default function Dashboard() {
     } catch (e) {}
   }, []);
 
+  // Server-side search for products
+  const searchProdotti = useCallback(async (query) => {
+    if (!query || query.trim().length === 0) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const response = await axios.get(`${API}/prodotti/search`, { params: { q: query, limit: 30 } });
+      setSearchResults(response.data);
+    } catch (e) {
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchProdotti(prodottoSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [prodottoSearch, searchProdotti]);
+
   const viewProdottoAnalisi = async (prodotto) => {
     setSelectedProdotto(prodotto);
     setShowSearchModal(false);
