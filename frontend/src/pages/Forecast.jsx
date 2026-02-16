@@ -371,62 +371,92 @@ export default function Forecast() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Historical Chart */}
+            {/* Forecast Chart - Previsioni */}
             <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4">
               <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-4 h-4 text-violet-400" />
-                <span className="text-sm font-medium text-white">Storico Vendite</span>
+                <Target className="w-4 h-4 text-emerald-400" />
+                <span className="text-sm font-medium text-white">Previsione Vendite</span>
+                <span className="ml-auto text-[10px] text-slate-500">Prossimi 3 mesi</span>
               </div>
-              <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={forecast.storico}>
-                    <defs>
-                      <linearGradient id="colorFatturato" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis 
-                      dataKey="mese" 
-                      tick={{ fontSize: 10, fill: '#64748b' }} 
-                      tickFormatter={getMeseLabel}
-                    />
-                    <YAxis 
-                      tick={{ fontSize: 10, fill: '#64748b' }} 
-                      tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`}
-                    />
-                    <Tooltip
-                      contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-                      labelFormatter={getMeseLabel}
-                      formatter={(v) => [formatCurrency(v), 'Fatturato']}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="fatturato" 
-                      stroke="#8b5cf6" 
-                      strokeWidth={2}
-                      fill="url(#colorFatturato)" 
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              
+              {/* Forecast Bars */}
+              <div className="space-y-3">
+                {(forecast.previsioni || []).map((prev, idx) => (
+                  <div key={prev.mese} className="relative">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={cn(
+                        "text-xs font-medium",
+                        idx === 0 ? "text-emerald-400" : "text-slate-400"
+                      )}>
+                        {prev.mese_nome}
+                      </span>
+                      <span className="text-sm font-bold text-white">{formatCurrency(prev.previsione)}</span>
+                    </div>
+                    
+                    {/* Bar with range */}
+                    <div className="relative h-8 bg-slate-800/50 rounded-lg overflow-hidden">
+                      {/* Range background */}
+                      <div 
+                        className="absolute h-full bg-slate-700/30 rounded-lg"
+                        style={{
+                          left: `${(prev.minimo / (prev.massimo * 1.2)) * 100}%`,
+                          width: `${((prev.massimo - prev.minimo) / (prev.massimo * 1.2)) * 100}%`
+                        }}
+                      />
+                      {/* Forecast value bar */}
+                      <div 
+                        className={cn(
+                          "absolute h-full rounded-lg transition-all",
+                          idx === 0 ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : 
+                          idx === 1 ? "bg-gradient-to-r from-blue-500 to-blue-400" :
+                          "bg-gradient-to-r from-violet-500 to-violet-400"
+                        )}
+                        style={{ width: `${(prev.previsione / (prev.massimo * 1.2)) * 100}%` }}
+                      />
+                      {/* Labels inside bar */}
+                      <div className="absolute inset-0 flex items-center justify-between px-2">
+                        <span className="text-[9px] text-white/70">Min {formatCurrency(prev.minimo)}</span>
+                        <span className="text-[9px] text-white/70">Max {formatCurrency(prev.massimo)}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Trend indicator */}
+                    {prev.trend !== 0 && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className={cn(
+                          "text-[10px]",
+                          prev.trend > 0 ? "text-emerald-400" : "text-red-400"
+                        )}>
+                          {prev.trend > 0 ? '↑' : '↓'} {Math.abs(prev.trend)}% vs anni prec.
+                        </span>
+                        {prev.anni_dati > 0 && (
+                          <span className="text-[10px] text-slate-600">({prev.anni_dati} anni dati)</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-              <div className="mt-3 grid grid-cols-4 gap-2">
-                <div className="p-2 rounded-lg bg-white/[0.03] text-center">
-                  <p className="text-[10px] text-slate-500">Media Mese</p>
-                  <p className="text-sm font-semibold text-emerald-400">{formatCurrency(forecast.statistiche.stesso_mese_avg || 0)}</p>
+              
+              {/* Summary Cards */}
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
+                  <p className="text-[9px] text-emerald-400/70">Totale Previsto</p>
+                  <p className="text-sm font-bold text-emerald-400">
+                    {formatCurrency((forecast.previsioni || []).reduce((sum, p) => sum + p.previsione, 0))}
+                  </p>
                 </div>
-                <div className="p-2 rounded-lg bg-white/[0.03] text-center">
-                  <p className="text-[10px] text-slate-500">Max Mese</p>
-                  <p className="text-sm font-semibold text-blue-400">{formatCurrency(forecast.statistiche.stesso_mese_max || 0)}</p>
+                <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
+                  <p className="text-[9px] text-blue-400/70">Media Prevista</p>
+                  <p className="text-sm font-bold text-blue-400">
+                    {formatCurrency((forecast.previsioni || []).reduce((sum, p) => sum + p.previsione, 0) / 3)}
+                  </p>
                 </div>
-                <div className="p-2 rounded-lg bg-white/[0.03] text-center">
-                  <p className="text-[10px] text-slate-500">Min Mese</p>
-                  <p className="text-sm font-semibold text-amber-400">{formatCurrency(forecast.statistiche.stesso_mese_min || 0)}</p>
-                </div>
-                <div className="p-2 rounded-lg bg-white/[0.03] text-center">
-                  <p className="text-[10px] text-slate-500">Anni Dati</p>
-                  <p className="text-sm font-semibold text-violet-400">{forecast.statistiche.anni_dati_mese || 0}</p>
+                <div className="p-2 rounded-lg bg-violet-500/10 border border-violet-500/20 text-center">
+                  <p className="text-[9px] text-violet-400/70">Media Storica</p>
+                  <p className="text-sm font-bold text-violet-400">
+                    {formatCurrency(forecast.statistiche?.media_mensile || 0)}
+                  </p>
                 </div>
               </div>
             </div>
