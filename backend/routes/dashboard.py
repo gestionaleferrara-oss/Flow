@@ -569,18 +569,23 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
         }
 
     elif card_type == "ordini":
-        # Daily orders
+        # Scontrino medio = totale per visita (cliente + data)
+        scontrino_pipeline = [
+            {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$group": {"_id": {"cliente": "$cliente_nome", "data": "$data"}, "totale_visita": {"$sum": {"$abs": "$totale"}}}},
+            {"$group": {"_id": None, "media": {"$avg": "$totale_visita"}, "num_visite": {"$sum": 1}, "totale": {"$sum": "$totale_visita"}}}
+        ]
+        scontrino_res = await db.vendite.aggregate(scontrino_pipeline).to_list(1)
+        avg_order = scontrino_res[0]["media"] if scontrino_res else 0
+        num_visite = scontrino_res[0]["num_visite"] if scontrino_res else 0
+        # Daily orders (by unique client visits per day)
         daily_pipeline = [
             {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
-            {"$group": {"_id": "$data", "count": {"$sum": 1}, "totale": {"$sum": {"$abs": "$totale"}}}},
+            {"$group": {"_id": {"data": "$data", "cliente": "$cliente_nome"}, "totale_visita": {"$sum": {"$abs": "$totale"}}}},
+            {"$group": {"_id": "$_id.data", "visite": {"$sum": 1}, "totale": {"$sum": "$totale_visita"}}},
             {"$sort": {"_id": 1}}
         ]
         daily = await db.vendite.aggregate(daily_pipeline).to_list(31)
-        avg_order = 0
-        if daily:
-            tot_orders = sum(d["count"] for d in daily)
-            tot_val = sum(d["totale"] for d in daily)
-            avg_order = tot_val / tot_orders if tot_orders > 0 else 0
         # Top products by number of requests (orders count)
         req_pipeline = [
             {"$match": {"data": {"$gte": month_start}}},
@@ -591,16 +596,18 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
         # Peak days
         peak_pipeline = [
             {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
-            {"$group": {"_id": "$data", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}}, {"$limit": 3}
+            {"$group": {"_id": {"data": "$data", "cliente": "$cliente_nome"}}},
+            {"$group": {"_id": "$_id.data", "visite": {"$sum": 1}}},
+            {"$sort": {"visite": -1}}, {"$limit": 3}
         ]
         peak = await db.vendite.aggregate(peak_pipeline).to_list(3)
         return {
             "tipo": "ordini",
-            "giornaliero": [{"data": d["_id"], "ordini": d["count"], "totale": round(d["totale"], 2)} for d in daily],
+            "giornaliero": [{"data": d["_id"], "ordini": d["visite"], "totale": round(d["totale"], 2)} for d in daily],
             "scontrino_medio": round(avg_order, 2),
+            "num_visite_totali": num_visite,
             "top_prodotti_richieste": [{"nome": p["_id"], "richieste": p["richieste"], "quantita": round(p["quantita"], 1)} for p in top_req],
-            "giorni_picco": [{"data": p["_id"], "ordini": p["count"]} for p in peak]
+            "giorni_picco": [{"data": p["_id"], "ordini": p["visite"]} for p in peak]
         }
 
     elif card_type == "clienti":
