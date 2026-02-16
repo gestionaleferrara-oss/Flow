@@ -159,6 +159,38 @@ export default function Dashboard() {
     } finally { setLoadingAnalisi(false); }
   };
 
+  // Cliente Analisi functions
+  const viewClienteAnalisi = async (clienteName, periodo = 'mese') => {
+    setSelectedCliente({ nome: clienteName });
+    setShowClienteModal(true);
+    setLoadingClienteAnalisi(true);
+    setClienteAnalisiPeriodo(periodo);
+    try {
+      // First get cliente by name to get ID
+      const clientiRes = await axios.get(`${API}/clienti`, { params: { search: clienteName, limit: 1 } });
+      if (clientiRes.data && clientiRes.data.length > 0) {
+        const cliente = clientiRes.data[0];
+        setSelectedCliente(cliente);
+        const analisiRes = await axios.get(`${API}/clienti/${cliente.id}/analisi`, { params: { periodo } });
+        setClienteAnalisi(analisiRes.data);
+      }
+    } catch (e) {
+      setClienteAnalisi(null);
+    } finally { setLoadingClienteAnalisi(false); }
+  };
+
+  const changeClienteAnalisiPeriodo = async (newPeriodo) => {
+    if (!selectedCliente?.id || newPeriodo === clienteAnalisiPeriodo) return;
+    setClienteAnalisiPeriodo(newPeriodo);
+    setLoadingClienteAnalisi(true);
+    try {
+      const analisiRes = await axios.get(`${API}/clienti/${selectedCliente.id}/analisi`, { params: { periodo: newPeriodo } });
+      setClienteAnalisi(analisiRes.data);
+    } catch (e) {
+      // Keep existing data
+    } finally { setLoadingClienteAnalisi(false); }
+  };
+
   const filteredProdotti = searchResults;
 
   if (loading) return <LoadingSpinner fullScreen />;
