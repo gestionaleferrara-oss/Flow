@@ -155,44 +155,28 @@ export default function Dashboard() {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
-        {/* AI Suggestion */}
+        {/* AI Suggestion - Compact inline style */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="lg:col-span-8 rounded-xl bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-fuchsia-500/10 border border-purple-500/20 p-4 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="relative flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shrink-0">
-              <Sparkles className="w-4 h-4 text-white" />
+          className="lg:col-span-8 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden">
+          <div className="px-3 py-2 flex items-center gap-3">
+            <div className="p-1.5 rounded-md bg-violet-500/15 shrink-0">
+              <Sparkles className="w-3.5 h-3.5 text-violet-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-sm text-white">Suggerimento AI</h3>
-                  <span className="px-1.5 py-0.5 text-[9px] bg-purple-500/20 text-purple-300 rounded">AI</span>
+              {aiSuggestion?.suggestion ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-wide">{aiSuggestion.suggestion.titolo}</span>
+                  <span className="text-xs text-slate-300 truncate">{aiSuggestion.suggestion.messaggio}</span>
+                  <span className="text-[9px] px-1.5 py-0.5 bg-violet-500/10 text-violet-300 rounded border border-violet-500/20 shrink-0">{aiSuggestion.suggestion.azione}</span>
                 </div>
-                <Button variant="ghost" size="sm" onClick={refreshAiSuggestion} disabled={loadingAi}
-                  className="text-purple-300 hover:text-purple-200 hover:bg-purple-500/20 h-6 px-2 text-[10px]">
-                  <RefreshCw className={cn("w-3 h-3 mr-1", loadingAi && "animate-spin")} /> Nuovo
-                </Button>
-              </div>
-              {loadingAi ? (
-                <div className="flex items-center gap-2 text-slate-400 text-xs">
-                  <RefreshCw className="w-3 h-3 animate-spin" /> Analisi...
-                </div>
-              ) : aiSuggestion?.suggestion ? (
-                <>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Lightbulb className="w-3 h-3 text-amber-400" />
-                    <span className="text-xs font-medium text-purple-300">{aiSuggestion.suggestion.titolo}</span>
-                  </div>
-                  <p className="text-slate-300 text-xs leading-relaxed line-clamp-2 mb-1.5">{aiSuggestion.suggestion.messaggio}</p>
-                  <span className="inline-block px-2 py-0.5 text-[10px] bg-white/5 text-purple-300 rounded border border-purple-500/20">
-                    {aiSuggestion.suggestion.azione}
-                  </span>
-                </>
               ) : (
-                <p className="text-slate-400 text-xs">Importa dati per suggerimenti</p>
+                <span className="text-xs text-slate-500">Importa dati per suggerimenti AI</span>
               )}
             </div>
+            <Button variant="ghost" size="sm" onClick={refreshAiSuggestion} disabled={loadingAi}
+              className="text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 h-7 px-2 shrink-0">
+              <RefreshCw className={cn("w-3 h-3", loadingAi && "animate-spin")} />
+            </Button>
           </div>
         </motion.div>
 
