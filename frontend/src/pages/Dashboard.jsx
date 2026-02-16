@@ -874,7 +874,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2 pb-2 border-b border-white/[0.06]">
                   <Calendar className="w-3.5 h-3.5 text-slate-500" />
                   <span className="text-xs text-slate-500">Periodo:</span>
-                  {[{v:'mese',l:'Mese corrente'},{v:'30gg',l:'30 giorni'},{v:'90gg',l:'90 giorni'}].map(p => (
+                  {[{v:'mese',l:'Mese corrente'},{v:'mese_prec',l:'Mese prec.'},{v:'30gg',l:'30 giorni'},{v:'90gg',l:'90 giorni'}].map(p => (
                     <button key={p.v} onClick={() => { setOrdiniPeriodo(p.v); openCardDetail('ordini', p.v); }}
                       className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
                         ordiniPeriodo === p.v ? "bg-emerald-500/20 text-emerald-300" : "text-slate-500 hover:text-slate-300"
