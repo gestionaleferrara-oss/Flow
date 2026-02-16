@@ -492,15 +492,6 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
             if is_acquisto and importo_unitario > 0:
                 cache['prodotti'][nome_prodotto]['prezzo_medio'] = importo_unitario
             stats['existing_prodotti'] += 1
-                )
-            # Update quantity
-            await db.prodotti.update_one(
-                {"nome": nome_prodotto},
-                {"$inc": {"quantita": qty_change}}
-            )
-            if nome_prodotto in cache['prodotti']:
-                cache['prodotti'][nome_prodotto] = cache['prodotti'][nome_prodotto] + qty_change
-            stats['existing_prodotti'] += 1
 
 
 # ======================= API ENDPOINTS =======================
