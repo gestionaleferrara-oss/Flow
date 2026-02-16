@@ -161,13 +161,25 @@ async def export_statistiche_pdf(
             
             top_prod_with_margin.append(item)
 
-        # Top clienti
+        # Top clienti with order count
         cli_rev = {}
+        cli_ordini = {}  # Count unique orders per client
         for v in vendite:
             c = v.get('cliente_nome', '')
             if c:
                 cli_rev[c] = cli_rev.get(c, 0) + abs(v.get('totale', 0))
-        top_cli = sorted(cli_rev.items(), key=lambda x: x[1], reverse=True)[:10]
+                # Count unique orders (same date = same order)
+                order_key = (c, v.get('data', ''))
+                if order_key not in cli_ordini:
+                    cli_ordini[order_key] = True
+        
+        # Calculate orders per client
+        ordini_per_cliente = {}
+        for (cliente, data), _ in cli_ordini.items():
+            ordini_per_cliente[cliente] = ordini_per_cliente.get(cliente, 0) + 1
+        
+        top_cli = [(nome, fatturato, ordini_per_cliente.get(nome, 0)) 
+                   for nome, fatturato in sorted(cli_rev.items(), key=lambda x: x[1], reverse=True)[:10]]
 
         pdf = FlussoReport()
         pdf.add_page()
