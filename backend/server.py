@@ -2915,13 +2915,13 @@ async def get_trends_vendite(
         
         trends.append({
             "prodotto": prod,
-            "quantita": round(curr_qty, 1),
+            "quantita_2w": round(curr_qty, 1),
             "quantita_prev": round(prev_qty, 1),
-            "fatturato": round(curr_totale, 2),
+            "fatturato_2w": round(curr_totale, 2),
             "fatturato_prev": round(prev_totale, 2),
-            "var_qty_pct": round(qty_change, 1),
-            "var_fatturato_pct": round(rev_change, 1),
-            "quota_pct": round(rev_share, 2),
+            "variazione_qty_pct": round(qty_change, 1),
+            "variazione_fatturato_pct": round(rev_change, 1),
+            "quota_fatturato_pct": round(rev_share, 2),
             "interest_score": round(interest_score, 2),
             "trend": "up" if qty_change > 5 else "down" if qty_change < -5 else "stable"
         })
