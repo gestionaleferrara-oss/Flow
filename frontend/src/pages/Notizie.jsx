@@ -3,9 +3,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   RefreshCw, ExternalLink, Wind, Thermometer,
-  MapPin, Clock, ArrowUpRight, FileText, CloudSun,
-  TrendingUp, TrendingDown, Minus, Search as SearchIcon,
-  ChevronDown, ChevronUp, Filter, Sparkles, Lightbulb
+  MapPin, Clock, ArrowUpRight, FileText, CloudSun
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
@@ -39,51 +37,15 @@ const getW = (code) => weatherMeta[code] || { label: '?', icon: '❓', bg: 'from
 
 const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250'%3E%3Crect width='100%25' height='100%25' fill='%23111827'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='13' fill='%23475569'%3EImmagine non disponibile%3C/text%3E%3C/svg%3E";
 
-// Mini sparkline SVG
-function Sparkline({ data, color }) {
-  if (!data || data.length < 2) return null;
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  const w = 80, h = 28;
-  const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * h}`).join(' ');
-  return (
-    <svg width={w} height={h} className="shrink-0">
-      <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 export default function Notizie() {
   const [notizie, setNotizie] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [meteo, setMeteo] = useState(null);
   const [prezziMercati, setPrezziMercati] = useState([]);
-  const [trends, setTrends] = useState([]);
-  const [trendsVendite, setTrendsVendite] = useState(null);
-  const [trendsLoading, setTrendsLoading] = useState(true);
   const [tickerNews, setTickerNews] = useState([]);
   const [categorie, setCategorie] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState('all');
-  const [trendCategoria, setTrendCategoria] = useState('frutta-secca');
-  const [trendSource, setTrendSource] = useState('vendite'); // 'vendite' or 'google'
-  
-  // NEW: Expandable trends state
-  const [trendsExpanded, setTrendsExpanded] = useState(false);
-  const [trendsPeriodo, setTrendsPeriodo] = useState('2w');
-  const [trendsOrdinaPer, setTrendsOrdinaPer] = useState('interest');
-  
-  // NEW: Sales Insight state
-  const [salesInsight, setSalesInsight] = useState(null);
-  const [insightLoading, setInsightLoading] = useState(true);
-
-  const trendCategories = [
-    { id: 'frutta-secca', label: 'Frutta Secca' },
-    { id: 'frutta', label: 'Frutta' },
-    { id: 'verdura', label: 'Verdura' },
-    { id: 'spezie', label: 'Spezie' }
-  ];
 
   useEffect(() => { loadData(); }, []);
 
@@ -100,43 +62,7 @@ export default function Notizie() {
       setCategorie([...new Set(notizieRes.data.map(n => n.categoria))]);
     } catch (e) { console.error(e); } finally { setLoading(false); }
 
-    // Load trends (both sources), ticker and sales insight separately
-    loadTrendsVendite('2w', 'interest', 5);
-    loadTrends('frutta-secca');
     loadTicker();
-    loadSalesInsight();
-  };
-
-  const loadTrendsVendite = async (periodo = trendsPeriodo, ordinaPer = trendsOrdinaPer, limit = trendsExpanded ? 20 : 5) => {
-    try {
-      const res = await axios.get(`${API}/trends-vendite`, {
-        params: { periodo, ordina_per: ordinaPer, limit }
-      });
-      setTrendsVendite(res.data);
-    } catch (e) { console.error(e); }
-  };
-  
-  const loadSalesInsight = async () => {
-    setInsightLoading(true);
-    try {
-      const res = await axios.get(`${API}/sales-insight`);
-      setSalesInsight(res.data);
-    } catch (e) { console.error(e); } finally { setInsightLoading(false); }
-  };
-
-  const loadTrends = async (cat) => {
-    setTrendsLoading(true);
-    try {
-      const res = await axios.get(`${API}/trends/${cat}`);
-      setTrends(res.data.keywords || res.data || []);
-    } catch (e) { 
-      console.error(e);
-      // Fallback to old endpoint
-      try {
-        const res = await axios.get(`${API}/trends-frutta-secca`);
-        setTrends(res.data || []);
-      } catch (e2) { console.error(e2); }
-    } finally { setTrendsLoading(false); }
   };
 
   const loadTicker = async () => {
@@ -144,11 +70,6 @@ export default function Notizie() {
       const res = await axios.get(`${API}/ticker-news`);
       setTickerNews(res.data);
     } catch (e) { console.error(e); }
-  };
-
-  const handleTrendCategoryChange = (cat) => {
-    setTrendCategoria(cat);
-    loadTrends(cat);
   };
 
   const refreshNews = async () => {
@@ -183,11 +104,12 @@ export default function Notizie() {
         </Button>
       </PageHeader>
 
-      {/* === TOP: 3 widget in riga === */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8 items-start">
+      {/* TOP WIDGETS: Meteo + Ticker | Listini Mercato */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
 
-        {/* 1. METEO + TICKER */}
-        <div className="flex flex-col gap-4">
+        {/* LEFT: METEO + TICKER */}
+        <div className="space-y-4">
+          {/* Meteo Widget */}
           {cw && w && (
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -244,12 +166,12 @@ export default function Notizie() {
             </motion.div>
           )}
 
-          {/* TICKER NOTIZIE FLASH — da fonti esterne diverse - GRANDE */}
+          {/* Ticker News */}
           {tickerNews.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
+              transition={{ delay: 0.1 }}
               className="rounded-2xl overflow-hidden border border-white/[0.08] p-4"
               style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
               data-testid="news-ticker"
@@ -279,380 +201,42 @@ export default function Notizie() {
           )}
         </div>
 
-        {/* 2. LISTINI MERCATO + SALES INSIGHT */}
-        <div className="flex flex-col gap-4">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08 }}
-            className="rounded-2xl overflow-hidden border border-white/[0.08] p-5"
-            style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
-            data-testid="prices-widget"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-                <FileText className="w-3.5 h-3.5 text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="text-xs font-semibold text-white">Listini Mercato</h3>
-                <p className="text-[10px] text-slate-500">Prezzi ingrosso PDF</p>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              {prezziMercati.map((m, idx) => (
-                <motion.a key={m.nome} href={m.url} target="_blank" rel="noopener noreferrer"
-                  initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.12 + idx * 0.03 }}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg group
-                    bg-white/[0.03] border border-white/[0.04] hover:bg-emerald-500/[0.06] hover:border-emerald-500/15 transition-all duration-300">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-3 h-3 text-slate-600 group-hover:text-emerald-400 transition-colors" />
-                    <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors font-medium">{m.nome}</span>
-                  </div>
-                  <ArrowUpRight className="w-3 h-3 text-slate-600 group-hover:text-emerald-400 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </motion.a>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* SALES INSIGHT WIDGET */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12 }}
-            className="rounded-2xl overflow-hidden border border-white/[0.08] p-5"
-            style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
-            data-testid="sales-insight-widget"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center">
-                <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
-              </div>
-              <div>
-                <h3 className="text-xs font-semibold text-white">Sales Insight</h3>
-                <p className="text-[10px] text-slate-500">
-                  {salesInsight?.mese_riferimento || 'Caricamento...'}
-                </p>
-              </div>
-            </div>
-
-            {insightLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <RefreshCw className="w-5 h-5 text-slate-600 animate-spin" />
-              </div>
-            ) : salesInsight?.insights?.length > 0 ? (
-              <div className="space-y-2">
-                {salesInsight.insights.map((insight, idx) => {
-                  const colorMap = {
-                    emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', text: 'text-emerald-400' },
-                    cyan: { bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', text: 'text-cyan-400' },
-                    violet: { bg: 'bg-violet-500/10', border: 'border-violet-500/20', text: 'text-violet-400' },
-                    amber: { bg: 'bg-amber-500/10', border: 'border-amber-500/20', text: 'text-amber-400' },
-                    blue: { bg: 'bg-blue-500/10', border: 'border-blue-500/20', text: 'text-blue-400' },
-                    rose: { bg: 'bg-rose-500/10', border: 'border-rose-500/20', text: 'text-rose-400' },
-                    orange: { bg: 'bg-orange-500/10', border: 'border-orange-500/20', text: 'text-orange-400' },
-                  };
-                  const colors = colorMap[insight.colore] || colorMap.emerald;
-                  
-                  return (
-                    <motion.div
-                      key={insight.tipo}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.08 + idx * 0.04 }}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors",
-                        colors.bg, colors.border, "hover:bg-white/[0.04]"
-                      )}
-                    >
-                      <span className="text-lg shrink-0">{insight.icona}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wider">{insight.titolo}</p>
-                        <p className={cn("text-xs font-semibold truncate", colors.text)}>{insight.valore}</p>
-                        <p className="text-[9px] text-slate-600 truncate">{insight.dettaglio}</p>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <Sparkles className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-                <p className="text-xs text-slate-500">Nessun insight disponibile</p>
-                <p className="text-[10px] text-slate-600">Carica dei dati per vedere gli insight</p>
-              </div>
-            )}
-          </motion.div>
-        </div>
-
-        {/* 3. TRENDS WITH SOURCE SWITCH - EXPANDABLE */}
+        {/* RIGHT: LISTINI MERCATO */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.16 }}
-          className={cn(
-            "rounded-2xl overflow-hidden border border-white/[0.08] p-5 transition-all duration-300",
-            trendsExpanded && trendSource === 'vendite' && "lg:col-span-2"
-          )}
+          transition={{ delay: 0.08 }}
+          className="rounded-2xl overflow-hidden border border-white/[0.08] p-5 h-fit"
           style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
-          data-testid="trends-widget"
+          data-testid="prices-widget"
         >
-          {/* Header with Expand Button */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-violet-500/15 flex items-center justify-center">
-                <TrendingUp className="w-3.5 h-3.5 text-violet-400" />
-              </div>
-              <div>
-                <h3 className="text-xs font-semibold text-white">Trend Prodotti</h3>
-                <p className="text-[10px] text-slate-500">
-                  {trendSource === 'vendite' 
-                    ? `Top ${trendsExpanded ? '20' : '5'} - ${trendsVendite?.periodo_label || '2 settimane'}`
-                    : 'Google Trends Italia'}
-                </p>
-              </div>
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="p-2 rounded-lg bg-emerald-500/15">
+              <FileText className="w-4 h-4 text-emerald-400" />
             </div>
-            {trendSource === 'vendite' && (
-              <button
-                onClick={() => {
-                  const newExpanded = !trendsExpanded;
-                  setTrendsExpanded(newExpanded);
-                  loadTrendsVendite(trendsPeriodo, trendsOrdinaPer, newExpanded ? 20 : 5);
-                }}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[10px] text-slate-400 hover:bg-white/[0.1] hover:text-white transition-all"
-                data-testid="expand-trends-btn"
-              >
-                {trendsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                {trendsExpanded ? 'Riduci' : 'Espandi'}
-              </button>
-            )}
+            <div>
+              <h3 className="text-sm font-semibold text-white">Listini Mercato</h3>
+              <p className="text-[10px] text-slate-500">Prezzi all'ingrosso - Fonti ufficiali</p>
+            </div>
           </div>
-
-          {/* Main Source Switch */}
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={() => setTrendSource('vendite')}
-              className={cn(
-                'flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-200',
-                trendSource === 'vendite'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-white/[0.03] text-slate-500 border border-white/[0.05] hover:bg-white/[0.06]'
-              )}
-            >
-              📦 I Miei Articoli
-            </button>
-            <button
-              onClick={() => setTrendSource('google')}
-              className={cn(
-                'flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-200',
-                trendSource === 'google'
-                  ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
-                  : 'bg-white/[0.03] text-slate-500 border border-white/[0.05] hover:bg-white/[0.06]'
-              )}
-            >
-              🔍 Google Trends
-            </button>
+          <div className="space-y-2">
+            {prezziMercati.map((m, idx) => (
+              <motion.a key={m.nome} href={m.url} target="_blank" rel="noopener noreferrer"
+                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.12 + idx * 0.03 }}
+                className="flex items-center justify-between px-3 py-2.5 rounded-xl group
+                  bg-white/[0.03] border border-white/[0.04] hover:bg-emerald-500/[0.06] hover:border-emerald-500/15 transition-all duration-300">
+                <div className="flex items-center gap-2.5">
+                  <FileText className="w-3.5 h-3.5 text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                  <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors font-medium">{m.nome}</span>
+                </div>
+                <ArrowUpRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-emerald-400 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </motion.a>
+            ))}
           </div>
-
-          {/* VENDITE TRENDS - with Advanced Filters when expanded */}
-          {trendSource === 'vendite' && (
-            <>
-              {/* Advanced Filters - only show when expanded */}
-              {trendsExpanded && (
-                <div className="mb-4 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Filter className="w-3.5 h-3.5 text-slate-500" />
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Filtri Avanzati</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Periodo */}
-                    <div>
-                      <label className="text-[9px] text-slate-600 block mb-1.5">Periodo</label>
-                      <div className="flex flex-wrap gap-1">
-                        {[
-                          { value: '1w', label: '1 Sett' },
-                          { value: '2w', label: '2 Sett' },
-                          { value: '1m', label: '1 Mese' },
-                          { value: '3m', label: '3 Mesi' }
-                        ].map(p => (
-                          <button
-                            key={p.value}
-                            onClick={() => {
-                              setTrendsPeriodo(p.value);
-                              loadTrendsVendite(p.value, trendsOrdinaPer, 20);
-                            }}
-                            className={cn(
-                              'px-2 py-1 rounded text-[9px] font-medium transition-all',
-                              trendsPeriodo === p.value
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                : 'bg-white/[0.04] text-slate-500 border border-white/[0.06] hover:bg-white/[0.08]'
-                            )}
-                          >
-                            {p.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Ordina per */}
-                    <div>
-                      <label className="text-[9px] text-slate-600 block mb-1.5">Ordina per</label>
-                      <div className="flex flex-wrap gap-1">
-                        {[
-                          { value: 'interest', label: 'Interesse' },
-                          { value: 'fatturato', label: 'Fatturato' },
-                          { value: 'quantita', label: 'Quantità' },
-                          { value: 'var_positiva', label: '↑ Crescita' },
-                          { value: 'var_negativa', label: '↓ Calo' }
-                        ].map(o => (
-                          <button
-                            key={o.value}
-                            onClick={() => {
-                              setTrendsOrdinaPer(o.value);
-                              loadTrendsVendite(trendsPeriodo, o.value, 20);
-                            }}
-                            className={cn(
-                              'px-2 py-1 rounded text-[9px] font-medium transition-all',
-                              trendsOrdinaPer === o.value
-                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                                : 'bg-white/[0.04] text-slate-500 border border-white/[0.06] hover:bg-white/[0.08]'
-                            )}
-                          >
-                            {o.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {trendsVendite ? (
-                <div className={cn("space-y-2", trendsExpanded && "grid grid-cols-1 lg:grid-cols-2 gap-2")}>
-                  {!trendsExpanded && (
-                    <p className="text-[9px] text-slate-600 mb-2">
-                      {trendsVendite.periodo_attuale} vs {trendsVendite.periodo_precedente}
-                    </p>
-                  )}
-                  {trendsExpanded && (
-                    <div className="lg:col-span-2 flex items-center justify-between mb-2">
-                      <p className="text-[9px] text-slate-600">
-                        {trendsVendite.periodo_attuale} vs {trendsVendite.periodo_precedente} • {trendsVendite.totale_prodotti} prodotti totali
-                      </p>
-                      <p className="text-[9px] text-slate-500">
-                        Fatturato periodo: <span className="text-emerald-400 font-semibold">€{trendsVendite.fatturato_totale?.toLocaleString()}</span>
-                      </p>
-                    </div>
-                  )}
-                  {trendsVendite.top_prodotti?.map((t, idx) => (
-                    <motion.div key={t.prodotto}
-                      initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 + idx * 0.02 }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.04] hover:bg-emerald-500/[0.04] transition-colors"
-                    >
-                      <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center shrink-0">
-                        {idx + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-slate-200 truncate">{t.prodotto}</p>
-                        <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-0.5">
-                          <span>Qty: {t.quantita_2w?.toLocaleString()}</span>
-                          <span>€{t.fatturato_2w?.toLocaleString()}</span>
-                          <span className="text-slate-600">({t.quota_fatturato_pct?.toFixed(1)}% del tot)</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className={cn(
-                          'flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold',
-                          t.trend === 'up' && 'text-emerald-400 bg-emerald-500/10',
-                          t.trend === 'down' && 'text-red-400 bg-red-500/10',
-                          t.trend === 'stable' && 'text-slate-400 bg-slate-500/10'
-                        )}>
-                          {t.trend === 'up' && <TrendingUp className="w-3 h-3" />}
-                          {t.trend === 'down' && <TrendingDown className="w-3 h-3" />}
-                          {t.trend === 'stable' && <Minus className="w-3 h-3" />}
-                          Qty {t.variazione_qty_pct > 0 ? '+' : ''}{t.variazione_qty_pct}%
-                        </div>
-                        <span className={cn(
-                          'text-[9px]',
-                          t.variazione_fatturato_pct > 0 ? 'text-emerald-500' : t.variazione_fatturato_pct < 0 ? 'text-red-500' : 'text-slate-500'
-                        )}>
-                          € {t.variazione_fatturato_pct > 0 ? '+' : ''}{t.variazione_fatturato_pct}%
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-32">
-                  <RefreshCw className="w-5 h-5 text-slate-600 animate-spin" />
-                </div>
-              )}
-            </>
-          )}
-
-          {/* GOOGLE TRENDS */}
-          {trendSource === 'google' && (
-            <>
-              {/* Category Switch */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {trendCategories.map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() => handleTrendCategoryChange(cat.id)}
-                    className={cn(
-                      'px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all duration-200',
-                      trendCategoria === cat.id
-                        ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
-                        : 'bg-white/[0.03] text-slate-500 border border-white/[0.05] hover:bg-white/[0.06] hover:text-slate-400'
-                    )}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-
-              {trendsLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <RefreshCw className="w-5 h-5 text-slate-600 animate-spin" />
-                </div>
-              ) : trends.length > 0 ? (
-                <div className="space-y-2">
-                  {trends.slice(0, 5).map((t, idx) => (
-                    <motion.a key={t.keyword}
-                      href={`https://trends.google.com/trends/explore?q=${encodeURIComponent(t.keyword.toLowerCase())}&geo=IT&date=today%203-m`}
-                      target="_blank" rel="noopener noreferrer"
-                      initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + idx * 0.04 }}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.04]
-                        hover:bg-violet-500/[0.06] hover:border-violet-500/15 transition-all duration-300 cursor-pointer group/trend"
-                    >
-                      <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-[10px] font-bold flex items-center justify-center">
-                        {idx + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-slate-200 group-hover/trend:text-white transition-colors">{t.keyword}</p>
-                        <p className="text-[10px] text-slate-600">Interesse: {t.current_interest}/100</p>
-                      </div>
-                      <div className={cn(
-                        'flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] font-bold',
-                        t.trend === 'up' && 'text-emerald-400 bg-emerald-500/10',
-                        t.trend === 'down' && 'text-red-400 bg-red-500/10',
-                        t.trend === 'stable' && 'text-slate-400 bg-slate-500/10'
-                      )}>
-                        {t.trend === 'up' && <TrendingUp className="w-2.5 h-2.5" />}
-                        {t.trend === 'down' && <TrendingDown className="w-2.5 h-2.5" />}
-                        {t.trend === 'stable' && <Minus className="w-2.5 h-2.5" />}
-                        {t.change_pct > 0 ? '+' : ''}{t.change_pct}%
-                      </div>
-                    </motion.a>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-slate-500 text-sm py-8">Nessun dato disponibile</p>
-              )}
-            </>
-          )}
         </motion.div>
       </div>
 
-      {/* === CATEGORY FILTERS === */}
+      {/* CATEGORY FILTERS */}
       <div className="flex flex-wrap items-center gap-2 mb-6" data-testid="category-filters">
         <button onClick={() => setSelectedCategoria('all')}
           className={cn('px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-300',
@@ -672,35 +256,35 @@ export default function Notizie() {
         ))}
       </div>
 
-      {/* === HERO ARTICLE === */}
+      {/* HERO ARTICLE */}
       {heroArticle && (
         <motion.article initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="relative mb-8 rounded-2xl overflow-hidden cursor-pointer group border border-white/[0.08]"
+          className="relative mb-6 rounded-2xl overflow-hidden cursor-pointer group border border-white/[0.08]"
           onClick={() => heroArticle.url && window.open(heroArticle.url, '_blank')}
           data-testid="hero-news-card">
           <div className="grid grid-cols-1 lg:grid-cols-2">
-            <div className="relative h-[220px] lg:h-auto overflow-hidden">
+            <div className="relative h-[200px] lg:h-auto overflow-hidden">
               <img src={heroArticle.immagine_url || fallbackImg} alt={heroArticle.titolo}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 onError={(e) => { e.target.src = fallbackImg; }} />
             </div>
-            <div className="p-6 lg:p-8 flex flex-col justify-center"
+            <div className="p-5 lg:p-6 flex flex-col justify-center"
               style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-cyan-500/15 text-cyan-400 rounded-lg border border-cyan-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-cyan-500/15 text-cyan-400 rounded-lg border border-cyan-500/20">
                   {heroArticle.fonte}
                 </span>
                 {heroArticle.data_pubblicazione && (
-                  <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                  <span className="flex items-center gap-1 text-[10px] text-slate-500">
                     <Clock className="w-3 h-3" />
                     {new Date(heroArticle.data_pubblicazione).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
                   </span>
                 )}
               </div>
-              <h2 className="text-xl lg:text-2xl font-bold text-white mb-3 leading-snug line-clamp-3 group-hover:text-cyan-300 transition-colors duration-300">
+              <h2 className="text-lg lg:text-xl font-bold text-white mb-2 leading-snug line-clamp-3 group-hover:text-cyan-300 transition-colors duration-300">
                 {heroArticle.titolo}
               </h2>
-              <p className="text-sm text-slate-400 leading-relaxed line-clamp-3 mb-4">
+              <p className="text-sm text-slate-400 leading-relaxed line-clamp-2 mb-3">
                 {heroArticle.descrizione || heroArticle.contenuto}
               </p>
               <div className="flex items-center gap-2 text-cyan-400 text-sm font-medium group-hover:gap-3 transition-all duration-300">
@@ -712,25 +296,25 @@ export default function Notizie() {
         </motion.article>
       )}
 
-      {/* === NEWS GRID === */}
+      {/* NEWS GRID */}
       {restArticles.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <AnimatePresence mode="popLayout">
             {restArticles.map((notizia, index) => (
               <motion.article key={notizia.id || index} layout
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: index * 0.04, duration: 0.4 }}
+                transition={{ delay: index * 0.03, duration: 0.4 }}
                 className="group rounded-2xl overflow-hidden cursor-pointer border border-white/[0.06]
                   hover:border-white/[0.15] transition-all duration-500 hover:-translate-y-1"
                 style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}
                 onClick={() => notizia.url && window.open(notizia.url, '_blank')}
                 data-testid="news-card">
-                <div className="relative h-[170px] overflow-hidden">
+                <div className="relative h-[150px] overflow-hidden">
                   <img src={notizia.immagine_url || fallbackImg} alt={notizia.titolo}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     onError={(e) => { e.target.src = fallbackImg; }} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  <span className="absolute top-3 left-3 px-2 py-1 text-[9px] font-bold uppercase tracking-wider
+                  <span className="absolute top-3 left-3 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider
                     bg-black/50 backdrop-blur-md text-white/90 rounded-lg border border-white/10">{notizia.fonte}</span>
                 </div>
                 <div className="p-4">
@@ -740,7 +324,7 @@ export default function Notizie() {
                   <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-3">
                     {notizia.descrizione || notizia.contenuto}
                   </p>
-                  <div className="flex items-center justify-between pt-3 border-t border-white/[0.05]">
+                  <div className="flex items-center justify-between pt-2 border-t border-white/[0.05]">
                     <span className="text-[10px] text-slate-600 capitalize font-medium">{notizia.categoria}</span>
                     {notizia.data_pubblicazione && (
                       <span className="text-[10px] text-slate-600">
