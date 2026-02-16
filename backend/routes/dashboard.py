@@ -652,27 +652,76 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
         }
 
     elif card_type == "alert":
+        # Determine periodo for inactive clients
+        if periodo == "7gg":
+            inattivo_min, inattivo_max = 3, 7
+        elif periodo == "30gg":
+            inattivo_min, inattivo_max = 7, 30
+        elif periodo == "60gg":
+            inattivo_min, inattivo_max = 30, 60
+        else:  # default: 7-30gg
+            inattivo_min, inattivo_max = 7, 30
+
         # Products under minimum stock
         sotto_scorta = await db.prodotti.find(
             {"quantita_minima": {"$gt": 0}, "$expr": {"$lte": ["$quantita", "$quantita_minima"]}},
             {"_id": 0, "nome": 1, "quantita": 1, "quantita_minima": 1}
+        ).sort("quantita", 1).limit(15).to_list(15)
+
+        # Products running low (within 120% of minimum)
+        in_esaurimento = await db.prodotti.find(
+            {"quantita_minima": {"$gt": 0},
+             "$expr": {"$and": [{"$gt": ["$quantita", "$quantita_minima"]}, {"$lte": ["$quantita", {"$multiply": ["$quantita_minima", 1.2]}]}]}},
+            {"_id": 0, "nome": 1, "quantita": 1, "quantita_minima": 1}
         ).sort("quantita", 1).limit(10).to_list(10)
+
         # Products expiring soon (next 30 days)
         now_str = datetime.now().strftime("%Y-%m-%d")
         exp_str = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
         in_scadenza = await db.prodotti.find(
-            {"scadenza": {"$gte": now_str, "$lte": exp_str}},
+            {"scadenza": {"$gte": now_str, "$lte": exp_str}, "quantita": {"$gt": 0}},
             {"_id": 0, "nome": 1, "scadenza": 1, "quantita": 1}
         ).sort("scadenza", 1).limit(10).to_list(10)
-        # Inactive clients (purchased prev month but not this month)
-        clienti_prev = await db.vendite.distinct("cliente_nome", {"data": {"$gte": prev_start, "$lte": prev_end}, "cliente_nome": {"$nin": EXCLUDED}})
-        clienti_curr = await db.vendite.distinct("cliente_nome", {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}})
-        clienti_persi = [c for c in clienti_prev if c not in clienti_curr][:10]
+
+        # Inactive clients with detailed info
+        range_start = (ref - timedelta(days=90)).strftime("%Y-%m-%d")
+        inattivi_pipeline = [
+            {"$match": {"data": {"$gte": range_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$group": {
+                "_id": "$cliente_nome",
+                "ultimo_ordine": {"$max": "$data"},
+                "fatturato_totale": {"$sum": {"$abs": "$totale"}},
+                "num_ordini": {"$sum": 1},
+                "prodotti": {"$addToSet": "$prodotto_nome"}
+            }},
+            {"$sort": {"fatturato_totale": -1}}
+        ]
+        all_clients = await db.vendite.aggregate(inattivi_pipeline).to_list(1000)
+        clienti_inattivi = []
+        for c in all_clients:
+            try:
+                last = datetime.strptime(c["ultimo_ordine"], "%Y-%m-%d")
+                days = (ref - last).days
+                if inattivo_min <= days <= inattivo_max:
+                    top_prods = c.get("prodotti", [])[:3]
+                    clienti_inattivi.append({
+                        "nome": c["_id"],
+                        "ultimo_ordine": c["ultimo_ordine"],
+                        "giorni_inattivo": days,
+                        "fatturato_90gg": round(c["fatturato_totale"], 2),
+                        "num_ordini": c["num_ordini"],
+                        "top_prodotti": top_prods
+                    })
+            except Exception:
+                pass
+        clienti_inattivi = clienti_inattivi[:10]
+
         return {
             "tipo": "alert",
-            "sotto_scorta": [{"nome": p["nome"], "quantita": p["quantita"], "minima": p["quantita_minima"]} for p in sotto_scorta],
-            "in_scadenza": [{"nome": p["nome"], "scadenza": p.get("scadenza", ""), "quantita": p["quantita"]} for p in in_scadenza],
-            "clienti_persi": clienti_persi
+            "sotto_scorta": [{"nome": p["nome"], "quantita": round(p["quantita"], 1), "minima": round(p["quantita_minima"], 1)} for p in sotto_scorta],
+            "in_esaurimento": [{"nome": p["nome"], "quantita": round(p["quantita"], 1), "minima": round(p["quantita_minima"], 1)} for p in in_esaurimento],
+            "in_scadenza": [{"nome": p["nome"], "scadenza": p.get("scadenza", ""), "quantita": round(p["quantita"], 1)} for p in in_scadenza],
+            "clienti_inattivi": clienti_inattivi
         }
 
     raise HTTPException(status_code=400, detail="Tipo card non valido")
