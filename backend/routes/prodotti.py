@@ -8,6 +8,35 @@ from utils import serialize_doc
 router = APIRouter()
 
 
+@router.get("/prodotti/search")
+async def search_prodotti(q: str = "", limit: int = 30):
+    """Server-side search with fuzzy matching"""
+    if not q or len(q.strip()) == 0:
+        return []
+    
+    search_term = q.strip()
+    # Search by name and code with regex
+    query = {
+        "$or": [
+            {"nome": {"$regex": search_term, "$options": "i"}},
+            {"codice": {"$regex": search_term, "$options": "i"}}
+        ]
+    }
+    prodotti = await db.prodotti.find(query, {"_id": 0}).limit(limit).to_list(limit)
+    
+    # Add ultimo_prezzo_acquisto from ordini
+    for p in prodotti:
+        nome = p.get('nome', '')
+        ultimo_ordine = await db.ordini.find_one(
+            {"prodotto_nome": nome},
+            {"_id": 0, "prezzo_unitario": 1},
+            sort=[("data", -1)]
+        )
+        p['ultimo_prezzo_acquisto'] = ultimo_ordine.get('prezzo_unitario', 0) if ultimo_ordine else 0
+    
+    return prodotti
+
+
 @router.get("/prodotti", response_model=List[Prodotto])
 async def get_prodotti(
     search: Optional[str] = None, limit: int = 100, skip: int = 0,
