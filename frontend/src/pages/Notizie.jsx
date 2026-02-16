@@ -223,42 +223,36 @@ export default function Notizie() {
             </motion.div>
           )}
 
-          {/* TICKER NOTIZIE FLASH — da fonti esterne diverse */}
+          {/* TICKER NOTIZIE FLASH — da fonti esterne diverse - GRANDE */}
           {tickerNews.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="rounded-xl overflow-hidden border border-white/[0.08] relative"
-              style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}
+              className="rounded-2xl overflow-hidden border border-white/[0.08] p-4"
+              style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
               data-testid="news-ticker"
             >
-              <div className="flex items-center gap-2 px-3 py-2">
-                <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-red-500/20 text-red-400 rounded border border-red-500/20 animate-pulse">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="shrink-0 px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-red-500/20 text-red-400 rounded border border-red-500/20 animate-pulse">
                   Live
                 </span>
-                <div className="overflow-hidden flex-1 relative">
-                  <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[#0d1117] to-transparent z-10" />
-                  <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[#0d1117] to-transparent z-10" />
-                  <div className="ticker-scroll flex items-center gap-6 whitespace-nowrap">
-                    {tickerNews.map((n, i) => (
-                      <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-cyan-400 transition-colors shrink-0">
-                        <span className="w-1 h-1 rounded-full bg-cyan-500/60 shrink-0" />
-                        <span className="text-[9px] text-slate-600 font-semibold uppercase">{n.fonte}</span>
-                        <span className="font-medium">{n.titolo}</span>
-                      </a>
-                    ))}
-                    {tickerNews.map((n, i) => (
-                      <a key={`dup-${i}`} href={n.url} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-cyan-400 transition-colors shrink-0">
-                        <span className="w-1 h-1 rounded-full bg-cyan-500/60 shrink-0" />
-                        <span className="text-[9px] text-slate-600 font-semibold uppercase">{n.fonte}</span>
-                        <span className="font-medium">{n.titolo}</span>
-                      </a>
-                    ))}
-                  </div>
-                </div>
+                <span className="text-xs font-semibold text-white">Breaking News</span>
+                <span className="text-[10px] text-slate-500 ml-auto">Settore ortofrutticolo</span>
+              </div>
+              
+              <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
+                {tickerNews.slice(0, 8).map((n, i) => (
+                  <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-start gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-cyan-500/[0.06] hover:border-cyan-500/15 transition-all duration-300 group">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/60 shrink-0 mt-1.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-slate-300 group-hover:text-white transition-colors line-clamp-2">{n.titolo}</p>
+                      <p className="text-[10px] text-slate-600 mt-0.5">{n.fonte}</p>
+                    </div>
+                    <ExternalLink className="w-3 h-3 text-slate-600 group-hover:text-cyan-400 shrink-0 mt-0.5 transition-colors" />
+                  </a>
+                ))}
               </div>
             </motion.div>
           )}
