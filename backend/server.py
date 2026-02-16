@@ -2759,21 +2759,31 @@ async def get_prezzi_mercati():
             # Regex to find links with "prezzi all'ingrosso"
             links_regex = re.compile(r'<a href="([^"]+)"[^>]*>([\s\S]*?)</a>', re.IGNORECASE)
             links = []
+            seen_cities = set()
+            
+            # City names we're looking for
+            target_cities = ['cesena', 'lusia', 'torino', 'verona', 'bologna', 'milano', 'padova', 'firenze', 'roma', 'napoli', 'bari']
             
             for match in links_regex.finditer(article_text_block):
                 link_url = match.group(1)
                 link_content = match.group(2)
                 
-                # Only care about market price links
-                if "prezzi all" in link_content.lower() or "ingrosso" in link_content.lower():
-                    # Extract city name (before the colon)
-                    clean_name = re.sub(r'<[^>]*>', '', link_content).split(':')[0].strip()
-                    if clean_name and len(clean_name) > 2:
-                        # Make URL absolute if relative
-                        if link_url.startswith('/'):
-                            link_url = BASE_URL + link_url
+                # Clean HTML from content
+                clean_content = re.sub(r'<[^>]*>', '', link_content).strip()
+                
+                # Only care about market price links (PDF or specific URLs)
+                if link_url.endswith('.pdf') or 'agfstorage' in link_url or 'caat.it' in link_url or 'mercato' in link_url:
+                    # Extract city name from content
+                    city_name = None
+                    for city in target_cities:
+                        if city in clean_content.lower():
+                            city_name = city.capitalize()
+                            break
+                    
+                    if city_name and city_name.lower() not in seen_cities:
+                        seen_cities.add(city_name.lower())
                         links.append({
-                            "nome": clean_name,
+                            "nome": city_name,
                             "url": link_url,
                             "tipo": "PDF" if link_url.endswith('.pdf') else "Web"
                         })
