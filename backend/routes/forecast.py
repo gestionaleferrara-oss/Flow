@@ -209,9 +209,6 @@ Breve spiegazione (2-3 righe max)
                 "stesso_mese_min": round(same_month_min, 2),
                 "anni_dati_mese": len(same_month_data)
             },
-                "media_mensile": round(media_mensile, 2),
-                "num_mesi_dati": len(storico)
-            },
             "previsione_ai": ai_response,
             "generated_at": datetime.now().isoformat()
         }
