@@ -852,7 +852,7 @@ Formatta il report in markdown."""
                 "fatturato": fatturato_totale, "num_vendite": num_vendite,
                 "top_prodotti": [{"nome": p[0], "fatturato": p[1]} for p in top_products[:3]],
                 "top_clienti": [{"nome": c[0], "spesa": c[1]} for c in top_clients[:3]],
-                "prodotti_sotto_scorta": len(low_stock), "clienti_inattivi": len(inactive_clients)
+                "clienti_inattivi": len(inactive_clients)
             },
             "created_at": now.isoformat()
         }
