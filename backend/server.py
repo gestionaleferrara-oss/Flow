@@ -2929,11 +2929,11 @@ async def get_trends_vendite(
     # Sort based on ordina_per parameter
     sort_keys = {
         "interest": lambda x: x['interest_score'],
-        "fatturato": lambda x: x['fatturato'],
-        "quantita": lambda x: x['quantita'],
-        "variazione": lambda x: abs(x['var_qty_pct']),
-        "var_positiva": lambda x: x['var_qty_pct'],
-        "var_negativa": lambda x: -x['var_qty_pct']
+        "fatturato": lambda x: x['fatturato_2w'],
+        "quantita": lambda x: x['quantita_2w'],
+        "variazione": lambda x: abs(x['variazione_qty_pct']),
+        "var_positiva": lambda x: x['variazione_qty_pct'],
+        "var_negativa": lambda x: -x['variazione_qty_pct']
     }
     sort_fn = sort_keys.get(ordina_per, sort_keys["interest"])
     trends.sort(key=sort_fn, reverse=True)
