@@ -100,17 +100,28 @@ export default function Notizie() {
       setCategorie([...new Set(notizieRes.data.map(n => n.categoria))]);
     } catch (e) { console.error(e); } finally { setLoading(false); }
 
-    // Load trends (both sources) and ticker separately (slower)
-    loadTrendsVendite();
+    // Load trends (both sources), ticker and sales insight separately
+    loadTrendsVendite('2w', 'interest', 5);
     loadTrends('frutta-secca');
     loadTicker();
+    loadSalesInsight();
   };
 
-  const loadTrendsVendite = async () => {
+  const loadTrendsVendite = async (periodo = trendsPeriodo, ordinaPer = trendsOrdinaPer, limit = trendsExpanded ? 20 : 5) => {
     try {
-      const res = await axios.get(`${API}/trends-vendite`);
+      const res = await axios.get(`${API}/trends-vendite`, {
+        params: { periodo, ordina_per: ordinaPer, limit }
+      });
       setTrendsVendite(res.data);
     } catch (e) { console.error(e); }
+  };
+  
+  const loadSalesInsight = async () => {
+    setInsightLoading(true);
+    try {
+      const res = await axios.get(`${API}/sales-insight`);
+      setSalesInsight(res.data);
+    } catch (e) { console.error(e); } finally { setInsightLoading(false); }
   };
 
   const loadTrends = async (cat) => {
