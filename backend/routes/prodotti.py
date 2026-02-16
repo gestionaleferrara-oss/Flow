@@ -144,8 +144,8 @@ async def get_prodotto_analisi(prodotto_nome: str, periodo: str = "all"):
     clienti_set = set(v.get('cliente_nome', '') for v in vendite if v.get('cliente_nome'))
     mesi = set(v.get('data', '')[:7] for v in vendite if v.get('data'))
     num_mesi = max(len(mesi), 1)
-    prezzi = [v.get('prezzo_unitario', 0) for v in vendite if v.get('prezzo_unitario', 0) > 0]
-    prezzo_medio = sum(prezzi) / len(prezzi) if prezzi else 0
+    # Prezzo medio ponderato = totale fatturato / quantità totale
+    prezzo_medio = totale_fatturato / totale_qty if totale_qty > 0 else 0
     clienti_fatturato = {}
     for v in vendite:
         c = v.get('cliente_nome', '')
