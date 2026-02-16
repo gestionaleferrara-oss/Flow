@@ -497,10 +497,8 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
         stats['other_movements'] = stats.get('other_movements', 0) + 1
     
     # Create/update prodotto with quantity tracking
+    # Use the qty_change calculated earlier which already accounts for special cases
     if nome_prodotto:
-        # Quantity change: CARICO adds, SCARICO subtracts
-        qty_change = quantita if movimento_upper == 'CARICO' else -quantita
-        
         if nome_prodotto not in cache['prodotti']:
             existing = await db.prodotti.find_one({"nome": nome_prodotto}, {"_id": 0, "id": 1, "prezzo_medio": 1, "quantita": 1})
             if not existing:
