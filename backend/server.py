@@ -695,6 +695,19 @@ async def upload_multiple_files(files: List[UploadFile] = File(...)):
     
     BATCH_SIZE = 500
     
+    # Pre-load existing data into cache for faster processing
+    existing_clienti = await db.clienti.find({}, {"_id": 0, "id": 1, "nome": 1}).to_list(10000)
+    for c in existing_clienti:
+        cache['clienti'][c['nome']] = c['id']
+    
+    existing_fornitori = await db.fornitori.find({}, {"_id": 0, "id": 1, "nome": 1}).to_list(10000)
+    for f in existing_fornitori:
+        cache['fornitori'][f['nome']] = f['id']
+    
+    existing_prodotti = await db.prodotti.find({}, {"_id": 0, "id": 1, "nome": 1, "prezzo_medio": 1, "quantita": 1}).to_list(10000)
+    for p in existing_prodotti:
+        cache['prodotti'][p['nome']] = {'id': p['id'], 'prezzo_medio': p.get('prezzo_medio', 0), 'quantita': 0}
+    
     for file in files:
         filename = file.filename.lower()
         if not filename.endswith('.csv') and not filename.endswith('.xlsx'):
