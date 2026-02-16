@@ -178,9 +178,9 @@ async def export_statistiche_pdf(
 
         pdf.section_title("Riepilogo Vendite")
         pdf.kpi_row("Fatturato Totale:", f"EUR {fatturato:,.2f}")
-        pdf.kpi_row("Numero Transazioni:", f"{num_vendite:,}")
+        pdf.kpi_row("Numero Transazioni:", f"{num_transazioni:,}")
         pdf.kpi_row("Clienti Unici:", f"{len(clienti_set)}")
-        pdf.kpi_row("Scontrino Medio:", f"EUR {fatturato / num_vendite:,.2f}" if num_vendite > 0 else "N/A")
+        pdf.kpi_row("Scontrino Medio:", f"EUR {scontrino_medio:,.2f}" if num_transazioni > 0 else "N/A")
         if margine_medio > 0:
             pdf.kpi_row("Margine Medio Stimato:", f"{margine_medio:.1f}%")
             pdf.kpi_row("Profitto Stimato:", f"EUR {totale_profitto:,.2f}")
