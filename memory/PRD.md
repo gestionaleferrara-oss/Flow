@@ -33,13 +33,15 @@ Applicazione web per la gestione di magazzino, vendite e acquisti per aziende de
 - Top Prodotti per fatturato
 - Export CSV/Excel
 
-### Notizie & Mercati (v1.3 - 16/02/2026) ⭐ AGGIORNATO
-- Widget Meteo Bologna (previsioni 7 giorni)
-- **Breaking News LIVE** - ticker scrollabile con notizie settore
+### Notizie & Mercati (v1.4 - 16/02/2026) ⭐ RESPONSIVE
+- Widget Meteo compatto (previsioni 5 giorni)
 - **Listini Mercato DINAMICI** - Scraping automatico da FreshPlaza
-  - Link diretti ai PDF aggiornati (Cesena, Lusia, Torino, Verona, etc.)
-  - Fallback a link statici se scraping fallisce
-- Griglia notizie con immagini e filtri categoria
+- **Breaking News LIVE** - ticker compatto
+- Hero Article con immagine
+- Griglia notizie responsive
+- **Filtri categoria** scrollabili su mobile
+- **Responsive mobile/tablet** - Layout adattivo
+- **Lazy loading** immagini per performance
 
 ### Magazzino (v1.0)
 - Visualizzazione prodotti con quantità
