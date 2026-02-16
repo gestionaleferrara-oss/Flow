@@ -681,6 +681,129 @@ async def upload_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@api_router.post("/upload-multiple")
+async def upload_multiple_files(files: List[UploadFile] = File(...)):
+    """Upload and process multiple CSV/XLSX files at once, merging all data"""
+    
+    total_stats = {
+        'new_clienti': 0,
+        'existing_clienti': 0,
+        'new_fornitori': 0,
+        'existing_fornitori': 0,
+        'new_prodotti': 0,
+        'existing_prodotti': 0,
+        'vendite_created': 0,
+        'ordini_created': 0,
+        'cessioni_created': 0,
+        'resi_created': 0,
+        'other_movements': 0,
+        'rows_processed': 0,
+        'files_processed': 0,
+        'errors': []
+    }
+    
+    # Clear all existing data ONCE before processing all files
+    await db.vendite.delete_many({})
+    await db.ordini.delete_many({})
+    await db.prodotti.update_many({}, {"$set": {"quantita": 0}})
+    
+    # Global cache shared across all files
+    cache = {
+        'clienti': {},
+        'fornitori': {},
+        'prodotti': {},
+        'vendite_batch': [],
+        'ordini_batch': []
+    }
+    
+    BATCH_SIZE = 500
+    
+    for file in files:
+        filename = file.filename.lower()
+        if not filename.endswith('.csv') and not filename.endswith('.xlsx'):
+            total_stats['errors'].append(f"File {file.filename}: formato non supportato")
+            continue
+        
+        try:
+            content = await file.read()
+            rows = []
+            headers = []
+            
+            if filename.endswith('.xlsx'):
+                df = pd.read_excel(io.BytesIO(content), engine='openpyxl')
+                df.columns = [str(c).strip() for c in df.columns]
+                
+                unnamed_cols = sum(1 for c in df.columns if 'unnamed' in c.lower())
+                if unnamed_cols > len(df.columns) / 2 and len(df) > 0:
+                    new_headers = [str(v).strip() if pd.notna(v) else f'col_{i}' for i, v in enumerate(df.iloc[0])]
+                    df.columns = new_headers
+                    df = df.iloc[1:].reset_index(drop=True)
+                
+                headers = list(df.columns)
+                for _, row in df.iterrows():
+                    row_dict = {}
+                    for col in df.columns:
+                        val = row[col]
+                        if pd.isna(val):
+                            row_dict[col] = ''
+                        elif isinstance(val, (int, float)):
+                            row_dict[col] = str(val)
+                        else:
+                            row_dict[col] = str(val).strip()
+                    rows.append(row_dict)
+            else:
+                for encoding in ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']:
+                    try:
+                        text_content = content.decode(encoding)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                else:
+                    total_stats['errors'].append(f"File {file.filename}: impossibile decodificare")
+                    continue
+                
+                first_line = text_content.split('\n')[0]
+                delimiter = ';' if ';' in first_line else ','
+                
+                csv_reader = csv.DictReader(io.StringIO(text_content), delimiter=delimiter)
+                headers = csv_reader.fieldnames or []
+                rows = list(csv_reader)
+            
+            col_mapping = auto_detect_columns(headers)
+            
+            for row in rows:
+                try:
+                    await process_csv_row(row, total_stats, col_mapping, cache)
+                    total_stats['rows_processed'] += 1
+                    
+                    if len(cache['vendite_batch']) >= BATCH_SIZE:
+                        await db.vendite.insert_many(cache['vendite_batch'])
+                        cache['vendite_batch'] = []
+                    if len(cache['ordini_batch']) >= BATCH_SIZE:
+                        await db.ordini.insert_many(cache['ordini_batch'])
+                        cache['ordini_batch'] = []
+                        
+                except Exception as e:
+                    total_stats['errors'].append(f"File {file.filename}, riga {total_stats['rows_processed']}: {str(e)}")
+            
+            total_stats['files_processed'] += 1
+            
+        except Exception as e:
+            total_stats['errors'].append(f"File {file.filename}: {str(e)}")
+    
+    # Flush remaining batches
+    if cache['vendite_batch']:
+        await db.vendite.insert_many(cache['vendite_batch'])
+    if cache['ordini_batch']:
+        await db.ordini.insert_many(cache['ordini_batch'])
+    
+    return {
+        "success": True,
+        "message": f"Elaborati {total_stats['files_processed']} file con successo",
+        "stats": total_stats
+    }
+
+
 # ----- Clienti -----
 @api_router.get("/clienti", response_model=List[Cliente])
 async def get_clienti(
