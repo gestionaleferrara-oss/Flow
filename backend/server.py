@@ -1916,18 +1916,18 @@ async def get_dashboard():
     
     # New clienti this month
     nuovi_clienti = await db.clienti.count_documents({
-        "created_at": {"$gte": thirty_days_ago}
+        "created_at": {"$gte": current_month_start}
     })
     
     # Prodotti da ordinare
     prodotti_stats = await get_prodotti_stats()
     
-    # Recent activity - if no recent data, get historical data
+    # Recent activity - use current month vendite
     EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
     attivita_recenti = []
     
-    # First try recent vendite
-    vendite_for_activity = [v for v in vendite_recenti if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    # First try current month vendite
+    vendite_for_activity = [v for v in vendite_mese_corrente if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
     
     # If not enough recent data, fetch more historical data
     if len(vendite_for_activity) < 10:
