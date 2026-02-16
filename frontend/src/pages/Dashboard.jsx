@@ -118,7 +118,7 @@ export default function Dashboard() {
   useEffect(() => {
     const timer = setTimeout(() => {
       searchProdotti(prodottoSearch);
-    }, 300);
+    }, 150);
     return () => clearTimeout(timer);
   }, [prodottoSearch, searchProdotti]);
 
