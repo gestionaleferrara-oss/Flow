@@ -279,39 +279,110 @@ export default function Notizie() {
           )}
         </div>
 
-        {/* 2. LISTINI MERCATO */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08 }}
-          className="rounded-2xl overflow-hidden border border-white/[0.08] p-5"
-          style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
-          data-testid="prices-widget"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-              <FileText className="w-3.5 h-3.5 text-emerald-400" />
+        {/* 2. LISTINI MERCATO + SALES INSIGHT */}
+        <div className="flex flex-col gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+            className="rounded-2xl overflow-hidden border border-white/[0.08] p-5"
+            style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
+            data-testid="prices-widget"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                <FileText className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-white">Listini Mercato</h3>
+                <p className="text-[10px] text-slate-500">Prezzi ingrosso PDF</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xs font-semibold text-white">Listini Mercato</h3>
-              <p className="text-[10px] text-slate-500">Prezzi ingrosso</p>
+            <div className="space-y-1.5">
+              {prezziMercati.map((m, idx) => (
+                <motion.a key={m.nome} href={m.url} target="_blank" rel="noopener noreferrer"
+                  initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.12 + idx * 0.03 }}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg group
+                    bg-white/[0.03] border border-white/[0.04] hover:bg-emerald-500/[0.06] hover:border-emerald-500/15 transition-all duration-300">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-3 h-3 text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                    <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors font-medium">{m.nome}</span>
+                  </div>
+                  <ArrowUpRight className="w-3 h-3 text-slate-600 group-hover:text-emerald-400 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </motion.a>
+              ))}
             </div>
-          </div>
-          <div className="space-y-1.5">
-            {prezziMercati.map((m, idx) => (
-              <motion.a key={m.nome} href={m.url} target="_blank" rel="noopener noreferrer"
-                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.12 + idx * 0.03 }}
-                className="flex items-center justify-between px-3 py-2 rounded-lg group
-                  bg-white/[0.03] border border-white/[0.04] hover:bg-emerald-500/[0.06] hover:border-emerald-500/15 transition-all duration-300">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-3 h-3 text-slate-600 group-hover:text-emerald-400 transition-colors" />
-                  <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors font-medium">{m.nome}</span>
-                </div>
-                <ArrowUpRight className="w-3 h-3 text-slate-600 group-hover:text-emerald-400 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </motion.a>
-            ))}
-          </div>
-        </motion.div>
+          </motion.div>
+
+          {/* SALES INSIGHT WIDGET */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className="rounded-2xl overflow-hidden border border-white/[0.08] p-5"
+            style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01))', backdropFilter: 'blur(20px)' }}
+            data-testid="sales-insight-widget"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center">
+                <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-white">Sales Insight</h3>
+                <p className="text-[10px] text-slate-500">
+                  {salesInsight?.mese_riferimento || 'Caricamento...'}
+                </p>
+              </div>
+            </div>
+
+            {insightLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <RefreshCw className="w-5 h-5 text-slate-600 animate-spin" />
+              </div>
+            ) : salesInsight?.insights?.length > 0 ? (
+              <div className="space-y-2">
+                {salesInsight.insights.map((insight, idx) => {
+                  const colorMap = {
+                    emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', text: 'text-emerald-400' },
+                    cyan: { bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', text: 'text-cyan-400' },
+                    violet: { bg: 'bg-violet-500/10', border: 'border-violet-500/20', text: 'text-violet-400' },
+                    amber: { bg: 'bg-amber-500/10', border: 'border-amber-500/20', text: 'text-amber-400' },
+                    blue: { bg: 'bg-blue-500/10', border: 'border-blue-500/20', text: 'text-blue-400' },
+                    rose: { bg: 'bg-rose-500/10', border: 'border-rose-500/20', text: 'text-rose-400' },
+                    orange: { bg: 'bg-orange-500/10', border: 'border-orange-500/20', text: 'text-orange-400' },
+                  };
+                  const colors = colorMap[insight.colore] || colorMap.emerald;
+                  
+                  return (
+                    <motion.div
+                      key={insight.tipo}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.08 + idx * 0.04 }}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors",
+                        colors.bg, colors.border, "hover:bg-white/[0.04]"
+                      )}
+                    >
+                      <span className="text-lg shrink-0">{insight.icona}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider">{insight.titolo}</p>
+                        <p className={cn("text-xs font-semibold truncate", colors.text)}>{insight.valore}</p>
+                        <p className="text-[9px] text-slate-600 truncate">{insight.dettaglio}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <Sparkles className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                <p className="text-xs text-slate-500">Nessun insight disponibile</p>
+                <p className="text-[10px] text-slate-600">Carica dei dati per vedere gli insight</p>
+              </div>
+            )}
+          </motion.div>
+        </div>
 
         {/* 3. TRENDS WITH SOURCE SWITCH - EXPANDABLE */}
         <motion.div
