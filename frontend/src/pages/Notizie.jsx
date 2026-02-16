@@ -64,6 +64,14 @@ export default function Notizie() {
   const [tickerNews, setTickerNews] = useState([]);
   const [categorie, setCategorie] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState('all');
+  const [trendCategoria, setTrendCategoria] = useState('frutta-secca');
+
+  const trendCategories = [
+    { id: 'frutta-secca', label: 'Frutta Secca' },
+    { id: 'frutta', label: 'Frutta' },
+    { id: 'verdura', label: 'Verdura' },
+    { id: 'spezie', label: 'Spezie' }
+  ];
 
   useEffect(() => { loadData(); }, []);
 
