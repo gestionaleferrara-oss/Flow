@@ -160,35 +160,34 @@ async def generate_forecast(
         chat = LlmChat(
             api_key=api_key, 
             session_id=f"forecast-{uuid.uuid4()}", 
-            system_message="""Sei un esperto analista di business nel settore ortofrutticolo italiano.
-Il tuo compito è analizzare i dati storici di vendita e generare previsioni accurate per il mese richiesto.
-Considera stagionalità, trend e pattern nei dati. Rispondi SEMPRE in italiano.
-Fornisci:
-1. Una previsione del fatturato con range (min-max)
-2. I fattori chiave che influenzano la previsione
-3. Suggerimenti operativi concreti"""
+            system_message="""Sei un analista business esperto nel settore ortofrutticolo italiano.
+Genera previsioni accurate e concise per il mese specifico richiesto.
+Rispondi SEMPRE in italiano con formattazione chiara e professionale.
+NON ripetere i dati storici già forniti - concentrati solo sulla previsione."""
         ).with_model("openai", "gpt-4o")
         
-        prompt = f"""Genera una previsione di vendita per {target_month_name} {target_year}.
+        prompt = f"""PREVISIONE VENDITE: {target_month_name} {target_year}
 
-**{entity_type.upper()}**: {entity_name}
+{entity_type.upper()}: {entity_name}
 
-**STORICO VENDITE (ultimi 12 mesi)**:
-{storico_str}
-
-**STATISTICHE**:
-- Fatturato totale periodo: €{tot_fatturato:,.2f}
-- Media mensile: €{media_mensile:,.2f}
-- Ultimo mese: {ultimo_mese_str}
-{same_month_context}
+DATI RILEVANTI:
+- Media mensile storica: €{media_mensile:,.2f}
+- Ultimo mese registrato: {ultimo_mese_str}
+{same_month_context if same_month_context else f"- Nessun dato storico per {target_month_name}"}
 {extra_context}
 
-Genera una previsione dettagliata per {target_month_name} {target_year} che includa:
-1. **PREVISIONE FATTURATO**: Range stimato (minimo-massimo) e valore più probabile
-2. **ANALISI**: Fattori chiave, stagionalità, trend
-3. **SUGGERIMENTI**: 2-3 azioni concrete per massimizzare le vendite
+Genera una previsione SOLO per {target_month_name} {target_year}:
 
-Rispondi in modo strutturato e professionale."""
+## PREVISIONE FATTURATO
+Indica: valore minimo, valore massimo, valore più probabile
+
+## ANALISI MESE
+Spiega brevemente i fattori che influenzano questa previsione (stagionalità, trend, eventi)
+
+## AZIONI CONSIGLIATE
+Elenca 2-3 azioni concrete per ottimizzare le vendite nel mese target
+
+Sii conciso e vai dritto al punto."""
 
         user_message = UserMessage(text=prompt)
         ai_response = await chat.send_message(user_message)
