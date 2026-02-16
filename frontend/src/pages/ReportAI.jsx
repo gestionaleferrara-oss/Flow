@@ -157,9 +157,11 @@ export default function ReportAI() {
                           "px-2 py-0.5 text-xs rounded-full",
                           report.tipo === 'settimanale' 
                             ? "bg-purple-500/20 text-purple-300"
+                            : report.tipo === 'dashboard'
+                            ? "bg-emerald-500/20 text-emerald-300"
                             : "bg-blue-500/20 text-blue-300"
                         )}>
-                          {report.tipo === 'settimanale' ? '7gg' : '30gg'}
+                          {report.tipo === 'settimanale' ? '7gg' : report.tipo === 'dashboard' ? 'DASH' : '30gg'}
                         </span>
                         <span className="text-xs text-slate-500">
                           {formatDate(report.created_at)}
