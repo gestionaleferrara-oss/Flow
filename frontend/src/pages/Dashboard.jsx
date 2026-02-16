@@ -318,7 +318,7 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Sales Insight Widget */}
+        {/* Sales Insight Widget - Hover to expand details */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -344,21 +344,29 @@ export default function Dashboard() {
                 <RefreshCw className="w-5 h-5 text-slate-600 animate-spin" />
               </div>
             ) : salesInsight?.insights?.length > 0 ? (
-              <div className="space-y-2">
-                {salesInsight.insights.slice(0, 4).map((insight, idx) => {
+              <div className="space-y-1.5">
+                {salesInsight.insights.slice(0, 5).map((insight) => {
                   const colors = insightColorMap[insight.colore] || insightColorMap.emerald;
                   return (
                     <div
                       key={insight.tipo}
                       className={cn(
-                        "flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-colors",
-                        colors.bg, colors.border, "hover:bg-white/[0.03]"
+                        "group relative flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all duration-200 cursor-default",
+                        colors.bg, colors.border
                       )}
                     >
-                      <span className="text-base shrink-0">{insight.icona}</span>
+                      <span className="text-sm shrink-0">{insight.icona}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-wide">{insight.titolo}</p>
                         <p className={cn("text-xs font-semibold truncate", colors.text)}>{insight.valore}</p>
+                        <p className="text-[9px] text-slate-600 truncate">{insight.titolo}</p>
+                      </div>
+                      {/* Hover tooltip with details */}
+                      <div className="absolute left-0 right-0 -bottom-1 translate-y-full opacity-0 group-hover:opacity-100 pointer-events-none z-20 transition-opacity duration-200">
+                        <div className="mx-2 p-2.5 rounded-lg bg-slate-900/95 border border-white/10 shadow-xl backdrop-blur-sm">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">{insight.titolo}</p>
+                          <p className={cn("text-xs font-semibold", colors.text)}>{insight.valore}</p>
+                          <p className="text-[10px] text-slate-500 mt-1">{insight.dettaglio}</p>
+                        </div>
                       </div>
                     </div>
                   );
@@ -373,8 +381,8 @@ export default function Dashboard() {
         </motion.div>
       </div>
 
-      {/* Trends + Quick Links Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      {/* Second Row: Trends + Quick Links */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
         
         {/* Trends Widget - Expandable */}
         <motion.div
