@@ -9,7 +9,7 @@ import {
   Euro, ShoppingCart, Users, Package, AlertTriangle, ArrowUpRight, Upload,
   BarChart3, TrendingUp, TrendingDown, Search, Box, Sparkles, Lightbulb,
   RefreshCw, Clock, UserX, PackageX, AlertCircle, Minus, X, Filter,
-  ArrowDownAZ, Activity, Plus, ChevronRight, Calendar
+  ArrowDownAZ, Activity, Plus, ChevronRight, Calendar, Eye
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import StatCard from '@/components/StatCard';
