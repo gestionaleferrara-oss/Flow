@@ -1,6 +1,6 @@
 import { cn, formatCurrency } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Minus, Eye, EyeOff } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const gradientClasses = {
   blue: 'from-blue-500/20 to-blue-600/5 border-blue-500/20',
@@ -26,7 +26,17 @@ export default function StatCard({
 }) {
   const [pinned, setPinned] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const isBlurred = blurred && !pinned && !hovered;
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024 || 'ontouchstart' in window);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // On mobile, only pinned reveals. On desktop, hover OR pinned reveals.
+  const isBlurred = blurred && !pinned && !(hovered && !isMobile);
 
   const formattedValue = format === 'currency' 
     ? formatCurrency(value) 
@@ -41,31 +51,31 @@ export default function StatCard({
   return (
     <div 
       className={cn(
-        'relative overflow-hidden rounded-2xl p-5 transition-all duration-500',
+        'relative overflow-hidden rounded-2xl p-4 sm:p-5 transition-all duration-500',
         'bg-gradient-to-br border',
-        'hover:scale-[1.02] hover:shadow-xl hover:shadow-black/20',
+        !isMobile && 'hover:scale-[1.02] hover:shadow-xl hover:shadow-black/20',
         gradientClasses[gradient] || gradientClasses.blue,
         className
       )} 
       data-testid="stat-card"
-      onMouseEnter={blurred ? () => setHovered(true) : undefined}
-      onMouseLeave={blurred ? () => setHovered(false) : undefined}
+      onMouseEnter={blurred && !isMobile ? () => setHovered(true) : undefined}
+      onMouseLeave={blurred && !isMobile ? () => setHovered(false) : undefined}
     >
       <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-white/5 blur-2xl" />
       
-      <div className="relative z-10 flex items-start justify-between">
+      <div className="relative z-10 flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className={cn("transition-all duration-500 ease-out", isBlurred && "blur-md select-none")}>
-            <p className="text-3xl font-bold tracking-tight text-white mb-1">
+            <p className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-1">
               {formattedValue}
             </p>
           </div>
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+          <p className="text-[10px] sm:text-xs font-medium text-slate-400 uppercase tracking-wider">
             {label}
           </p>
           {subtitle && (
             <div className={cn("transition-all duration-500 ease-out", isBlurred && "blur-sm select-none")}>
-              <p className="text-xs text-slate-500 mt-1 whitespace-pre-line">
+              <p className="text-[10px] sm:text-xs text-slate-500 mt-1 whitespace-pre-line leading-relaxed">
                 {subtitle}
               </p>
             </div>
@@ -73,29 +83,29 @@ export default function StatCard({
           {trendValue !== undefined && (
             <div className={cn("transition-all duration-500 ease-out", isBlurred && "blur-sm select-none")}>
               <div className={cn(
-                'inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-md text-xs font-semibold',
+                'inline-flex items-center gap-1 mt-1.5 px-1.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold',
                 trend === 'up' && 'bg-emerald-500/10 text-emerald-400',
                 trend === 'down' && 'bg-red-500/10 text-red-400',
                 !trend && 'bg-slate-500/10 text-slate-400'
               )}>
-                <TrendIcon size={12} />
+                <TrendIcon size={11} />
                 <span>{Math.abs(trendValue)}%</span>
               </div>
             </div>
           )}
         </div>
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-1.5">
           {Icon && (
             <div 
               onClick={onIconClick ? (e) => { e.stopPropagation(); onIconClick(); } : undefined}
               className={cn(
-                'p-3 rounded-xl',
+                'p-2 sm:p-3 rounded-xl',
                 iconColorClasses[gradient] || iconColorClasses.blue,
                 onIconClick && 'cursor-pointer hover:scale-110 hover:brightness-125 transition-all'
               )}
               data-testid="stat-card-icon"
             >
-              <Icon className="w-5 h-5" />
+              <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           )}
           {blurred && (
