@@ -790,7 +790,6 @@ async def generate_ai_report(report_type: str = Query("settimanale", enum=["sett
             clienti_spending[c] = clienti_spending.get(c, 0) + abs(v.get('totale', 0))
     top_clients = sorted(clienti_spending.items(), key=lambda x: x[1], reverse=True)[:5]
 
-    low_stock = [p for p in prodotti if p.get('quantita', 0) > 0 and p.get('quantita_minima', 0) > 0 and p.get('quantita', 0) <= p.get('quantita_minima', 0)]
     recent_clients = set(v.get('cliente_nome', '') for v in vendite)
     all_historical_clients = set(c.get('nome', '') for c in clienti)
     inactive_clients = list(all_historical_clients - recent_clients)[:10]
@@ -809,11 +808,6 @@ TOP 5 PRODOTTI (per fatturato):
 
 TOP 5 CLIENTI (per spesa):
 {chr(10).join([f"- {c[0]}: €{c[1]:,.2f}" for c in top_clients]) if top_clients else "- Nessun dato"}
-
-MAGAZZINO:
-- Prodotti totali: {len(prodotti)}
-- Prodotti sotto scorta minima: {len(low_stock)}
-{chr(10).join([f"  * {p.get('nome', '')}: {p.get('quantita', 0)}/{p.get('quantita_minima', 0)}" for p in low_stock[:5]]) if low_stock else ""}
 
 ACQUISTI:
 - Totale acquisti periodo: €{acquisti_totale:,.2f}
