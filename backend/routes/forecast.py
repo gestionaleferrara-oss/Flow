@@ -125,28 +125,38 @@ async def generate_forecast(
             "error": f"Nessun dato storico trovato per {entity_type} '{nome}'"
         }
     
-    # Build historical data string
-    storico_str = "\n".join([
-        f"- {s['_id']}: €{s['fatturato']:,.2f}" + (f" ({s.get('quantita', 0):.0f} pz)" if 'quantita' in s else "")
-        for s in storico
-    ])
-    
-    # Calculate simple statistics for context
-    tot_fatturato = sum(s['fatturato'] for s in storico)
-    media_mensile = tot_fatturato / len(storico) if storico else 0
-    ultimo_mese = storico[-1] if storico else None
-    ultimo_mese_str = f"{ultimo_mese['_id']}: €{ultimo_mese['fatturato']:,.2f}" if ultimo_mese else "N/A"
-    
     mesi_it = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 
                'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
     target_month_name = mesi_it[target_month - 1]
     
-    # Check if we have data for this month in previous years
+    # Calculate statistics
+    media_mensile = sum(s['fatturato'] for s in storico) / len(storico) if storico else 0
+    ultimo_mese = storico[-1] if storico else None
+    ultimo_mese_str = f"{ultimo_mese['_id']}: €{ultimo_mese['fatturato']:,.2f}" if ultimo_mese else "N/A"
+    
+    # Data for the SAME month in previous years (key for forecast)
     same_month_data = [s for s in storico if s['_id'].endswith(f"-{target_month:02d}")]
+    same_month_avg = sum(s['fatturato'] for s in same_month_data) / len(same_month_data) if same_month_data else 0
+    same_month_max = max(s['fatturato'] for s in same_month_data) if same_month_data else 0
+    same_month_min = min(s['fatturato'] for s in same_month_data) if same_month_data else 0
+    
+    # Year over year comparison for same month
+    same_month_trend = ""
+    if len(same_month_data) >= 2:
+        sorted_same = sorted(same_month_data, key=lambda x: x['_id'])
+        last_year = sorted_same[-1]['fatturato']
+        prev_year = sorted_same[-2]['fatturato']
+        yoy_change = ((last_year - prev_year) / prev_year * 100) if prev_year > 0 else 0
+        same_month_trend = f"Trend anno su anno: {yoy_change:+.1f}%"
+    
     same_month_context = ""
     if same_month_data:
-        same_month_avg = sum(s['fatturato'] for s in same_month_data) / len(same_month_data)
-        same_month_context = f"\nDati storici per {target_month_name}: media €{same_month_avg:,.2f}"
+        same_month_context = f"""
+Dati storici per {target_month_name}:
+- Media: €{same_month_avg:,.2f}
+- Massimo: €{same_month_max:,.2f}
+- Minimo: €{same_month_min:,.2f}
+{same_month_trend}"""
     
     # Generate AI forecast
     api_key = os.environ.get('EMERGENT_LLM_KEY')
