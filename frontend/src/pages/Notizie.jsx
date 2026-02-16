@@ -229,42 +229,43 @@ export default function Notizie() {
         ))}
       </div>
 
-      {/* Hero Article - Compact */}
+      {/* Hero Article - Larger with image */}
       {heroArticle && (
         <motion.article initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="relative mb-4 rounded-xl overflow-hidden cursor-pointer group border border-white/[0.08]"
           onClick={() => heroArticle.url && window.open(heroArticle.url, '_blank')}>
-          <div className="flex flex-col sm:flex-row">
-            <div className="relative w-full sm:w-48 h-[120px] sm:h-[100px] overflow-hidden shrink-0">
+          <div className="grid grid-cols-1 md:grid-cols-2">
+            <div className="relative h-[160px] md:h-[200px] overflow-hidden">
               <img src={heroArticle.immagine_url || fallbackImg} alt={heroArticle.titolo}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 onError={(e) => { e.target.src = fallbackImg; }} loading="lazy" />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/30 hidden md:block" />
             </div>
-            <div className="p-3 flex flex-col justify-center flex-1" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-cyan-500/15 text-cyan-400 rounded">{heroArticle.fonte}</span>
+            <div className="p-4 flex flex-col justify-center" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-2 py-0.5 text-[9px] font-bold uppercase bg-cyan-500/15 text-cyan-400 rounded">{heroArticle.fonte}</span>
                 {heroArticle.data_pubblicazione && (
-                  <span className="flex items-center gap-1 text-[8px] text-slate-500">
-                    <Clock className="w-2.5 h-2.5" />
+                  <span className="flex items-center gap-1 text-[9px] text-slate-500">
+                    <Clock className="w-3 h-3" />
                     {new Date(heroArticle.data_pubblicazione).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
                   </span>
                 )}
               </div>
-              <h2 className="text-sm font-bold text-white mb-1 leading-snug line-clamp-2 group-hover:text-cyan-300 transition-colors">
+              <h2 className="text-base md:text-lg font-bold text-white mb-2 leading-snug line-clamp-2 group-hover:text-cyan-300 transition-colors">
                 {heroArticle.titolo}
               </h2>
-              <p className="text-[10px] text-slate-400 line-clamp-1 mb-1">{heroArticle.descrizione || heroArticle.contenuto}</p>
-              <div className="flex items-center gap-1 text-cyan-400 text-[10px] font-medium">
-                <span>Leggi</span><ArrowUpRight className="w-2.5 h-2.5" />
+              <p className="text-xs text-slate-400 line-clamp-2 mb-3">{heroArticle.descrizione || heroArticle.contenuto}</p>
+              <div className="flex items-center gap-1.5 text-cyan-400 text-xs font-medium">
+                <span>Leggi articolo</span><ArrowUpRight className="w-3.5 h-3.5" />
               </div>
             </div>
           </div>
         </motion.article>
       )}
 
-      {/* News Grid - Responsive */}
+      {/* News Grid - 4 Columns */}
       {restArticles.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <AnimatePresence mode="popLayout">
             {restArticles.map((notizia, index) => (
               <motion.article key={notizia.id || index} layout
@@ -273,7 +274,7 @@ export default function Notizie() {
                 className="group rounded-xl overflow-hidden cursor-pointer border border-white/[0.06] hover:border-white/[0.12] transition-all duration-300"
                 style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))' }}
                 onClick={() => notizia.url && window.open(notizia.url, '_blank')}>
-                <div className="relative h-[120px] overflow-hidden">
+                <div className="relative h-[100px] overflow-hidden">
                   <img src={notizia.immagine_url || fallbackImg} alt={notizia.titolo}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     onError={(e) => { e.target.src = fallbackImg; }} loading="lazy" />
