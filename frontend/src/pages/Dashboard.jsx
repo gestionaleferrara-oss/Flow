@@ -133,6 +133,22 @@ export default function Dashboard() {
     } finally { setLoadingAnalisi(false); }
   };
 
+  const changeAnalisiPeriodo = async (newPeriodo) => {
+    if (!selectedProdotto || newPeriodo === analisiPeriodo) return;
+    setAnalisiPeriodo(newPeriodo);
+    setLoadingAnalisi(true);
+    try {
+      const [venditeRes, acquistiRes] = await Promise.all([
+        axios.get(`${API}/prodotti/${encodeURIComponent(selectedProdotto.nome)}/analisi`, { params: { periodo: newPeriodo } }),
+        axios.get(`${API}/prodotti/${encodeURIComponent(selectedProdotto.nome)}/analisi-acquisti`, { params: { periodo: newPeriodo } })
+      ]);
+      setProdottoAnalisi(venditeRes.data);
+      setProdottoAnalisiAcquisti(acquistiRes.data);
+    } catch (e) {
+      // Keep existing data on error
+    } finally { setLoadingAnalisi(false); }
+  };
+
   const filteredProdotti = searchResults;
 
   if (loading) return <LoadingSpinner fullScreen />;
