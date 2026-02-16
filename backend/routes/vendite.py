@@ -208,42 +208,6 @@ async def get_statistiche(
             prod_data.update(prodotti_margine_data[nome])
         
         top_prodotti.append(prod_data)
-        
-        # Get last purchase price
-        ultimo_ordine = await db.ordini.find_one(
-            {"prodotto_nome": nome, "prezzo_unitario": {"$gt": 0}},
-            {"_id": 0, "prezzo_unitario": 1},
-            sort=[("data", -1)]
-        )
-        if ultimo_ordine and qty > 0:
-            prezzo_acquisto = ultimo_ordine.get('prezzo_unitario', 0)
-            # Weighted average sale price = total revenue / total quantity
-            prezzo_vendita_medio = totale / qty
-            
-            # Filter out anomalous prices
-            if prezzo_acquisto > 0 and prezzo_acquisto < 500:
-                # Skip if sale price is unreasonably different from purchase price
-                if prezzo_vendita_medio <= prezzo_acquisto * 5 and prezzo_vendita_medio >= prezzo_acquisto * 0.2:
-                    margine_pct = ((prezzo_vendita_medio - prezzo_acquisto) / prezzo_acquisto) * 100
-                    costo_totale = prezzo_acquisto * qty
-                    profitto = totale - costo_totale
-                    
-                    # Only include reasonable margins (-50% to +200%)
-                    if -50 < margine_pct < 200:
-                        prod_data['margine_pct'] = round(margine_pct, 1)
-                        prod_data['profitto'] = round(profitto, 2)
-                        prod_data['prezzo_acquisto'] = round(prezzo_acquisto, 2)
-                        prod_data['prezzo_vendita'] = round(prezzo_vendita_medio, 2)
-                        
-                        # Accumulate for weighted average margin calculation
-                        totale_fatturato_con_margine += totale
-                        somma_margini_ponderati += margine_pct * totale
-                        totale_profitto += profitto
-        
-        top_prodotti.append(prod_data)
-    
-    # Calculate weighted average margin: sum(margine * fatturato) / sum(fatturato)
-    margine_medio = (somma_margini_ponderati / totale_fatturato_con_margine) if totale_fatturato_con_margine > 0 else 0
     
     return {
         "totaleEuro": totale_euro, "totaleArticoli": totale_articoli, "clientiAttivi": clienti_attivi,
