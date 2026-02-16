@@ -2682,43 +2682,37 @@ async def scrape_freshplaza_market_links():
 
 @api_router.get("/prezzi-mercati")
 async def get_prezzi_mercati():
-    """Get list of market price links - using reliable direct sources"""
+    """Get list of market price links from FreshPlaza - dynamically scraped"""
     
-    # Fixed reliable market price sources
-    mercati = [
-        {
-            "nome": "Cesena",
-            "url": "https://www.cermac.it/listini/",
-            "tipo": "PDF aggiornato settimanalmente"
-        },
-        {
-            "nome": "Lusia (Padova)",
-            "url": "https://www.mercatilusia.it/listino-prezzi/",
-            "tipo": "Listino giornaliero"
-        },
-        {
-            "nome": "Torino (CAAT)",
-            "url": "https://caat.it/mercuriale/",
-            "tipo": "Mercuriale settimanale"
-        },
-        {
-            "nome": "Verona",
-            "url": "https://veronamercato.it/it/references-list/",
-            "tipo": "Listino aggiornato"
-        },
-        {
-            "nome": "Bologna (CAAB)",
-            "url": "https://www.caab.it/listino-prezzi/",
-            "tipo": "Prezzi all'ingrosso"
-        },
-        {
-            "nome": "Milano",
-            "url": "https://www.comune.milano.it/aree-tematiche/quartieri/sogemi",
-            "tipo": "Mercato ortofrutticolo"
-        }
+    # Check cache (refresh every 2 hours for freshness)
+    cache_valid = (
+        _market_price_cache.get("last_updated") and 
+        _market_price_cache.get("links") and
+        len(_market_price_cache.get("links", [])) > 0 and
+        (datetime.now(timezone.utc) - _market_price_cache["last_updated"]).total_seconds() < 7200
+    )
+    
+    if cache_valid:
+        return _market_price_cache["links"]
+    
+    # Try to scrape fresh data from FreshPlaza
+    links = await scrape_freshplaza_market_links()
+    
+    # If scraping succeeded, return the links
+    if links and len(links) > 0:
+        return links
+    
+    # Fallback to reliable direct sources if FreshPlaza scraping fails
+    fallback_mercati = [
+        {"nome": "Cesena", "url": "https://www.freshplaza.it/search/?q=prezzi+cesena"},
+        {"nome": "Lusia", "url": "https://www.freshplaza.it/search/?q=prezzi+lusia"},
+        {"nome": "Torino", "url": "https://www.freshplaza.it/search/?q=prezzi+torino"},
+        {"nome": "Verona", "url": "https://www.freshplaza.it/search/?q=prezzi+verona"},
+        {"nome": "Bologna", "url": "https://www.freshplaza.it/search/?q=prezzi+bologna"},
+        {"nome": "Milano", "url": "https://www.freshplaza.it/search/?q=prezzi+milano"}
     ]
     
-    return mercati
+    return fallback_mercati
 
 
 # ----- Meteo (usando Open-Meteo API gratuita) -----
