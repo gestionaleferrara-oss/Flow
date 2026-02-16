@@ -231,16 +231,27 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Fatturato" value={data?.fatturatoMese || 0} format="currency" icon={Euro} gradient="blue"
+        <StatCard label="Fatturato" value={data?.fatturatoMese || 0} format="currency" icon={Euro} gradient="blue" blurred
           trend={data?.crescitaPercentuale > 0 ? 'up' : data?.crescitaPercentuale < 0 ? 'down' : 'neutral'}
           trendValue={data?.crescitaPercentuale}
           subtitle={[
             margineData?.margine_medio_pct > 0 ? `Margine: +${margineData.margine_medio_pct.toFixed(1)}% · Profitto: ${formatCurrency(margineData.profitto_totale || 0)}` : null,
             data?.fatturatoMesePrec ? `Mese prec: ${formatCurrency(data.fatturatoMesePrec)}` : null
           ].filter(Boolean).join('\n') || null} />
-        <StatCard label="Ordini Mese" value={data?.ordiniMese || 0} icon={ShoppingCart} gradient="emerald" />
-        <StatCard label="Clienti Mese" value={data?.nuoviClienti || 0} icon={Users} gradient="cyan" />
-        <StatCard label="Alert" value={totalAlerts} icon={AlertTriangle} gradient="amber" />
+        <StatCard label="Ordini Mese" value={data?.ordiniMese || 0} icon={ShoppingCart} gradient="emerald" blurred
+          trend={data?.ordiniCrescita > 0 ? 'up' : data?.ordiniCrescita < 0 ? 'down' : 'neutral'}
+          trendValue={data?.ordiniCrescita}
+          subtitle={data?.ordiniMesePrec ? `Mese prec: ${data.ordiniMesePrec.toLocaleString('it-IT')}` : null} />
+        <StatCard label="Clienti Mese" value={data?.nuoviClienti || 0} icon={Users} gradient="cyan" blurred
+          trend={data?.clientiCrescita > 0 ? 'up' : data?.clientiCrescita < 0 ? 'down' : 'neutral'}
+          trendValue={data?.clientiCrescita}
+          subtitle={data?.clientiMesePrec ? `Mese prec: ${data.clientiMesePrec.toLocaleString('it-IT')}` : null} />
+        <StatCard label="Alert" value={totalAlerts} icon={AlertTriangle} gradient="amber" blurred
+          subtitle={[
+            alerts?.prodottiSottoScorta?.length ? `Sotto scorta: ${alerts.prodottiSottoScorta.length}` : null,
+            alerts?.clientiInattivi?.length ? `Clienti inattivi: ${alerts.clientiInattivi.length}` : null,
+            alerts?.prodottiInEsaurimento?.length ? `In esaurimento: ${alerts.prodottiInEsaurimento.length}` : null
+          ].filter(Boolean).join('\n') || null} />
       </div>
 
       {/* Main Content Grid - Trends left, Insight right, Quick Links far right */}
