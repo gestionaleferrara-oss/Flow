@@ -112,17 +112,18 @@ export default function Dashboard() {
     return () => clearTimeout(timer);
   }, [prodottoSearch, searchProdotti]);
 
-  const viewProdottoAnalisi = async (prodotto) => {
+  const viewProdottoAnalisi = async (prodotto, periodo = '1m') => {
     setSelectedProdotto(prodotto);
     setShowSearchModal(false);
     setShowProdottoModal(true);
     setLoadingAnalisi(true);
     setProdottoSearch('');
     setAnalisiView('vendite');
+    setAnalisiPeriodo(periodo);
     try {
       const [venditeRes, acquistiRes] = await Promise.all([
-        axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi`),
-        axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi-acquisti`)
+        axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi`, { params: { periodo } }),
+        axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi-acquisti`, { params: { periodo } })
       ]);
       setProdottoAnalisi(venditeRes.data);
       setProdottoAnalisiAcquisti(acquistiRes.data);
