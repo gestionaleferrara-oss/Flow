@@ -63,14 +63,11 @@ async def generate_forecast(
     except:
         raise HTTPException(status_code=400, detail="Formato mese non valido. Usa YYYY-MM")
     
-    # Get historical data (last 12 months from today, not target)
-    now = datetime.now()
-    twelve_months_ago = (now - timedelta(days=365)).strftime("%Y-%m-%d")
-    
+    # Get ALL historical data (no date limit)
     if tipo == "prodotto":
-        # Get monthly sales for this product
+        # Get monthly sales for this product - ALL TIME
         pipeline = [
-            {"$match": {"prodotto_nome": nome, "data": {"$gte": twelve_months_ago}}},
+            {"$match": {"prodotto_nome": nome}},
             {"$addFields": {"mese": {"$substr": ["$data", 0, 7]}}},
             {"$group": {
                 "_id": "$mese",
@@ -80,11 +77,11 @@ async def generate_forecast(
             }},
             {"$sort": {"_id": 1}}
         ]
-        storico = await db.vendite.aggregate(pipeline).to_list(24)
+        storico = await db.vendite.aggregate(pipeline).to_list(100)
         
-        # Get top clients for this product
+        # Get top clients for this product - ALL TIME
         top_clienti_pipeline = [
-            {"$match": {"prodotto_nome": nome, "data": {"$gte": twelve_months_ago}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"prodotto_nome": nome, "cliente_nome": {"$nin": EXCLUDED}}},
             {"$group": {"_id": "$cliente_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
             {"$sort": {"totale": -1}},
             {"$limit": 5}
@@ -96,9 +93,9 @@ async def generate_forecast(
         extra_context = f"Top clienti: {', '.join([c['_id'] for c in top_clienti])}" if top_clienti else ""
         
     else:  # cliente
-        # Get monthly purchases for this client
+        # Get monthly purchases for this client - ALL TIME
         pipeline = [
-            {"$match": {"cliente_nome": nome, "data": {"$gte": twelve_months_ago}}},
+            {"$match": {"cliente_nome": nome}},
             {"$addFields": {"mese": {"$substr": ["$data", 0, 7]}}},
             {"$group": {
                 "_id": "$mese",
@@ -107,11 +104,11 @@ async def generate_forecast(
             }},
             {"$sort": {"_id": 1}}
         ]
-        storico = await db.vendite.aggregate(pipeline).to_list(24)
+        storico = await db.vendite.aggregate(pipeline).to_list(100)
         
-        # Get top products for this client
+        # Get top products for this client - ALL TIME
         top_prod_pipeline = [
-            {"$match": {"cliente_nome": nome, "data": {"$gte": twelve_months_ago}}},
+            {"$match": {"cliente_nome": nome}},
             {"$group": {"_id": "$prodotto_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
             {"$sort": {"totale": -1}},
             {"$limit": 5}
