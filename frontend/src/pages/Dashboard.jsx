@@ -56,6 +56,13 @@ export default function Dashboard() {
   
   // AI Floating state
   const [showAiPopup, setShowAiPopup] = useState(false);
+  
+  // Cliente Analisi state
+  const [showClienteModal, setShowClienteModal] = useState(false);
+  const [selectedCliente, setSelectedCliente] = useState(null);
+  const [clienteAnalisi, setClienteAnalisi] = useState(null);
+  const [loadingClienteAnalisi, setLoadingClienteAnalisi] = useState(false);
+  const [clienteAnalisiPeriodo, setClienteAnalisiPeriodo] = useState('mese');
 
   useEffect(() => {
     // Load all data in parallel - non-blocking
