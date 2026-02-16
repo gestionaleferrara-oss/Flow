@@ -368,16 +368,22 @@ export default function Dashboard() {
       <Dialog open={showSearchModal} onOpenChange={setShowSearchModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Cerca Prodotto</DialogTitle></DialogHeader>
-          <Input placeholder="Nome prodotto..." value={prodottoSearch} onChange={(e) => setProdottoSearch(e.target.value)} autoFocus data-testid="search-prodotto-input" />
+          <Input placeholder="Inizia a digitare per cercare..." value={prodottoSearch} onChange={(e) => setProdottoSearch(e.target.value)} autoFocus data-testid="search-prodotto-input" />
           <div className="max-h-64 overflow-auto space-y-1 mt-2">
-            {filteredProdotti.map((p) => (
-              <button key={p.codice || p.nome} onClick={() => viewProdottoAnalisi(p)}
-                data-testid={`search-result-${p.nome}`}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors">
-                <p className="text-sm font-medium text-slate-200 truncate">{p.nome}</p>
-                <p className="text-xs text-slate-500">Qty: {p.quantita || 0}</p>
-              </button>
-            ))}
+            {prodottoSearch.trim().length === 0 ? (
+              <p className="text-center py-6 text-sm text-slate-500">Digita almeno un carattere per cercare</p>
+            ) : filteredProdotti.length === 0 ? (
+              <p className="text-center py-6 text-sm text-slate-500">Nessun prodotto trovato</p>
+            ) : (
+              filteredProdotti.map((p) => (
+                <button key={p.codice || p.nome} onClick={() => viewProdottoAnalisi(p)}
+                  data-testid={`search-result-${p.nome}`}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors">
+                  <p className="text-sm font-medium text-slate-200 truncate">{p.nome}</p>
+                  <p className="text-xs text-slate-500">Qty: {p.quantita || 0}</p>
+                </button>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>
