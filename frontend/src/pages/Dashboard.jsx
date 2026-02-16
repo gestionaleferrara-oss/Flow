@@ -175,6 +175,23 @@ export default function Dashboard() {
         <StatCard label="Alert" value={totalAlerts} icon={AlertTriangle} gradient="amber" />
       </div>
 
+      {/* Margine Banner - Secondary info */}
+      {margineData?.margine_medio_pct > 0 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+          className="mb-4 px-3 py-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-between flex-wrap gap-2"
+          data-testid="margine-banner">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-xs text-slate-400">Margine Medio Vendite:</span>
+            <span className="text-sm font-semibold text-emerald-400">+{margineData.margine_medio_pct.toFixed(1)}%</span>
+          </div>
+          <div className="flex items-center gap-4 text-[10px] text-slate-500">
+            <span>Profitto stimato: <span className="text-emerald-400 font-medium">{formatCurrency(margineData.profitto_totale || 0)}</span></span>
+            <span>Prodotti analizzati: {margineData.prodotti_con_margine || 0}</span>
+          </div>
+        </motion.div>
+      )}
+
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
         {/* AI Suggestion - Compact inline style */}
