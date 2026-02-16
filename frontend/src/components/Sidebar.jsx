@@ -20,17 +20,37 @@ const navigation = [
   { name: 'Notizie', href: '/notizie', icon: Newspaper },
 ];
 
+// Prefetch map for instant navigation
+const prefetchMap = {
+  '/': () => import('@/pages/Dashboard'),
+  '/upload': () => import('@/pages/UploadCSV'),
+  '/magazzino': () => import('@/pages/Magazzino'),
+  '/vendite': () => import('@/pages/Vendite'),
+  '/clienti': () => import('@/pages/Clienti'),
+  '/fornitori': () => import('@/pages/Fornitori'),
+  '/ordini': () => import('@/pages/Ordini'),
+  '/statistiche': () => import('@/pages/Statistiche'),
+  '/report-ai': () => import('@/pages/ReportAI'),
+  '/notizie': () => import('@/pages/Notizie'),
+};
+const prefetched = new Set();
+
 export default function Sidebar({ mobileOpen, onMobileClose }) {
   const location = useLocation();
   const [hoveredItem, setHoveredItem] = useState(null);
   const [hoverPos, setHoverPos] = useState({ top: 0 });
   const leaveTimer = useRef(null);
 
-  const enterItem = useCallback((name, el) => {
+  const enterItem = useCallback((name, el, href) => {
     clearTimeout(leaveTimer.current);
     const rect = el.getBoundingClientRect();
     setHoverPos({ top: rect.top });
     setHoveredItem(name);
+    // Prefetch page chunk on hover
+    if (href && !prefetched.has(href) && prefetchMap[href]) {
+      prefetched.add(href);
+      prefetchMap[href]();
+    }
   }, []);
 
   const leaveItem = useCallback(() => {
@@ -117,7 +137,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
               <div
                 key={item.name}
                 className="relative h-[44px]"
-                onMouseEnter={(e) => enterItem(item.name, e.currentTarget)}
+                onMouseEnter={(e) => enterItem(item.name, e.currentTarget, item.href)}
                 onMouseLeave={leaveItem}
               >
                 <Link
