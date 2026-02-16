@@ -351,27 +351,37 @@ export default function Notizie() {
                   {trendsVendite.top_prodotti?.map((t, idx) => (
                     <motion.div key={t.prodotto}
                       initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + idx * 0.05 }}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.04]"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.03] border border-white/[0.04] hover:bg-emerald-500/[0.04] transition-colors"
                     >
-                      <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center shrink-0">
                         {idx + 1}
                       </span>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-slate-200 truncate">{t.prodotto}</p>
-                        <p className="text-[10px] text-slate-500">
-                          Qty: {t.quantita_2w.toLocaleString()} | €{t.fatturato_2w.toLocaleString()}
-                        </p>
+                        <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-0.5">
+                          <span>Qty: {t.quantita_2w?.toLocaleString()}</span>
+                          <span>€{t.fatturato_2w?.toLocaleString()}</span>
+                          <span className="text-slate-600">({t.quota_fatturato_pct?.toFixed(1)}% del tot)</span>
+                        </div>
                       </div>
-                      <div className={cn(
-                        'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold',
-                        t.trend === 'up' && 'text-emerald-400 bg-emerald-500/10',
-                        t.trend === 'down' && 'text-red-400 bg-red-500/10',
-                        t.trend === 'stable' && 'text-slate-400 bg-slate-500/10'
-                      )}>
-                        {t.trend === 'up' && <TrendingUp className="w-3 h-3" />}
-                        {t.trend === 'down' && <TrendingDown className="w-3 h-3" />}
-                        {t.trend === 'stable' && <Minus className="w-3 h-3" />}
-                        {t.variazione_pct > 0 ? '+' : ''}{t.variazione_pct}%
+                      <div className="flex flex-col items-end gap-0.5">
+                        <div className={cn(
+                          'flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold',
+                          t.trend === 'up' && 'text-emerald-400 bg-emerald-500/10',
+                          t.trend === 'down' && 'text-red-400 bg-red-500/10',
+                          t.trend === 'stable' && 'text-slate-400 bg-slate-500/10'
+                        )}>
+                          {t.trend === 'up' && <TrendingUp className="w-3 h-3" />}
+                          {t.trend === 'down' && <TrendingDown className="w-3 h-3" />}
+                          {t.trend === 'stable' && <Minus className="w-3 h-3" />}
+                          Qty {t.variazione_qty_pct > 0 ? '+' : ''}{t.variazione_qty_pct}%
+                        </div>
+                        <span className={cn(
+                          'text-[9px]',
+                          t.variazione_fatturato_pct > 0 ? 'text-emerald-500' : t.variazione_fatturato_pct < 0 ? 'text-red-500' : 'text-slate-500'
+                        )}>
+                          € {t.variazione_fatturato_pct > 0 ? '+' : ''}{t.variazione_fatturato_pct}%
+                        </span>
                       </div>
                     </motion.div>
                   ))}
