@@ -196,24 +196,32 @@ async def delete_fornitore(fornitore_id: str):
 
 
 @router.get("/fornitori-with-stats")
-async def get_fornitori_with_stats(search: Optional[str] = None, limit: int = 100, skip: int = 0):
+async def get_fornitori_with_stats(search: Optional[str] = None, anno: Optional[str] = None, limit: int = 100, skip: int = 0):
     query = {}
     if search:
         query["nome"] = {"$regex": search, "$options": "i"}
     fornitori = await db.fornitori.find(query, {"_id": 0}).sort("nome", 1).skip(skip).limit(limit).to_list(limit)
+
+    # Get available years from ordini
+    all_dates = await db.ordini.distinct("data")
+    anni_set = sorted(set(d[:4] for d in all_dates if d and len(d) >= 4), reverse=True)
+
     result = []
     for f in fornitori:
         nome = f.get('nome', '')
-        ordini = await db.ordini.find({"fornitore_nome": nome}, {"_id": 0, "totale": 1, "data": 1}).to_list(10000)
-        totale_acquisti = sum(abs(o.get('totale', 0)) for o in ordini)
+        ordini_query = {"fornitore_nome": nome}
+        if anno:
+            ordini_query["data"] = {"$regex": f"^{anno}"}
+        ordini = await db.ordini.find(ordini_query, {"_id": 0, "totale": 1, "data": 1}).to_list(10000)
+        fatturato = sum(abs(o.get('totale', 0)) for o in ordini)
         ultimo_ordine = max((o.get('data', '') for o in ordini), default='') if ordini else ''
         result.append({
             **f,
-            "totale_acquisti": round(totale_acquisti, 2),
+            "fatturato_totale": round(fatturato, 2),
             "num_ordini": len(ordini),
             "ultimo_ordine": ultimo_ordine
         })
-    return result
+    return {"fornitori": result, "anni_disponibili": anni_set}
 
 
 @router.put("/fornitori/{fornitore_id}/note")
@@ -231,49 +239,59 @@ async def update_fornitore_note(fornitore_id: str, data: Dict[str, Any]):
 async def get_fornitore_prodotti(fornitore_nome: str, mese: Optional[str] = None):
     from urllib.parse import unquote
     fornitore_nome = unquote(fornitore_nome)
+
+    # Get all orders from this supplier to determine available months
+    all_ordini = await db.ordini.find({"fornitore_nome": fornitore_nome}, {"_id": 0, "data": 1}).to_list(50000)
+    all_months = sorted(set(o.get('data', '')[:7] for o in all_ordini if o.get('data')), reverse=True)
+
+    # Default to latest month if not specified
+    mese_selezionato = mese if mese else (all_months[0] if all_months else '')
+
+    # Build month labels
+    MESI_NOMI = {
+        '01': 'Gennaio', '02': 'Febbraio', '03': 'Marzo', '04': 'Aprile',
+        '05': 'Maggio', '06': 'Giugno', '07': 'Luglio', '08': 'Agosto',
+        '09': 'Settembre', '10': 'Ottobre', '11': 'Novembre', '12': 'Dicembre'
+    }
+    mesi_disponibili = []
+    for m in all_months:
+        parts = m.split('-')
+        label = f"{MESI_NOMI.get(parts[1], parts[1])} {parts[0]}" if len(parts) == 2 else m
+        mesi_disponibili.append({"value": m, "label": label})
+
+    # Query filtered orders
     query = {"fornitore_nome": fornitore_nome}
-    if mese:
-        query["data"] = {"$regex": f"^{mese}"}
-    ordini = await db.ordini.find(query, {"_id": 0}).to_list(10000)
-    prodotti_dict = {}
+    if mese_selezionato:
+        query["data"] = {"$regex": f"^{mese_selezionato}"}
+    ordini = await db.ordini.find(query, {"_id": 0}).sort("data", -1).to_list(10000)
+
+    acquisti = []
+    totale_speso = 0
     for o in ordini:
-        prod = o.get('prodotto_nome', '')
-        if prod not in prodotti_dict:
-            prodotti_dict[prod] = {
-                'nome': prod,
-                'quantita_totale': 0,
-                'totale_euro': 0,
-                'num_ordini': 0,
-                'prezzi': [],
-                'date': []
-            }
-        prodotti_dict[prod]['quantita_totale'] += abs(o.get('quantita', 0))
-        prodotti_dict[prod]['totale_euro'] += abs(o.get('totale', 0))
-        prodotti_dict[prod]['num_ordini'] += 1
-        if o.get('prezzo_unitario', 0) > 0:
-            prodotti_dict[prod]['prezzi'].append(o['prezzo_unitario'])
-        if o.get('data'):
-            prodotti_dict[prod]['date'].append(o['data'])
-    result = []
-    for p in prodotti_dict.values():
-        prezzi = p['prezzi']
-        prezzo_medio = sum(prezzi) / len(prezzi) if prezzi else 0
-        prezzo_min = min(prezzi) if prezzi else 0
-        prezzo_max = max(prezzi) if prezzi else 0
-        ultimo_ordine = max(p['date']) if p['date'] else ''
-        result.append({
-            'nome': p['nome'],
-            'quantita_totale': round(p['quantita_totale'], 2),
-            'totale_euro': round(p['totale_euro'], 2),
-            'num_ordini': p['num_ordini'],
-            'prezzo_medio': round(prezzo_medio, 4),
-            'prezzo_min': round(prezzo_min, 4),
-            'prezzo_max': round(prezzo_max, 4),
-            'ultimo_ordine': ultimo_ordine
+        tot = abs(o.get('totale', 0))
+        totale_speso += tot
+        acquisti.append({
+            "prodotto": o.get('prodotto_nome', ''),
+            "quantita": abs(o.get('quantita', 0)),
+            "prezzo_unitario": o.get('prezzo_unitario', 0),
+            "totale": round(tot, 2),
+            "data": o.get('data', '')
         })
-    result.sort(key=lambda x: x['totale_euro'], reverse=True)
-    mesi_disponibili = sorted(set(o.get('data', '')[:7] for o in ordini if o.get('data')))
-    return {"prodotti": result, "mesi_disponibili": mesi_disponibili}
+
+    # Month reference label
+    mese_riferimento = ''
+    if mese_selezionato:
+        parts = mese_selezionato.split('-')
+        mese_riferimento = f"{MESI_NOMI.get(parts[1], parts[1])} {parts[0]}" if len(parts) == 2 else mese_selezionato
+
+    return {
+        "acquisti": acquisti,
+        "totale_acquisti": len(acquisti),
+        "totale_speso": round(totale_speso, 2),
+        "mesi_disponibili": mesi_disponibili,
+        "mese_selezionato": mese_selezionato,
+        "mese_riferimento": mese_riferimento
+    }
 
 
 # ===== Ordini =====
