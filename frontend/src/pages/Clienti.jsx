@@ -144,7 +144,7 @@ export default function Clienti() {
   if (loading) return <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>;
 
   return (
-    <PageWrapper>
+    <PageWrapper className="max-w-none">
       <PageHeader
         title="Clienti"
         subtitle="Gestione anagrafica clienti"
