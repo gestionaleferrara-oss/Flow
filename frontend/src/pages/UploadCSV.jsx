@@ -96,7 +96,7 @@ export default function UploadCSV() {
     <PageWrapper>
       <PageHeader
         title="Importa Dati"
-        subtitle="Carica un file CSV o XLSX per importare vendite, clienti e prodotti"
+        subtitle="Carica uno o più file CSV/XLSX per importare vendite, clienti e prodotti"
       />
 
       {uploading && <LoadingSpinner fullScreen />}
@@ -119,37 +119,25 @@ export default function UploadCSV() {
               <input {...getInputProps()} data-testid="file-input" />
               
               <div className="flex flex-col items-center gap-4">
-                {file ? (
+                {files.length > 0 ? (
                   <>
-                    <FileSpreadsheet className="w-16 h-16 text-primary" />
-                    <div>
-                      <p className="text-lg font-medium">{file.name}</p>
+                    <Files className="w-16 h-16 text-primary" />
+                    <div className="text-center">
+                      <p className="text-lg font-medium">{files.length} file selezionati</p>
                       <p className="text-sm text-muted-foreground">
-                        {(file.size / 1024).toFixed(1)} KB
+                        Clicca o trascina per aggiungerne altri
                       </p>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFile(null);
-                      }}
-                      data-testid="remove-file-btn"
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Rimuovi
-                    </Button>
                   </>
                 ) : (
                   <>
                     <Upload className="w-16 h-16 text-muted-foreground" />
                     <div>
                       <p className="text-lg font-medium">
-                        {isDragActive ? 'Rilascia il file qui' : 'Trascina un file CSV o XLSX'}
+                        {isDragActive ? 'Rilascia i file qui' : 'Trascina file CSV o XLSX'}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        oppure clicca per selezionare
+                        oppure clicca per selezionare (anche multipli)
                       </p>
                     </div>
                   </>
@@ -157,12 +145,53 @@ export default function UploadCSV() {
               </div>
             </div>
 
-            {file && (
+            {/* File List */}
+            {files.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {files.map((file, index) => (
+                  <motion.div
+                    key={`${file.name}-${index}`}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileSpreadsheet className="w-5 h-5 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeFile(index);
+                      }}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {files.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-6 flex justify-center"
+                className="mt-6 flex justify-center gap-4"
               >
+                <Button
+                  variant="outline"
+                  onClick={() => setFiles([])}
+                  data-testid="clear-files-btn"
+                >
+                  Cancella tutto
+                </Button>
                 <Button
                   onClick={handleUpload}
                   disabled={uploading}
@@ -170,7 +199,7 @@ export default function UploadCSV() {
                   className="uppercase tracking-wider"
                 >
                   <Upload className="w-4 h-4 mr-2" />
-                  Carica e Elabora
+                  Carica {files.length > 1 ? `${files.length} File` : 'e Elabora'}
                 </Button>
               </motion.div>
             )}
