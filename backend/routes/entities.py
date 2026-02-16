@@ -10,12 +10,28 @@ router = APIRouter()
 
 # ===== Clienti =====
 
-@router.get("/clienti", response_model=List[Cliente])
+@router.get("/clienti")
 async def get_clienti(search: Optional[str] = None, limit: int = 100, skip: int = 0):
+    """Get clients with calculated total revenue"""
     query = {}
     if search:
         query["nome"] = {"$regex": search, "$options": "i"}
     clienti = await db.clienti.find(query, {"_id": 0}).sort("nome", 1).skip(skip).limit(limit).to_list(limit)
+    
+    # Calculate fatturato_totale for each client from vendite
+    for cliente in clienti:
+        nome = cliente.get('nome', '')
+        if nome:
+            # Sum all sales for this client
+            pipeline = [
+                {"$match": {"cliente_nome": nome}},
+                {"$group": {"_id": None, "totale": {"$sum": {"$abs": "$totale"}}}}
+            ]
+            result = await db.vendite.aggregate(pipeline).to_list(1)
+            cliente['fatturato_totale'] = result[0]['totale'] if result else 0
+        else:
+            cliente['fatturato_totale'] = 0
+    
     return clienti
 
 
