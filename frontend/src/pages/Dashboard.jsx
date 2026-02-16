@@ -249,6 +249,7 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <StatCard label="Fatturato" value={data?.fatturatoMese || 0} format="currency" icon={Euro} gradient="blue" blurred
+          onIconClick={() => openCardDetail('fatturato')}
           trend={data?.crescitaPercentuale > 0 ? 'up' : data?.crescitaPercentuale < 0 ? 'down' : 'neutral'}
           trendValue={data?.crescitaPercentuale}
           subtitle={[
@@ -256,14 +257,17 @@ export default function Dashboard() {
             data?.fatturatoMesePrec ? `Mese prec: ${formatCurrency(data.fatturatoMesePrec)}` : null
           ].filter(Boolean).join('\n') || null} />
         <StatCard label="Ordini Mese" value={data?.ordiniMese || 0} icon={ShoppingCart} gradient="emerald" blurred
+          onIconClick={() => openCardDetail('ordini')}
           trend={data?.ordiniCrescita > 0 ? 'up' : data?.ordiniCrescita < 0 ? 'down' : 'neutral'}
           trendValue={data?.ordiniCrescita}
           subtitle={data?.ordiniMesePrec ? `Mese prec: ${data.ordiniMesePrec.toLocaleString('it-IT')}` : null} />
         <StatCard label="Clienti Mese" value={data?.nuoviClienti || 0} icon={Users} gradient="cyan" blurred
+          onIconClick={() => openCardDetail('clienti')}
           trend={data?.clientiCrescita > 0 ? 'up' : data?.clientiCrescita < 0 ? 'down' : 'neutral'}
           trendValue={data?.clientiCrescita}
           subtitle={data?.clientiMesePrec ? `Mese prec: ${data.clientiMesePrec.toLocaleString('it-IT')}` : null} />
         <StatCard label="Alert" value={totalAlerts} icon={AlertTriangle} gradient="amber" blurred
+          onIconClick={() => openCardDetail('alert')}
           subtitle={[
             alerts?.prodottiSottoScorta?.length ? `Sotto scorta: ${alerts.prodottiSottoScorta.length}` : null,
             alerts?.clientiInattivi?.length ? `Clienti inattivi: ${alerts.clientiInattivi.length}` : null,
