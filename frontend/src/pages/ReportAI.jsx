@@ -95,6 +95,7 @@ export default function ReportAI() {
             className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             data-testid="report-type-select"
           >
+            <option value="dashboard">Dashboard</option>
             <option value="settimanale">Settimanale</option>
             <option value="mensile">Mensile</option>
           </select>
