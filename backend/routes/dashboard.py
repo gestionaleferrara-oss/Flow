@@ -47,6 +47,15 @@ async def get_dashboard():
     )
     nuovi_clienti = len(clienti_mese_set)
 
+    ordini_mese_prec = len(vendite_mese_prec)
+    clienti_prec_set = set(
+        v.get('cliente_nome', '') for v in vendite_mese_prec
+        if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS_DASH]
+    )
+    clienti_mese_prec = len(clienti_prec_set)
+    ordini_crescita = round(((ordini_mese - ordini_mese_prec) / ordini_mese_prec * 100), 1) if ordini_mese_prec > 0 else 0
+    clienti_crescita = round(((nuovi_clienti - clienti_mese_prec) / clienti_mese_prec * 100), 1) if clienti_mese_prec > 0 else 0
+
     prodotti_stats = await get_prodotti_stats()
 
     attivita_recenti = []
@@ -64,7 +73,11 @@ async def get_dashboard():
         "fatturatoMesePrec": fatturato_mese_prec,
         "crescitaPercentuale": round(crescita, 1),
         "ordiniMese": ordini_mese,
+        "ordiniMesePrec": ordini_mese_prec,
+        "ordiniCrescita": ordini_crescita,
         "nuoviClienti": nuovi_clienti,
+        "clientiMesePrec": clienti_mese_prec,
+        "clientiCrescita": clienti_crescita,
         "totaleProdotti": prodotti_stats.get('totaleProdotti', 0),
         "valoreScorte": prodotti_stats.get('valoreScorte', 0),
         "sottoScorta": prodotti_stats.get('sottoScorta', 0),
