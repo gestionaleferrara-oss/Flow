@@ -157,11 +157,11 @@ export default function Statistiche() {
         subtitle={viewMode === 'vendite' ? "Analisi vendite" : "Analisi acquisti"}
       >
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => handlePdfExport()} className="bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" data-testid="export-pdf">
+            <Download className="w-4 h-4 mr-1" /> PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={() => handleExport('csv')} data-testid="export-csv">
             <Download className="w-4 h-4 mr-1" /> CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('excel')} data-testid="export-excel">
-            <Download className="w-4 h-4 mr-1" /> Excel
           </Button>
           <Button variant="outline" size="sm" onClick={loadStatistiche} data-testid="refresh-stats">
             <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
