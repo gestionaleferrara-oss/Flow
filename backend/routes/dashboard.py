@@ -920,3 +920,93 @@ Formatta il report in markdown."""
     except Exception as e:
         logger.error(f"Error generating AI report: {e}")
         raise HTTPException(status_code=500, detail=f"Errore generazione report: {str(e)}")
+
+
+@router.post("/ai-reports/export-pdf")
+async def export_report_pdf(data: dict):
+    """Export AI report to PDF"""
+    from fpdf import FPDF
+    from fastapi.responses import Response
+    import re
+    
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        
+        # Header
+        pdf.set_font('Helvetica', 'B', 18)
+        pdf.set_text_color(30, 64, 175)
+        tipo = str(data.get('tipo', 'Report')).upper()
+        pdf.cell(0, 12, f'REPORT {tipo}', ln=True, align='C')
+        
+        pdf.set_font('Helvetica', '', 10)
+        pdf.set_text_color(100, 100, 100)
+        periodo = f"{data.get('periodo_inizio', '')} - {data.get('periodo_fine', '')}"
+        pdf.cell(0, 6, periodo, ln=True, align='C')
+        pdf.ln(5)
+        
+        # Metrics
+        metriche = data.get('metriche', {})
+        pdf.set_font('Helvetica', 'B', 10)
+        pdf.set_fill_color(240, 240, 240)
+        pdf.cell(0, 7, 'METRICHE CHIAVE', ln=True, fill=True)
+        pdf.set_font('Helvetica', '', 10)
+        pdf.cell(0, 6, f"Fatturato: EUR {metriche.get('fatturato', 0):.2f}", ln=True)
+        pdf.cell(0, 6, f"Transazioni: {metriche.get('num_vendite', 0)}", ln=True)
+        pdf.cell(0, 6, f"Clienti inattivi: {metriche.get('clienti_inattivi', 0)}", ln=True)
+        pdf.ln(5)
+        
+        # Content
+        pdf.set_font('Helvetica', 'B', 10)
+        pdf.cell(0, 7, 'ANALISI', ln=True, fill=True)
+        pdf.set_font('Helvetica', '', 9)
+        
+        # Clean content
+        content = str(data.get('contenuto', ''))
+        content = content.replace('€', 'EUR ')
+        content = re.sub(r'\*\*([^*]+)\*\*', r'\1', content)
+        content = re.sub(r'\*([^*]+)\*', r'\1', content)
+        content = re.sub(r'#{1,3}\s*', '', content)
+        content = content.encode('ascii', errors='replace').decode('ascii')
+        
+        for line in content.split('\n'):
+            line = line.strip()
+            if not line:
+                pdf.ln(2)
+                continue
+            if line.isupper() or (len(line) < 50 and line.endswith(':')):
+                pdf.set_font('Helvetica', 'B', 10)
+                pdf.ln(2)
+                pdf.cell(0, 5, line, ln=True)
+            else:
+                pdf.set_font('Helvetica', '', 9)
+                words = line.split()
+                current_line = ""
+                for word in words:
+                    test_line = current_line + " " + word if current_line else word
+                    if pdf.get_string_width(test_line) < 180:
+                        current_line = test_line
+                    else:
+                        if current_line:
+                            pdf.cell(0, 4, current_line, ln=True)
+                        current_line = word
+                if current_line:
+                    pdf.cell(0, 4, current_line, ln=True)
+        
+        pdf.ln(8)
+        pdf.set_font('Helvetica', 'I', 8)
+        pdf.set_text_color(150, 150, 150)
+        created = str(data.get('created_at', ''))[:10]
+        pdf.cell(0, 6, f"Generato il {created} - Flow Business Analytics", ln=True, align='C')
+        
+        pdf_bytes = pdf.output()
+        return Response(
+            content=bytes(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=report_{tipo.lower()}.pdf"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Error exporting report PDF: {e}")
+        raise HTTPException(status_code=500, detail=f"Errore export PDF: {str(e)}")
