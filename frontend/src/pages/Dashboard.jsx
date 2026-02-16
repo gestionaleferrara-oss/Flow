@@ -51,20 +51,17 @@ export default function Dashboard() {
   const [margineData, setMargineData] = useState(null);
 
   useEffect(() => {
+    // Load all data in parallel - non-blocking
     const loadAll = async () => {
-      const promises = [
-        axios.get(`${API}/dashboard`).then(r => setData(r.data)).catch(() => {}),
-        axios.get(`${API}/prodotti?limit=500`).then(r => setProdotti(r.data)).catch(() => {}),
-        axios.get(`${API}/ai-suggestion`).then(r => setAiSuggestion(r.data)).catch(() => {}),
-        axios.get(`${API}/alerts`).then(r => setAlerts(r.data)).catch(() => {}),
-        axios.get(`${API}/trends-vendite?limite=5`).then(r => setTrendsVendite(r.data)).catch(() => {}),
-        axios.get(`${API}/sales-insight`).then(r => setSalesInsight(r.data)).catch(() => {}),
-      ];
-      await Promise.allSettled(promises);
-      setLoading(false);
-      setLoadingAi(false);
-      setLoadingAlerts(false);
-      setInsightLoading(false);
+      // Critical data first
+      axios.get(`${API}/dashboard`).then(r => { setData(r.data); setLoading(false); }).catch(() => setLoading(false));
+      
+      // Secondary data - non-blocking
+      axios.get(`${API}/trends-vendite?limite=5`).then(r => setTrendsVendite(r.data)).catch(() => {});
+      axios.get(`${API}/sales-insight`).then(r => setSalesInsight(r.data)).catch(() => {});
+      axios.get(`${API}/ai-suggestion`).then(r => setAiSuggestion(r.data)).catch(() => {});
+      axios.get(`${API}/alerts`).then(r => setAlerts(r.data)).catch(() => {});
+      axios.get(`${API}/margine-vendite`).then(r => setMargineData(r.data)).catch(() => {});
     };
     loadAll();
   }, []);
