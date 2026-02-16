@@ -40,16 +40,12 @@ Applicazione web per la gestione di magazzino, vendite e acquisti per aziende de
 - Top Prodotti per fatturato
 - Export CSV/Excel
 
-### Notizie & Mercati (v1.2 - 16/02/2026) ⭐ SEMPLIFICATO
+### Notizie & Mercati (v1.3 - 16/02/2026) ⭐ AGGIORNATO
 - Widget Meteo Bologna (previsioni 7 giorni)
 - **Breaking News LIVE** - ticker scrollabile con notizie settore
-- **Listini Mercato** - Link a fonti ufficiali (ISMEA + CCIAA)
-  - ISMEA Ortaggi
-  - ISMEA Frutta
-  - Bologna CCIAA
-  - Firenze CCIAA
-  - Padova CCIAA
-  - Bari CCIAA
+- **Listini Mercato DINAMICI** - Scraping automatico da FreshPlaza
+  - Link diretti ai PDF aggiornati (Cesena, Lusia, Torino, Verona, etc.)
+  - Fallback a link statici se scraping fallisce
 - Griglia notizie con immagini e filtri categoria
 
 ### Magazzino (v1.0)
