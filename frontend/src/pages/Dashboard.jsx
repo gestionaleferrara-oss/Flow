@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [prodottoAnalisiAcquisti, setProdottoAnalisiAcquisti] = useState(null);
   const [loadingAnalisi, setLoadingAnalisi] = useState(false);
   const [analisiView, setAnalisiView] = useState('vendite');
+  const [analisiPeriodo, setAnalisiPeriodo] = useState('1m'); // 1m, 3m, 6m, all
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [alerts, setAlerts] = useState(null);
