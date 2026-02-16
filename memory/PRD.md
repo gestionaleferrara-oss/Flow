@@ -17,11 +17,22 @@ Applicazione web per la gestione di magazzino, vendite e acquisti per aziende de
 - Calcolo automatico quantità magazzino
 - Indici MongoDB per query veloci
 
-### Dashboard (v1.0)
+### Dashboard (v1.2 - 16/02/2026) ⭐ AGGIORNATO
 - Fatturato mese corrente vs mese precedente completo
 - Percentuale crescita/decrescita
 - Ordini del mese
 - Centro Alert (clienti inattivi, prodotti in esaurimento)
+- **NUOVO: Widget Sales Insight** - Insight dinamici su vendite e prodotti:
+  - Prodotto Top del Mese
+  - Crescita Maggiore
+  - Miglior Cliente del Mese
+  - Nuovo Cliente Acquisito
+  - Margine Migliore
+  - Prodotto Più Venduto
+- **NUOVO: Widget Trend Prodotti espandibile** (5→20 items):
+  - Filtri avanzati: Periodo (1S, 2S, 1M, 3M)
+  - Ordinamento: Rilevanza, €, ↑ Crescita, ↓ Calo
+- Quick Links compatti (Importa, Statistiche, Magazzino)
 
 ### Statistiche (v1.0)
 - Grafico andamento vendite mensili
@@ -29,19 +40,16 @@ Applicazione web per la gestione di magazzino, vendite e acquisti per aziende de
 - Top Prodotti per fatturato
 - Export CSV/Excel
 
-### Notizie & Mercati (v1.1 - 16/02/2026)
-- Widget Meteo Bologna
-- **Listini prezzi mercati** - link diretti affidabili:
-  - Cesena (CERMAC)
-  - Lusia/Padova
-  - Torino (CAAT)
-  - Verona
-  - Bologna (CAAB)
-  - Milano
-- **Breaking News LIVE** - widget grande sotto meteo con notizie scrollabili
-- **Trend Prodotti con switch principale**:
-  - 📦 **I Miei Articoli** - Top 5 prodotti più venduti con variazione ultime 2 settimane vs 2 precedenti
-  - 🔍 **Google Trends** - Trends di mercato per categoria (Frutta Secca, Frutta, Verdura, Spezie)
+### Notizie & Mercati (v1.2 - 16/02/2026) ⭐ SEMPLIFICATO
+- Widget Meteo Bologna (previsioni 7 giorni)
+- **Breaking News LIVE** - ticker scrollabile con notizie settore
+- **Listini Mercato** - Link a fonti ufficiali (ISMEA + CCIAA)
+  - ISMEA Ortaggi
+  - ISMEA Frutta
+  - Bologna CCIAA
+  - Firenze CCIAA
+  - Padova CCIAA
+  - Bari CCIAA
 - Griglia notizie con immagini e filtri categoria
 
 ### Magazzino (v1.0)
