@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Euro, ShoppingCart, Users, Package, AlertTriangle, ArrowUpRight, Upload,
   BarChart3, TrendingUp, TrendingDown, Search, Box, Sparkles, Lightbulb,
-  RefreshCw, Clock, UserX, PackageX, AlertCircle, Minus, X, Filter
+  RefreshCw, Clock, UserX, PackageX, AlertCircle, Minus, X, Filter,
+  ArrowDownAZ, Activity
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import StatCard from '@/components/StatCard';
@@ -33,18 +34,17 @@ export default function Dashboard() {
   const [loadingAi, setLoadingAi] = useState(false);
   const [alerts, setAlerts] = useState(null);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
-  
+
   // Trends state
   const [trendsVendite, setTrendsVendite] = useState(null);
   const [showTrendsPopup, setShowTrendsPopup] = useState(false);
   const [trendsPeriodo, setTrendsPeriodo] = useState('2w');
   const [trendsOrdinaPer, setTrendsOrdinaPer] = useState('interest');
-  
+
   // Sales Insight state
   const [salesInsight, setSalesInsight] = useState(null);
   const [insightLoading, setInsightLoading] = useState(true);
 
-  // Load all data in parallel for speed
   useEffect(() => {
     const loadAll = async () => {
       const promises = [
@@ -75,7 +75,7 @@ export default function Dashboard() {
   const loadTrendsVendite = useCallback(async (periodo, ordinaPer, limit = 20) => {
     try {
       const response = await axios.get(`${API}/trends-vendite`, {
-        params: { periodo, ordina_per: ordinaPer, limit }
+        params: { periodo, ordina_per: ordinaPer, limite: limit }
       });
       setTrendsVendite(response.data);
     } catch (e) {}
@@ -101,14 +101,14 @@ export default function Dashboard() {
     } finally { setLoadingAnalisi(false); }
   };
 
-  const filteredProdotti = prodotti.filter(p => 
+  const filteredProdotti = prodotti.filter(p =>
     p.nome.toLowerCase().includes(prodottoSearch.toLowerCase())
   ).slice(0, 12);
 
   if (loading) return <LoadingSpinner fullScreen />;
 
-  const totalAlerts = (alerts?.prodottiSottoScorta?.length || 0) + 
-                      (alerts?.clientiInattivi?.length || 0) + 
+  const totalAlerts = (alerts?.prodottiSottoScorta?.length || 0) +
+                      (alerts?.clientiInattivi?.length || 0) +
                       (alerts?.prodottiInEsaurimento?.length || 0);
 
   const insightColors = {
@@ -121,6 +121,17 @@ export default function Dashboard() {
     orange: 'bg-orange-500/10 border-orange-500/20 text-orange-400',
   };
 
+  const periodoOptions = [
+    { v: '1w', l: '1 Sett.' },
+    { v: '2w', l: '2 Sett.' },
+    { v: '1m', l: '1 Mese' },
+  ];
+  const ordinaPerOptions = [
+    { v: 'interest', l: 'Interesse' },
+    { v: 'qty', l: 'Quantità' },
+    { v: 'revenue', l: 'Fatturato' },
+  ];
+
   return (
     <PageWrapper>
       <PageHeader title="Dashboard" subtitle="Panoramica attività">
@@ -129,20 +140,19 @@ export default function Dashboard() {
         </Button>
       </PageHeader>
 
-      {/* KPI Cards - Responsive Grid */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <StatCard label="Fatturato" value={data?.fatturatoMese || 0} format="currency" icon={Euro} gradient="blue"
           trend={data?.crescitaPercentuale > 0 ? 'up' : data?.crescitaPercentuale < 0 ? 'down' : 'neutral'}
-          trendValue={data?.crescitaPercentuale} compact />
-        <StatCard label="Ordini" value={data?.ordiniMese || 0} icon={ShoppingCart} gradient="emerald" compact />
-        <StatCard label="Clienti" value={data?.nuoviClienti || 0} icon={Users} gradient="cyan" compact />
-        <StatCard label="Alert" value={totalAlerts} icon={AlertTriangle} gradient="amber" compact />
+          trendValue={data?.crescitaPercentuale} />
+        <StatCard label="Ordini Mese" value={data?.ordiniMese || 0} icon={ShoppingCart} gradient="emerald" />
+        <StatCard label="Clienti Mese" value={data?.nuoviClienti || 0} icon={Users} gradient="cyan" />
+        <StatCard label="Alert" value={totalAlerts} icon={AlertTriangle} gradient="amber" />
       </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
-        
-        {/* AI Suggestion - spans 8 cols on lg */}
+        {/* AI Suggestion */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
           className="lg:col-span-8 rounded-xl bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-fuchsia-500/10 border border-purple-500/20 p-4 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
@@ -183,7 +193,7 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Sales Insight - spans 4 cols on lg */}
+        {/* Sales Insight - improved text visibility */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="lg:col-span-4 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden"
           data-testid="sales-insight-widget">
@@ -200,21 +210,14 @@ export default function Dashboard() {
             {insightLoading ? (
               <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 text-slate-600 animate-spin" /></div>
             ) : salesInsight?.insights?.length > 0 ? (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {salesInsight.insights.slice(0, 4).map((ins) => (
-                  <div key={ins.tipo} className="group relative">
-                    <div className={cn("flex items-center gap-2 px-2 py-1.5 rounded-md border text-[11px] cursor-default", insightColors[ins.colore] || insightColors.emerald)}>
+                  <div key={ins.tipo} className={cn("px-2.5 py-2 rounded-lg border", insightColors[ins.colore] || insightColors.emerald)}>
+                    <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-sm">{ins.icona}</span>
-                      <span className="font-medium truncate flex-1">{ins.valore}</span>
+                      <span className="font-semibold text-xs truncate flex-1">{ins.valore}</span>
                     </div>
-                    {/* Hover Tooltip */}
-                    <div className="absolute left-0 right-0 top-full mt-1 opacity-0 group-hover:opacity-100 pointer-events-none z-30 transition-opacity duration-150">
-                      <div className="mx-1 p-2 rounded-lg bg-slate-900/95 border border-white/10 shadow-xl text-[10px]">
-                        <p className="text-slate-400 uppercase tracking-wide">{ins.titolo}</p>
-                        <p className="text-white font-medium">{ins.valore}</p>
-                        <p className="text-slate-500 mt-0.5">{ins.dettaglio}</p>
-                      </div>
-                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed pl-6">{ins.dettaglio || ins.titolo}</p>
                   </div>
                 ))}
               </div>
@@ -227,21 +230,43 @@ export default function Dashboard() {
 
       {/* Second Row: Trends + Quick Links */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
-        
-        {/* Trends Widget - Hover Popup */}
+        {/* Trends Widget with visible selectors */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-          className="lg:col-span-7 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden relative"
+          className="lg:col-span-8 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden relative"
           data-testid="trends-widget"
           onMouseEnter={() => { setShowTrendsPopup(true); loadTrendsVendite(trendsPeriodo, trendsOrdinaPer, 20); }}
           onMouseLeave={() => setShowTrendsPopup(false)}>
-          <div className="px-3 py-2.5 border-b border-white/[0.06] flex items-center justify-between">
+          <div className="px-3 py-2.5 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-md bg-emerald-500/15">
                 <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
               </div>
               <div>
                 <h3 className="text-xs font-semibold text-white">Trend Prodotti</h3>
-                <p className="text-[9px] text-slate-500">Top 5 • Hover per dettagli</p>
+                <p className="text-[9px] text-slate-500">Top 5 &bull; Hover per dettagli</p>
+              </div>
+            </div>
+            {/* Visible selectors */}
+            <div className="flex items-center gap-2" data-testid="trends-selectors">
+              <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
+                <Clock className="w-3 h-3 text-slate-500 ml-1" />
+                {periodoOptions.map(p => (
+                  <button key={p.v} onClick={(e) => { e.stopPropagation(); setTrendsPeriodo(p.v); loadTrendsVendite(p.v, trendsOrdinaPer, 5); }}
+                    data-testid={`trend-periodo-${p.v}`}
+                    className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
+                      trendsPeriodo === p.v ? "bg-emerald-500/20 text-emerald-300 shadow-sm" : "text-slate-500 hover:text-slate-300"
+                    )}>{p.l}</button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
+                <ArrowDownAZ className="w-3 h-3 text-slate-500 ml-1" />
+                {ordinaPerOptions.map(o => (
+                  <button key={o.v} onClick={(e) => { e.stopPropagation(); setTrendsOrdinaPer(o.v); loadTrendsVendite(trendsPeriodo, o.v, 5); }}
+                    data-testid={`trend-ordina-${o.v}`}
+                    className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
+                      trendsOrdinaPer === o.v ? "bg-emerald-500/20 text-emerald-300 shadow-sm" : "text-slate-500 hover:text-slate-300"
+                    )}>{o.l}</button>
+                ))}
               </div>
             </div>
           </div>
@@ -278,7 +303,7 @@ export default function Dashboard() {
                     <span className="text-xs font-semibold text-white">Top 20 Prodotti</span>
                   </div>
                   <div className="flex gap-1">
-                    {[{ v: '1w', l: '1S' }, { v: '2w', l: '2S' }, { v: '1m', l: '1M' }].map(p => (
+                    {periodoOptions.map(p => (
                       <button key={p.v} onClick={() => { setTrendsPeriodo(p.v); loadTrendsVendite(p.v, trendsOrdinaPer, 20); }}
                         className={cn("px-1.5 py-0.5 rounded text-[9px] font-medium transition-all",
                           trendsPeriodo === p.v ? "bg-emerald-500/20 text-emerald-300" : "text-slate-500 hover:text-slate-300"
@@ -293,7 +318,7 @@ export default function Dashboard() {
                         <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 text-[8px] font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] text-slate-300 truncate">{t.prodotto}</p>
-                          <p className="text-[8px] text-slate-600">€{t.fatturato_2w?.toLocaleString()}</p>
+                          <p className="text-[8px] text-slate-600">&euro;{t.fatturato_2w?.toLocaleString()}</p>
                         </div>
                         <span className={cn("text-[9px] font-medium",
                           t.trend === 'up' ? 'text-emerald-400' : t.trend === 'down' ? 'text-red-400' : 'text-slate-400'
@@ -307,15 +332,15 @@ export default function Dashboard() {
           </AnimatePresence>
         </motion.div>
 
-        {/* Quick Links - Compact */}
-        <div className="lg:col-span-5 grid grid-cols-3 gap-2">
+        {/* Quick Links - Compact on desktop, larger on mobile */}
+        <div className="lg:col-span-4 flex lg:flex-col gap-2" data-testid="quick-links">
           <QuickLink href="/upload" icon={Upload} label="Importa" color="blue" />
-          <QuickLink href="/statistiche" icon={BarChart3} label="Stats" color="purple" />
+          <QuickLink href="/statistiche" icon={BarChart3} label="Statistiche" color="purple" />
           <QuickLink href="/magazzino" icon={Package} label="Magazzino" color="emerald" />
         </div>
       </div>
 
-      {/* Alerts Section - Compact */}
+      {/* Alerts Section */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
         className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden">
         <div className="px-3 py-2 border-b border-white/[0.06] flex items-center gap-2">
@@ -343,10 +368,11 @@ export default function Dashboard() {
       <Dialog open={showSearchModal} onOpenChange={setShowSearchModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Cerca Prodotto</DialogTitle></DialogHeader>
-          <Input placeholder="Nome prodotto..." value={prodottoSearch} onChange={(e) => setProdottoSearch(e.target.value)} autoFocus />
+          <Input placeholder="Nome prodotto..." value={prodottoSearch} onChange={(e) => setProdottoSearch(e.target.value)} autoFocus data-testid="search-prodotto-input" />
           <div className="max-h-64 overflow-auto space-y-1 mt-2">
             {filteredProdotti.map((p) => (
               <button key={p.codice || p.nome} onClick={() => viewProdottoAnalisi(p)}
+                data-testid={`search-result-${p.nome}`}
                 className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors">
                 <p className="text-sm font-medium text-slate-200 truncate">{p.nome}</p>
                 <p className="text-xs text-slate-500">Qty: {p.quantita || 0}</p>
@@ -365,23 +391,23 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-4">
               <div className="flex gap-2">
-                <Button variant={analisiView === 'vendite' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('vendite')}>Vendite</Button>
-                <Button variant={analisiView === 'acquisti' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('acquisti')}>Acquisti</Button>
+                <Button variant={analisiView === 'vendite' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('vendite')} data-testid="analisi-vendite-tab">Vendite</Button>
+                <Button variant={analisiView === 'acquisti' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('acquisti')} data-testid="analisi-acquisti-tab">Acquisti</Button>
               </div>
               {analisiView === 'vendite' && prodottoAnalisi && (
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Totale Venduto</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisi.totale_venduto || 0)}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Quantità</p><p className="text-lg font-bold text-white">{prodottoAnalisi.quantita_venduta || 0}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Prezzo Medio</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisi.prezzo_medio || 0)}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">N. Clienti</p><p className="text-lg font-bold text-white">{prodottoAnalisi.numero_clienti || 0}</p></div>
+                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Totale Venduto</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisi.totale_venduto || prodottoAnalisi.fatturatoMensile || 0)}</p></div>
+                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Quantità</p><p className="text-lg font-bold text-white">{prodottoAnalisi.quantita_venduta || prodottoAnalisi.mediaMensile || 0}</p></div>
+                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Prezzo Medio</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisi.prezzo_medio || prodottoAnalisi.prezzoMedioVendita || 0)}</p></div>
+                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">N. Clienti</p><p className="text-lg font-bold text-white">{prodottoAnalisi.numero_clienti || prodottoAnalisi.clientiUnici || 0}</p></div>
                 </div>
               )}
               {analisiView === 'acquisti' && prodottoAnalisiAcquisti && (
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Totale Acquistato</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisiAcquisti.totale_acquistato || 0)}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Quantità</p><p className="text-lg font-bold text-white">{prodottoAnalisiAcquisti.quantita_acquistata || 0}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Costo Medio</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisiAcquisti.costo_medio || 0)}</p></div>
-                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">N. Fornitori</p><p className="text-lg font-bold text-white">{prodottoAnalisiAcquisti.numero_fornitori || 0}</p></div>
+                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Totale Acquistato</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisiAcquisti.totale_acquistato || prodottoAnalisiAcquisti.spesoMensile || 0)}</p></div>
+                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Quantità</p><p className="text-lg font-bold text-white">{prodottoAnalisiAcquisti.quantita_acquistata || prodottoAnalisiAcquisti.mediaMensile || 0}</p></div>
+                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">Costo Medio</p><p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisiAcquisti.costo_medio || prodottoAnalisiAcquisti.prezzoMedioAcquisto || 0)}</p></div>
+                  <div className="p-3 rounded-lg bg-white/5"><p className="text-xs text-slate-500">N. Fornitori</p><p className="text-lg font-bold text-white">{prodottoAnalisiAcquisti.numero_fornitori || prodottoAnalisiAcquisti.fornitoriUnici || 0}</p></div>
                 </div>
               )}
             </div>
@@ -392,20 +418,21 @@ export default function Dashboard() {
   );
 }
 
-// Compact Quick Link Component
+// Quick Link - compact on desktop, larger on mobile
 function QuickLink({ href, icon: Icon, label, color }) {
   const colors = {
-    blue: 'from-blue-500 to-blue-600 hover:shadow-blue-500/20',
-    purple: 'from-purple-500 to-purple-600 hover:shadow-purple-500/20',
-    emerald: 'from-emerald-500 to-emerald-600 hover:shadow-emerald-500/20',
+    blue: 'from-blue-500/80 to-blue-600/80 hover:shadow-blue-500/20 border-blue-500/30',
+    purple: 'from-purple-500/80 to-purple-600/80 hover:shadow-purple-500/20 border-purple-500/30',
+    emerald: 'from-emerald-500/80 to-emerald-600/80 hover:shadow-emerald-500/20 border-emerald-500/30',
   };
   return (
     <Link to={href} className={cn(
-      "flex flex-col items-center justify-center p-3 rounded-xl bg-gradient-to-br text-white transition-all duration-200 hover:shadow-lg hover:scale-[1.02]",
+      "flex items-center gap-3 flex-1 lg:flex-none",
+      "px-4 py-3 md:py-2.5 rounded-xl bg-gradient-to-r border text-white transition-all duration-200 hover:shadow-lg hover:scale-[1.02]",
       colors[color]
     )} data-testid={`quick-link-${label.toLowerCase()}`}>
-      <Icon className="w-5 h-5 mb-1" />
-      <span className="text-[10px] font-medium">{label}</span>
+      <Icon className="w-4 h-4 shrink-0" />
+      <span className="text-xs font-semibold">{label}</span>
     </Link>
   );
 }
