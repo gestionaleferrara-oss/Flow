@@ -349,21 +349,22 @@ export default function Dashboard() {
           </AnimatePresence>
         </motion.div>
 
-        {/* Quick Links - Compact on desktop, larger on mobile */}
-        <div className="lg:col-span-4 flex lg:flex-col gap-2" data-testid="quick-links">
+        {/* Quick Links - Column layout */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+          className="flex flex-col gap-2" data-testid="quick-links">
           <QuickLink href="/upload" icon={Upload} label="Importa" color="blue" />
           <QuickLink href="/statistiche" icon={BarChart3} label="Statistiche" color="purple" />
           <QuickLink href="/magazzino" icon={Package} label="Magazzino" color="emerald" />
-        </div>
+        </motion.div>
       </div>
 
       {/* Alerts Section */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-        className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden">
-        <div className="px-3 py-2 border-b border-white/[0.06] flex items-center gap-2">
+        className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden mb-4">
+        <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-amber-400" />
-          <span className="text-xs font-semibold text-white">Alert</span>
-          {totalAlerts > 0 && <span className="px-1.5 py-0.5 text-[9px] bg-amber-500/20 text-amber-300 rounded">{totalAlerts}</span>}
+          <span className="text-sm font-semibold text-white">Alert</span>
+          {totalAlerts > 0 && <span className="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-300 rounded">{totalAlerts}</span>}
         </div>
         {loadingAlerts ? (
           <div className="p-6 text-center"><RefreshCw className="w-4 h-4 animate-spin mx-auto text-slate-600" /></div>
