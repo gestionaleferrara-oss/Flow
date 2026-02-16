@@ -353,27 +353,30 @@ export default function Dashboard() {
               <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 text-slate-600 animate-spin" /></div>
             ) : salesInsight?.insights?.length > 0 ? (
               <div className="space-y-2">
-                {salesInsight.insights.slice(0, 4).map((ins) => (
-                  <div key={ins.tipo} 
-                    onClick={() => {
-                      // Determine if it's a product or client insight and open appropriate modal
-                      if (ins.tipo === 'top_product' || ins.tipo === 'growth_product' || ins.tipo === 'velocity' || ins.tipo === 'best_margin' || ins.tipo === 'restock_alert') {
-                        viewProdottoAnalisi({ nome: ins.valore.replace('...', '') });
-                      } else if (ins.tipo === 'top_client' || ins.tipo === 'new_client') {
-                        // For clients, navigate to Clienti page with search
-                        const clientName = ins.valore.replace('...', '');
-                        window.location.href = `/clienti?search=${encodeURIComponent(clientName)}`;
-                      }
-                    }}
-                    className={cn("px-3 py-2.5 rounded-lg border cursor-pointer hover:scale-[1.01] hover:brightness-110 transition-all", insightColors[ins.colore] || insightColors.emerald)}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-base">{ins.icona}</span>
-                      <span className="font-semibold text-sm truncate flex-1">{ins.valore}</span>
-                      <Eye className="w-3.5 h-3.5 text-white/40 group-hover:text-white/70" />
+                {salesInsight.insights.slice(0, 4).map((ins) => {
+                  const isProduct = ['top_product', 'growth_product', 'velocity', 'best_margin', 'restock_alert'].includes(ins.tipo);
+                  const isClient = ['top_client', 'new_client'].includes(ins.tipo);
+                  return (
+                    <div key={ins.tipo} 
+                      onClick={() => {
+                        if (isProduct) viewProdottoAnalisi({ nome: ins.valore.replace('...', '') });
+                        else if (isClient) viewClienteAnalisi(ins.valore.replace('...', ''));
+                      }}
+                      onMouseEnter={() => {
+                        if (isClient) viewClienteAnalisi(ins.valore.replace('...', ''));
+                        else if (isProduct) viewProdottoAnalisi({ nome: ins.valore.replace('...', '') });
+                      }}
+                      data-testid={`insight-item-${ins.tipo}`}
+                      className={cn("px-3 py-2.5 rounded-lg border cursor-pointer hover:scale-[1.01] hover:brightness-110 transition-all", insightColors[ins.colore] || insightColors.emerald)}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-base">{ins.icona}</span>
+                        <span className="font-semibold text-sm truncate flex-1">{ins.valore}</span>
+                        <Eye className="w-3.5 h-3.5 text-white/40" />
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed pl-7">{ins.dettaglio || ins.titolo}</p>
                     </div>
-                    <p className="text-xs text-slate-300 leading-relaxed pl-7">{ins.dettaglio || ins.titolo}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-6">
