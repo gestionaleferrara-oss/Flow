@@ -25,6 +25,7 @@ const navigation = [
 const prefetchMap = {
   '/': () => import('@/pages/Dashboard'),
   '/upload': () => import('@/pages/UploadCSV'),
+  '/forecast': () => import('@/pages/Forecast'),
   '/magazzino': () => import('@/pages/Magazzino'),
   '/vendite': () => import('@/pages/Vendite'),
   '/clienti': () => import('@/pages/Clienti'),
