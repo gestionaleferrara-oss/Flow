@@ -60,11 +60,13 @@ export default function Notizie() {
   const [meteo, setMeteo] = useState(null);
   const [prezziMercati, setPrezziMercati] = useState([]);
   const [trends, setTrends] = useState([]);
+  const [trendsVendite, setTrendsVendite] = useState(null);
   const [trendsLoading, setTrendsLoading] = useState(true);
   const [tickerNews, setTickerNews] = useState([]);
   const [categorie, setCategorie] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState('all');
   const [trendCategoria, setTrendCategoria] = useState('frutta-secca');
+  const [trendSource, setTrendSource] = useState('vendite'); // 'vendite' or 'google'
 
   const trendCategories = [
     { id: 'frutta-secca', label: 'Frutta Secca' },
@@ -88,9 +90,17 @@ export default function Notizie() {
       setCategorie([...new Set(notizieRes.data.map(n => n.categoria))]);
     } catch (e) { console.error(e); } finally { setLoading(false); }
 
-    // Load trends and ticker separately (slower)
+    // Load trends (both sources) and ticker separately (slower)
+    loadTrendsVendite();
     loadTrends('frutta-secca');
     loadTicker();
+  };
+
+  const loadTrendsVendite = async () => {
+    try {
+      const res = await axios.get(`${API}/trends-vendite`);
+      setTrendsVendite(res.data);
+    } catch (e) { console.error(e); }
   };
 
   const loadTrends = async (cat) => {
