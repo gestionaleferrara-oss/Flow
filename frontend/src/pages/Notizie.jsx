@@ -73,7 +73,7 @@ export default function Notizie() {
   const heroArticle = sortedFiltered[0];
   const restArticles = sortedFiltered.slice(1);
 
-  if (loading) return <LoadingSpinner fullScreen />;
+  if (loading) return <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>;
 
   const cw = meteo?.current_weather;
   const daily = meteo?.daily;

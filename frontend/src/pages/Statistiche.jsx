@@ -155,7 +155,7 @@ export default function Statistiche() {
     </div>
   );
 
-  if (loading && !data) return <LoadingSpinner fullScreen />;
+  if (loading && !data) return <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>;
 
   const presets = [
     { key: 'last30', label: '30gg' },

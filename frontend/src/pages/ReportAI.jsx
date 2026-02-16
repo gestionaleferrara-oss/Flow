@@ -80,7 +80,7 @@ export default function ReportAI() {
     }
   };
 
-  if (loading) return <LoadingSpinner fullScreen />;
+  if (loading) return <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>;
 
   return (
     <PageWrapper>
