@@ -216,19 +216,19 @@ export default function Dashboard() {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
-        {/* AI Suggestion - Compact inline style */}
+        {/* AI Suggestion - Compact inline style - Fixed width */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="lg:col-span-8 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden">
+          className="lg:col-span-8 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden h-fit">
           <div className="px-3 py-2 flex items-center gap-3">
             <div className="p-1.5 rounded-md bg-violet-500/15 shrink-0">
               <Sparkles className="w-3.5 h-3.5 text-violet-400" />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 overflow-hidden">
               {aiSuggestion?.suggestion ? (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-wide">{aiSuggestion.suggestion.titolo}</span>
-                  <span className="text-xs text-slate-300 truncate">{aiSuggestion.suggestion.messaggio}</span>
-                  <span className="text-[9px] px-1.5 py-0.5 bg-violet-500/10 text-violet-300 rounded border border-violet-500/20 shrink-0">{aiSuggestion.suggestion.azione}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-wide shrink-0">{aiSuggestion.suggestion.titolo}</span>
+                  <span className="text-xs text-slate-300 truncate flex-1">{aiSuggestion.suggestion.messaggio}</span>
+                  <span className="text-[9px] px-1.5 py-0.5 bg-violet-500/10 text-violet-300 rounded border border-violet-500/20 shrink-0 whitespace-nowrap">{aiSuggestion.suggestion.azione}</span>
                 </div>
               ) : (
                 <span className="text-xs text-slate-500">Importa dati per suggerimenti AI</span>
