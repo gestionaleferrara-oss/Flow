@@ -390,6 +390,10 @@ export default function Dashboard() {
           <div className="max-h-64 overflow-auto space-y-1 mt-2">
             {prodottoSearch.trim().length === 0 ? (
               <p className="text-center py-6 text-sm text-slate-500">Digita almeno un carattere per cercare</p>
+            ) : searchLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <RefreshCw className="w-4 h-4 animate-spin text-slate-500" />
+              </div>
             ) : filteredProdotti.length === 0 ? (
               <p className="text-center py-6 text-sm text-slate-500">Nessun prodotto trovato</p>
             ) : (
@@ -398,7 +402,12 @@ export default function Dashboard() {
                   data-testid={`search-result-${p.nome}`}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors">
                   <p className="text-sm font-medium text-slate-200 truncate">{p.nome}</p>
-                  <p className="text-xs text-slate-500">Qty: {p.quantita || 0}</p>
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <span>Qty: {p.quantita || 0}</span>
+                    {p.ultimo_prezzo_acquisto > 0 && (
+                      <span className="text-emerald-400">Costo: €{p.ultimo_prezzo_acquisto?.toFixed(2)}</span>
+                    )}
+                  </div>
                 </button>
               ))
             )}
