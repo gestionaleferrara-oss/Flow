@@ -40,11 +40,24 @@ async def search_prodotti(q: str = "", limit: int = 30):
 @router.get("/prodotti", response_model=List[Prodotto])
 async def get_prodotti(
     search: Optional[str] = None, limit: int = 100, skip: int = 0,
-    sort_by: str = "nome", sort_order: int = 1
+    sort_by: str = "nome", sort_order: int = 1,
+    filter_type: Optional[str] = None
 ):
     query = {}
     if search:
         query["nome"] = {"$regex": search, "$options": "i"}
+    
+    # Handle filter types for inventory page
+    if filter_type == "ordinare":
+        # Products under minimum quantity
+        query["$expr"] = {"$and": [
+            {"$gt": ["$quantita_minima", 0]},
+            {"$lte": ["$quantita", "$quantita_minima"]}
+        ]}
+    elif filter_type == "scadenza":
+        # Products with expiry date set
+        query["scadenza"] = {"$exists": True, "$ne": "", "$ne": None}
+    
     prodotti = await db.prodotti.find(query, {"_id": 0}).sort(sort_by, sort_order).skip(skip).limit(limit).to_list(limit)
     return prodotti
 
