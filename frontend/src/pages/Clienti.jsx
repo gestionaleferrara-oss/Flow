@@ -174,9 +174,9 @@ export default function Clienti() {
         <table className="data-table" data-testid="clienti-table">
           <thead>
             <tr>
-              <th>Cliente</th>
-              <th>Codice</th>
-              <th className="text-right">
+              <th className="w-[30%]">Cliente</th>
+              <th className="w-[10%]">Codice</th>
+              <th className="text-right w-[12%]">
                 <div className="flex items-center justify-end gap-2">
                   <span>Fatturato</span>
                   {availableYears.length > 0 && (
@@ -193,10 +193,10 @@ export default function Clienti() {
                   )}
                 </div>
               </th>
-              <th>WhatsApp</th>
-              <th>Email</th>
-              <th>Note</th>
-              <th className="w-32"></th>
+              <th className="w-[14%]">WhatsApp</th>
+              <th className="w-[16%]">Email</th>
+              <th className="w-[12%]">Note</th>
+              <th className="w-[6%]"></th>
             </tr>
           </thead>
           <tbody>
@@ -212,9 +212,9 @@ export default function Clienti() {
                 <td className="text-right tabular-nums font-medium text-primary">
                   {formatCurrency(cliente.fatturato_totale)}
                 </td>
-                <td>{cliente.whatsapp || '-'}</td>
-                <td>{cliente.email || '-'}</td>
-                <td className="text-muted-foreground text-sm truncate max-w-[200px]">
+                <td className="truncate">{cliente.whatsapp || '-'}</td>
+                <td className="truncate">{cliente.email || '-'}</td>
+                <td className="text-muted-foreground text-sm truncate">
                   {cliente.note || '-'}
                 </td>
                 <td>
