@@ -281,7 +281,10 @@ async def get_margine_vendite():
             sort=[("data", -1)]
         )
         if ultimo_ordine:
-            prezzi_acquisto[nome] = ultimo_ordine.get('prezzo_unitario', 0)
+            prezzo = ultimo_ordine.get('prezzo_unitario', 0)
+            # Filter out anomalous prices (likely data entry errors)
+            if 0 < prezzo < 500:  # Reasonable price range
+                prezzi_acquisto[nome] = prezzo
     
     # Calculate margin for each sale
     totale_fatturato = 0
@@ -299,6 +302,10 @@ async def get_margine_vendite():
         if nome in prezzi_acquisto and prezzo_vendita > 0:
             prezzo_acquisto = prezzi_acquisto[nome]
             
+            # Skip if sale price is unreasonably different from purchase price
+            if prezzo_vendita > prezzo_acquisto * 5 or prezzo_vendita < prezzo_acquisto * 0.2:
+                continue
+            
             if nome not in prodotti_vendite:
                 prodotti_vendite[nome] = {
                     'fatturato': 0, 'costo': 0, 'quantita': 0,
@@ -314,19 +321,21 @@ async def get_margine_vendite():
             margine_pct = ((dati['fatturato'] - dati['costo']) / dati['costo']) * 100
             profitto = dati['fatturato'] - dati['costo']
             
-            totale_fatturato += dati['fatturato']
-            totale_costo += dati['costo']
-            prodotti_con_margine += 1
-            
-            margini_prodotto.append({
-                'prodotto': nome,
-                'fatturato': round(dati['fatturato'], 2),
-                'costo': round(dati['costo'], 2),
-                'profitto': round(profitto, 2),
-                'margine_pct': round(margine_pct, 1),
-                'prezzo_vendita': round(dati['prezzo_vendita'], 2),
-                'prezzo_acquisto': round(dati['prezzo_acquisto'], 2)
-            })
+            # Only include products with reasonable margins (-50% to +200%)
+            if -50 < margine_pct < 200:
+                totale_fatturato += dati['fatturato']
+                totale_costo += dati['costo']
+                prodotti_con_margine += 1
+                
+                margini_prodotto.append({
+                    'prodotto': nome,
+                    'fatturato': round(dati['fatturato'], 2),
+                    'costo': round(dati['costo'], 2),
+                    'profitto': round(profitto, 2),
+                    'margine_pct': round(margine_pct, 1),
+                    'prezzo_vendita': round(dati['prezzo_vendita'], 2),
+                    'prezzo_acquisto': round(dati['prezzo_acquisto'], 2)
+                })
     
     # Sort by profit
     margini_prodotto.sort(key=lambda x: x['profitto'], reverse=True)
