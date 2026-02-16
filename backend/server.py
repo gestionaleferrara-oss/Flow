@@ -2789,6 +2789,96 @@ async def get_ticker_news():
     return data
 
 
+# ----- Trends Prodotti Venduti (basato su vendite reali) -----
+@api_router.get("/trends-vendite")
+async def get_trends_vendite():
+    """Get top 5 products trends based on actual sales data - last 2 weeks vs previous 2 weeks"""
+    
+    # Get reference date from most recent sale
+    latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
+    if latest_sale and latest_sale.get('data'):
+        try:
+            reference_date = datetime.strptime(latest_sale['data'], "%Y-%m-%d")
+        except:
+            reference_date = datetime.now()
+    else:
+        reference_date = datetime.now()
+    
+    # Calculate date ranges
+    # Last 2 weeks: from (ref - 14 days) to ref
+    # Previous 2 weeks: from (ref - 28 days) to (ref - 14 days)
+    last_2w_end = reference_date.strftime("%Y-%m-%d")
+    last_2w_start = (reference_date - timedelta(days=14)).strftime("%Y-%m-%d")
+    prev_2w_end = (reference_date - timedelta(days=14)).strftime("%Y-%m-%d")
+    prev_2w_start = (reference_date - timedelta(days=28)).strftime("%Y-%m-%d")
+    
+    # Get sales for last 2 weeks
+    last_2w_sales = await db.vendite.find(
+        {"data": {"$gt": last_2w_start, "$lte": last_2w_end}},
+        {"_id": 0, "prodotto_nome": 1, "quantita": 1, "totale": 1}
+    ).to_list(50000)
+    
+    # Get sales for previous 2 weeks
+    prev_2w_sales = await db.vendite.find(
+        {"data": {"$gt": prev_2w_start, "$lte": prev_2w_end}},
+        {"_id": 0, "prodotto_nome": 1, "quantita": 1, "totale": 1}
+    ).to_list(50000)
+    
+    # Aggregate by product - last 2 weeks
+    last_2w_by_product = {}
+    for s in last_2w_sales:
+        prod = s.get('prodotto_nome', '')
+        if prod:
+            if prod not in last_2w_by_product:
+                last_2w_by_product[prod] = {'qty': 0, 'totale': 0}
+            last_2w_by_product[prod]['qty'] += abs(s.get('quantita', 0))
+            last_2w_by_product[prod]['totale'] += abs(s.get('totale', 0))
+    
+    # Aggregate by product - previous 2 weeks
+    prev_2w_by_product = {}
+    for s in prev_2w_sales:
+        prod = s.get('prodotto_nome', '')
+        if prod:
+            if prod not in prev_2w_by_product:
+                prev_2w_by_product[prod] = {'qty': 0, 'totale': 0}
+            prev_2w_by_product[prod]['qty'] += abs(s.get('quantita', 0))
+            prev_2w_by_product[prod]['totale'] += abs(s.get('totale', 0))
+    
+    # Calculate trends for all products
+    trends = []
+    for prod, last_data in last_2w_by_product.items():
+        prev_data = prev_2w_by_product.get(prod, {'qty': 0, 'totale': 0})
+        
+        last_qty = last_data['qty']
+        prev_qty = prev_data['qty']
+        last_totale = last_data['totale']
+        
+        # Calculate percentage change
+        if prev_qty > 0:
+            change_pct = ((last_qty - prev_qty) / prev_qty) * 100
+        else:
+            change_pct = 100.0 if last_qty > 0 else 0.0
+        
+        trends.append({
+            "prodotto": prod,
+            "quantita_2w": round(last_qty, 1),
+            "quantita_prev_2w": round(prev_qty, 1),
+            "fatturato_2w": round(last_totale, 2),
+            "variazione_pct": round(change_pct, 1),
+            "trend": "up" if change_pct > 5 else "down" if change_pct < -5 else "stable"
+        })
+    
+    # Sort by quantity sold (most popular first) and take top 5
+    trends.sort(key=lambda x: x['quantita_2w'], reverse=True)
+    top_5 = trends[:5]
+    
+    return {
+        "periodo_attuale": f"{last_2w_start} - {last_2w_end}",
+        "periodo_precedente": f"{prev_2w_start} - {prev_2w_end}",
+        "top_prodotti": top_5
+    }
+
+
 # ----- Google Trends Frutta Secca -----
 @api_router.get("/trends-frutta-secca")
 async def get_trends_frutta_secca():
