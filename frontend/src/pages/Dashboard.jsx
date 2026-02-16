@@ -923,25 +923,24 @@ function QuickLinkCard({ title, description, href, icon: Icon, gradient }) {
     <Link
       to={href}
       data-testid={`quick-link-${title.toLowerCase().replace(/\s/g, '-')}`}
-      className="group block p-6 glass-card hover:border-blue-500/30 transition-all duration-500"
+      className="group block p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:border-blue-500/30 hover:bg-white/[0.05] transition-all duration-300"
     >
-      <div className="flex items-start gap-4">
+      <div className="flex items-center gap-3">
         <div className={cn(
-          'p-3 rounded-xl bg-gradient-to-br shadow-lg transition-all duration-300',
+          'p-2.5 rounded-lg bg-gradient-to-br shadow-lg transition-all duration-300',
           gradient,
-          'group-hover:scale-110 group-hover:shadow-xl'
+          'group-hover:scale-105'
         )}>
-          <Icon className="w-6 h-6 text-white" />
+          <Icon className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-lg text-slate-200 mb-1 
-            group-hover:text-white transition-colors">
+          <h3 className="font-medium text-sm text-slate-200 group-hover:text-white transition-colors">
             {title}
           </h3>
-          <p className="text-sm text-slate-500 line-clamp-2">{description}</p>
+          <p className="text-[11px] text-slate-500 truncate">{description}</p>
         </div>
-        <ArrowUpRight className="w-5 h-5 text-slate-600 group-hover:text-blue-400 
-          transform group-hover:translate-x-1 group-hover:-translate-y-1 transition-all" />
+        <ArrowUpRight className="w-4 h-4 text-slate-600 group-hover:text-blue-400 
+          transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
       </div>
     </Link>
   );
