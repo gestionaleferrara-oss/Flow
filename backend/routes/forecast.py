@@ -158,6 +158,67 @@ Dati storici per {target_month_name}:
 - Minimo: €{same_month_min:,.2f}
 {same_month_trend}"""
     
+    # Calculate forecasts for 3 months (target + next 2)
+    previsioni_mesi = []
+    for i in range(3):
+        forecast_month = target_month + i
+        forecast_year = target_year
+        if forecast_month > 12:
+            forecast_month -= 12
+            forecast_year += 1
+        
+        month_name = mesi_it[forecast_month - 1]
+        month_key = f"{forecast_year}-{forecast_month:02d}"
+        
+        # Get historical data for this specific month
+        month_historical = [s for s in storico if s['_id'].endswith(f"-{forecast_month:02d}")]
+        
+        if month_historical:
+            hist_avg = sum(s['fatturato'] for s in month_historical) / len(month_historical)
+            hist_max = max(s['fatturato'] for s in month_historical)
+            hist_min = min(s['fatturato'] for s in month_historical)
+            
+            # Calculate trend
+            if len(month_historical) >= 2:
+                sorted_hist = sorted(month_historical, key=lambda x: x['_id'])
+                recent = sorted_hist[-1]['fatturato']
+                older = sorted_hist[0]['fatturato']
+                trend_pct = ((recent - older) / older * 100) if older > 0 else 0
+            else:
+                trend_pct = 0
+            
+            # Apply trend to calculate forecast
+            trend_factor = 1 + (trend_pct / 100) * 0.3  # Conservative trend application
+            forecast_value = hist_avg * trend_factor
+            forecast_min = min(hist_min * 0.9, forecast_value * 0.85)
+            forecast_max = max(hist_max * 1.1, forecast_value * 1.15)
+        else:
+            # No historical data for this month, use general average
+            forecast_value = media_mensile
+            forecast_min = media_mensile * 0.7
+            forecast_max = media_mensile * 1.3
+            trend_pct = 0
+        
+        previsioni_mesi.append({
+            "mese": month_key,
+            "mese_nome": f"{month_name} {forecast_year}",
+            "previsione": round(forecast_value, 2),
+            "minimo": round(forecast_min, 2),
+            "massimo": round(forecast_max, 2),
+            "storico_avg": round(hist_avg if month_historical else 0, 2),
+            "trend": round(trend_pct, 1),
+            "anni_dati": len(month_historical)
+        })
+    
+    # Build context for AI
+    storico_recente = storico[-6:] if len(storico) > 6 else storico
+    storico_str = "\n".join([f"- {s['_id']}: €{s['fatturato']:,.2f}" for s in storico_recente])
+    
+    previsioni_str = "\n".join([
+        f"- {p['mese_nome']}: €{p['previsione']:,.2f} (range €{p['minimo']:,.2f} - €{p['massimo']:,.2f})"
+        for p in previsioni_mesi
+    ])
+    
     # Generate AI forecast
     api_key = os.environ.get('EMERGENT_LLM_KEY')
     if not api_key:
@@ -167,30 +228,43 @@ Dati storici per {target_month_name}:
         chat = LlmChat(
             api_key=api_key, 
             session_id=f"forecast-{uuid.uuid4()}", 
-            system_message="""Sei un analista business esperto nel settore ortofrutticolo italiano.
-Genera previsioni accurate e concise SOLO per il mese specifico richiesto.
-Rispondi SEMPRE in italiano. Sii breve e diretto. 
-Basa la previsione PRINCIPALMENTE sui dati dello stesso mese negli anni precedenti."""
+            system_message="""Sei un analista business senior nel settore ortofrutticolo italiano.
+Genera analisi dettagliate e previsioni concrete basate sui dati forniti.
+Rispondi SEMPRE in italiano. Sii professionale ma accessibile."""
         ).with_model("openai", "gpt-4o")
         
-        prompt = f"""PREVISIONE: {target_month_name} {target_year}
+        prompt = f"""ANALISI PREVISIONALE: {entity_type.upper()} "{entity_name}"
+Periodo: {previsioni_mesi[0]['mese_nome']} - {previsioni_mesi[-1]['mese_nome']}
 
-{entity_type.upper()}: {entity_name}
-{same_month_context if same_month_context else f"Nessun dato storico per {target_month_name} - usa la media generale: €{media_mensile:,.2f}"}
+STORICO RECENTE (ultimi 6 mesi disponibili):
+{storico_str}
+
+DATI STORICI MESE TARGET ({target_month_name}):
+{same_month_context if same_month_context else "Nessun dato storico disponibile per questo mese"}
+
+PREVISIONI CALCOLATE:
+{previsioni_str}
+
 {extra_context}
 
-Genera previsione SOLO per {target_month_name} {target_year}:
+Genera un'analisi completa che includa:
 
-## PREVISIONE FATTURATO
-- Minimo: €X
-- Massimo: €X  
-- Probabile: €X
+## SINTESI PREVISIONE
+Riassumi le previsioni per i 3 mesi in modo chiaro, indicando il valore atteso e il range.
 
-## ANALISI
-Breve spiegazione (2-3 righe max)
+## FATTORI CHIAVE
+Elenca i 3-4 fattori principali che influenzano queste previsioni (stagionalità, trend mercato, eventi, etc.)
 
-## AZIONI
-2-3 azioni concrete"""
+## OPPORTUNITÀ
+Identifica 2-3 opportunità concrete per massimizzare i risultati in questo periodo.
+
+## RISCHI
+Indica 1-2 potenziali rischi da monitorare.
+
+## RACCOMANDAZIONI
+3 azioni operative immediate da intraprendere.
+
+Sii specifico e basati sui dati forniti."""
 
         user_message = UserMessage(text=prompt)
         ai_response = await chat.send_message(user_message)
@@ -201,7 +275,8 @@ Breve spiegazione (2-3 righe max)
             "nome": entity_name,
             "mese_target": mese_target,
             "mese_target_nome": f"{target_month_name} {target_year}",
-            "storico": [{"mese": s["_id"], "fatturato": round(s["fatturato"], 2), "quantita": round(s.get("quantita", 0), 1)} for s in storico],
+            "previsioni": previsioni_mesi,
+            "storico": [{"mese": s["_id"], "fatturato": round(s["fatturato"], 2)} for s in storico[-12:]],
             "statistiche": {
                 "media_mensile": round(media_mensile, 2),
                 "stesso_mese_avg": round(same_month_avg, 2),
