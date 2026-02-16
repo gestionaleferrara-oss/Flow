@@ -354,38 +354,53 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
     if not nome_prodotto and not nome_cliente_fornitore:
         return
     
-    # Fix negative values (file exports have negative values for sales)
+    # Determine transaction type based on Movimento AND Causale
+    movimento_upper = movimento.upper()
+    
+    # VENDITA: Scarico + VENDITA
+    is_vendita = movimento_upper == 'SCARICO' and ('VEN' in causale or causale == 'VENDITA')
+    
+    # ACQUISTO: Carico + C/ACQUISTO
+    is_acquisto = movimento_upper == 'CARICO' and ('ACQ' in causale or 'C/ACQUISTO' in causale)
+    
+    # RETTIFICA: any with RETTIFICHE or RETTIFICA
+    is_rettifica = 'RETTIFIC' in causale
+    
+    # CESSIONE/OMAGGIO: CESSIONE GRATUITA, CAMPIONE OMAGGIO
+    is_cessione = 'CESSIONE' in causale or 'OMAGGIO' in causale or 'CAMPIONE' in causale
+    
+    # RESO: RESO SU ACQUISTI, RESO C/REFRIGERAZIONE
+    is_reso = 'RESO' in causale
+    
+    # TRASFERIMENTO: TRASFERIMENTO INT.
+    is_trasferimento = 'TRASFERIMENTO' in causale
+    
+    # VUOTATI: contenitori vuotati
+    is_vuotati = 'VUOTATI' in causale
+    
+    # COMMISSIONE: C/COMMISSIONE
+    is_commissione = 'COMMISSIONE' in causale
+    
+    # Keep original sign for quantity tracking, but use abs for display
+    raw_quantita = quantita
+    raw_totale = importo_totale
+    
+    # For SCARICO movements, quantities are negative in the file
     quantita = abs(quantita)
     importo_totale = abs(importo_totale)
     importo_unitario = abs(importo_unitario)
     
-    # Determine transaction type based on BOTH Movimento AND Causale
-    # Vendita: Movimento='Scarico' AND Causale='VENDITA' (or 'VEN')
-    # Acquisto: Movimento='Carico' AND Causale='C/ACQUISTO' (or 'ACQ')
-    movimento_upper = movimento.upper()
+    # Determine quantity change for inventory
+    # CARICO adds, SCARICO subtracts
+    qty_change = quantita if movimento_upper == 'CARICO' else -quantita
     
-    is_vendita = movimento_upper == 'SCARICO' and ('VEN' in causale or causale == 'VENDITA')
-    is_acquisto = movimento_upper == 'CARICO' and ('ACQ' in causale or 'C/ACQUISTO' in causale)
+    # Special handling for RESO SU ACQUISTI (return to supplier = inventory decreases)
+    if is_reso and 'ACQUISTI' in causale:
+        qty_change = -quantita  # Returns reduce inventory
     
-    # Skip rows that are neither sales nor purchases (rettifiche, trasferimenti, etc.)
-    # unless they have a client/supplier name
-    if not is_vendita and not is_acquisto:
-        # Still track inventory for other movement types, but don't create sales/orders
-        stats['rows_skipped'] += 1
-        if nome_prodotto:
-            if nome_prodotto not in cache['prodotti']:
-                existing = await db.prodotti.find_one({"nome": nome_prodotto}, {"_id": 0, "id": 1, "prezzo_medio": 1, "quantita": 1})
-                if existing:
-                    qty_change = quantita if movimento_upper == 'CARICO' else -quantita
-                    await db.prodotti.update_one(
-                        {"nome": nome_prodotto},
-                        {"$inc": {"quantita": qty_change}}
-                    )
-                    cache['prodotti'][nome_prodotto] = existing.get('quantita', 0) + qty_change
-                    stats['existing_prodotti'] += 1
-        return
-    
+    # VENDITA -> create sale record
     if is_vendita and nome_cliente_fornitore:
+        if nome_cliente_fornitore not in cache['clienti']:
         # Check in-memory cache first
         if nome_cliente_fornitore not in cache['clienti']:
             existing = await db.clienti.find_one({"nome": nome_cliente_fornitore}, {"_id": 0, "id": 1})
