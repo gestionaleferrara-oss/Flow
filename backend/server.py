@@ -1887,11 +1887,11 @@ async def get_dashboard():
     
     thirty_days_ago = (reference_date - timedelta(days=30)).strftime("%Y-%m-%d")
     
-    # Get recent vendite - extend to 90 days if needed
+    # Get recent vendite
     vendite_recenti = await db.vendite.find(
         {"data": {"$gte": thirty_days_ago}}, 
         {"_id": 0}
-    ).sort("data", -1).to_list(500)
+    ).sort("data", -1).to_list(10000)
     
     # Use abs() for fatturato since SCARICO has negative values
     fatturato_mese = sum(abs(v.get('totale', 0)) for v in vendite_recenti)
