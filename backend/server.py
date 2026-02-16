@@ -2066,7 +2066,7 @@ async def get_management_alerts():
     alerts["clientiInattivi"] = alerts["clientiInattivi"][:8]
     
     # 3. Products running out soon (based on consumption rate)
-    six_months_ago = (now - timedelta(days=180)).strftime("%Y-%m-%d")
+    six_months_ago = (reference_date - timedelta(days=180)).strftime("%Y-%m-%d")
     vendite_6m = await db.vendite.find({"data": {"$gte": six_months_ago}}, {"_id": 0}).to_list(10000)
     
     prodotto_consumption = {}
