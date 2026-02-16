@@ -505,6 +505,7 @@ async def upload_csv(file: UploadFile = File(...)):
         'vendite_created': 0,
         'ordini_created': 0,
         'rows_processed': 0,
+        'rows_skipped': 0,
         'columns_detected': {},
         'errors': []
     }
