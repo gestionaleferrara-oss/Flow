@@ -400,17 +400,12 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
     
     # VENDITA -> create sale record
     if is_vendita and nome_cliente_fornitore:
-        # Check in-memory cache first
+        # Check in-memory cache - no DB query needed since we pre-loaded
         if nome_cliente_fornitore not in cache['clienti']:
-            existing = await db.clienti.find_one({"nome": nome_cliente_fornitore}, {"_id": 0, "id": 1})
-            if not existing:
-                cliente = Cliente(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
-                await db.clienti.insert_one(serialize_doc(cliente.model_dump()))
-                cache['clienti'][nome_cliente_fornitore] = cliente.id
-                stats['new_clienti'] += 1
-            else:
-                cache['clienti'][nome_cliente_fornitore] = existing.get('id')
-                stats['existing_clienti'] += 1
+            cliente = Cliente(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
+            await db.clienti.insert_one(serialize_doc(cliente.model_dump()))
+            cache['clienti'][nome_cliente_fornitore] = cliente.id
+            stats['new_clienti'] += 1
         else:
             stats['existing_clienti'] += 1
         
@@ -426,15 +421,10 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
         
     elif is_acquisto and nome_cliente_fornitore:
         if nome_cliente_fornitore not in cache['fornitori']:
-            existing = await db.fornitori.find_one({"nome": nome_cliente_fornitore}, {"_id": 0, "id": 1})
-            if not existing:
-                fornitore = Fornitore(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
-                await db.fornitori.insert_one(serialize_doc(fornitore.model_dump()))
-                cache['fornitori'][nome_cliente_fornitore] = fornitore.id
-                stats['new_fornitori'] += 1
-            else:
-                cache['fornitori'][nome_cliente_fornitore] = existing.get('id')
-                stats['existing_fornitori'] += 1
+            fornitore = Fornitore(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
+            await db.fornitori.insert_one(serialize_doc(fornitore.model_dump()))
+            cache['fornitori'][nome_cliente_fornitore] = fornitore.id
+            stats['new_fornitori'] += 1
         else:
             stats['existing_fornitori'] += 1
         
