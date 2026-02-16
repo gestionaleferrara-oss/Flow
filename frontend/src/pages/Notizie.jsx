@@ -89,14 +89,35 @@ export default function Notizie() {
     } catch (e) { console.error(e); } finally { setLoading(false); }
 
     // Load trends and ticker separately (slower)
+    loadTrends('frutta-secca');
+    loadTicker();
+  };
+
+  const loadTrends = async (cat) => {
+    setTrendsLoading(true);
     try {
-      const [trendsRes, tickerRes] = await Promise.all([
-        axios.get(`${API}/trends-frutta-secca`),
-        axios.get(`${API}/ticker-news`)
-      ]);
-      setTrends(trendsRes.data);
-      setTickerNews(tickerRes.data);
-    } catch (e) { console.error(e); } finally { setTrendsLoading(false); }
+      const res = await axios.get(`${API}/trends/${cat}`);
+      setTrends(res.data.keywords || res.data || []);
+    } catch (e) { 
+      console.error(e);
+      // Fallback to old endpoint
+      try {
+        const res = await axios.get(`${API}/trends-frutta-secca`);
+        setTrends(res.data || []);
+      } catch (e2) { console.error(e2); }
+    } finally { setTrendsLoading(false); }
+  };
+
+  const loadTicker = async () => {
+    try {
+      const res = await axios.get(`${API}/ticker-news`);
+      setTickerNews(res.data);
+    } catch (e) { console.error(e); }
+  };
+
+  const handleTrendCategoryChange = (cat) => {
+    setTrendCategoria(cat);
+    loadTrends(cat);
   };
 
   const refreshNews = async () => {
