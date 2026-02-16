@@ -248,8 +248,8 @@ async def export_forecast_pdf(data: dict):
         pdf.set_fill_color(240, 240, 240)
         pdf.cell(0, 7, 'STATISTICHE STORICHE', ln=True, fill=True)
         pdf.set_font('Helvetica', '', 10)
-        pdf.cell(0, 6, f"Media mensile: EUR {stats.get('media_mensile', 0):,.2f}", ln=True)
-        pdf.cell(0, 6, f"Totale periodo analizzato: EUR {stats.get('totale_periodo', 0):,.2f}", ln=True)
+        pdf.cell(0, 6, f"Media mensile: EUR {stats.get('media_mensile', 0):,.2f}".replace(",", "."), ln=True)
+        pdf.cell(0, 6, f"Totale periodo analizzato: EUR {stats.get('totale_periodo', 0):,.2f}".replace(",", "."), ln=True)
         pdf.cell(0, 6, f"Mesi con dati: {stats.get('num_mesi_dati', 0)}", ln=True)
         pdf.ln(5)
         
@@ -258,8 +258,9 @@ async def export_forecast_pdf(data: dict):
         pdf.cell(0, 7, 'PREVISIONE AI', ln=True, fill=True)
         pdf.set_font('Helvetica', '', 10)
         
-        # Clean and format AI response
+        # Clean and format AI response - replace euro symbol with EUR
         ai_text = data.get('previsione_ai', '')
+        ai_text = ai_text.replace('€', 'EUR ')
         # Remove markdown formatting
         ai_text = re.sub(r'\*\*([^*]+)\*\*', r'\1', ai_text)
         ai_text = re.sub(r'\*([^*]+)\*', r'\1', ai_text)
@@ -271,19 +272,24 @@ async def export_forecast_pdf(data: dict):
             line = line.strip()
             if line:
                 # Check if it's a header-like line
-                if line.isupper() or line.endswith(':'):
+                if line.isupper() or (line.endswith(':') and len(line) < 50):
                     pdf.set_font('Helvetica', 'B', 10)
                     pdf.ln(2)
                 else:
                     pdf.set_font('Helvetica', '', 10)
-                pdf.multi_cell(0, 5, line)
+                # Handle encoding issues
+                try:
+                    pdf.multi_cell(0, 5, line.encode('latin-1', errors='replace').decode('latin-1'))
+                except:
+                    pdf.multi_cell(0, 5, line.encode('ascii', errors='replace').decode('ascii'))
         
         pdf.ln(8)
         
         # Footer
         pdf.set_font('Helvetica', 'I', 8)
         pdf.set_text_color(150, 150, 150)
-        pdf.cell(0, 6, f"Generato il {data.get('generated_at', '')[:10]} - Flow Business Analytics", ln=True, align='C')
+        generated_at = data.get('generated_at', '')[:10] if data.get('generated_at') else ''
+        pdf.cell(0, 6, f"Generato il {generated_at} - Flow Business Analytics", ln=True, align='C')
         
         # Output PDF
         pdf_bytes = pdf.output()
