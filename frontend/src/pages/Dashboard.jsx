@@ -214,7 +214,7 @@ export default function Dashboard() {
   if (loading) return <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>;
 
   const totalAlerts = (alerts?.prodottiSottoScorta?.length || 0) +
-                      (alerts?.clientiInattivi?.length || 0) +
+                      (alerts?.clientiInattivi?.length > 0 ? 1 : 0) +
                       (alerts?.prodottiInEsaurimento?.length || 0);
 
   const insightColors = {
