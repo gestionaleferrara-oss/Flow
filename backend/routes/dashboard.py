@@ -604,32 +604,43 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
         }
 
     elif card_type == "clienti":
-        # Top clients this month
+        # Determine date filter based on periodo
+        if periodo == "30gg":
+            date_start = (ref - timedelta(days=30)).strftime("%Y-%m-%d")
+        elif periodo == "90gg":
+            date_start = (ref - timedelta(days=90)).strftime("%Y-%m-%d")
+        else:  # "mese" default
+            date_start = month_start
+
+        periodo_labels = {"mese": "Mese corrente", "30gg": "Ultimi 30 giorni", "90gg": "Ultimi 90 giorni"}
+
+        # Top clients
         top_pipeline = [
-            {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"data": {"$gte": date_start}, "cliente_nome": {"$nin": EXCLUDED}}},
             {"$group": {"_id": "$cliente_nome", "totale": {"$sum": {"$abs": "$totale"}}, "ordini": {"$sum": 1}}},
             {"$sort": {"totale": -1}}, {"$limit": 5}
         ]
         top_cli = await db.vendite.aggregate(top_pipeline).to_list(5)
-        # New clients (first purchase this month)
+        # New clients (first purchase in period)
         new_pipeline = [
             {"$match": {"cliente_nome": {"$nin": EXCLUDED}}},
-            {"$group": {"_id": "$cliente_nome", "prima_vendita": {"$min": "$data"}, "totale_mese": {"$sum": {"$cond": [{"$gte": ["$data", month_start]}, {"$abs": "$totale"}, 0]}}}},
-            {"$match": {"prima_vendita": {"$gte": month_start}}},
-            {"$sort": {"totale_mese": -1}}, {"$limit": 5}
+            {"$group": {"_id": "$cliente_nome", "prima_vendita": {"$min": "$data"}, "totale_periodo": {"$sum": {"$cond": [{"$gte": ["$data", date_start]}, {"$abs": "$totale"}, 0]}}}},
+            {"$match": {"prima_vendita": {"$gte": date_start}}},
+            {"$sort": {"totale_periodo": -1}}, {"$limit": 5}
         ]
         new_cli = await db.vendite.aggregate(new_pipeline).to_list(5)
         # Most frequent
         freq_pipeline = [
-            {"$match": {"data": {"$gte": month_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"data": {"$gte": date_start}, "cliente_nome": {"$nin": EXCLUDED}}},
             {"$group": {"_id": "$cliente_nome", "visite": {"$sum": 1}}},
             {"$sort": {"visite": -1}}, {"$limit": 5}
         ]
         freq_cli = await db.vendite.aggregate(freq_pipeline).to_list(5)
         return {
             "tipo": "clienti",
+            "periodo_label": periodo_labels.get(periodo, periodo),
             "top_clienti": [{"nome": c["_id"], "totale": round(c["totale"], 2), "ordini": c["ordini"]} for c in top_cli],
-            "nuovi_clienti": [{"nome": c["_id"], "totale": round(c["totale_mese"], 2), "dal": c["prima_vendita"]} for c in new_cli],
+            "nuovi_clienti": [{"nome": c["_id"], "totale": round(c["totale_periodo"], 2), "dal": c["prima_vendita"]} for c in new_cli],
             "piu_frequenti": [{"nome": c["_id"], "visite": c["visite"]} for c in freq_cli]
         }
 
