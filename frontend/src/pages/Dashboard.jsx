@@ -375,10 +375,6 @@ export default function Dashboard() {
                         if (isProduct) viewProdottoAnalisi({ nome: ins.valore.replace('...', '') });
                         else if (isClient) viewClienteAnalisi(ins.valore.replace('...', ''));
                       }}
-                      onMouseEnter={() => {
-                        if (isClient) viewClienteAnalisi(ins.valore.replace('...', ''));
-                        else if (isProduct) viewProdottoAnalisi({ nome: ins.valore.replace('...', '') });
-                      }}
                       data-testid={`insight-item-${ins.tipo}`}
                       className={cn("px-3 py-2.5 rounded-lg border cursor-pointer hover:scale-[1.01] hover:brightness-110 transition-all", insightColors[ins.colore] || insightColors.emerald)}>
                       <div className="flex items-center gap-2 mb-1">
