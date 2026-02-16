@@ -3,10 +3,13 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts';
+import {
   Euro, ShoppingCart, Users, Package, AlertTriangle, ArrowUpRight, Upload,
   BarChart3, TrendingUp, TrendingDown, Search, Box, Sparkles, Lightbulb,
   RefreshCw, Clock, UserX, PackageX, AlertCircle, Minus, X, Filter,
-  ArrowDownAZ, Activity, Plus, ChevronRight
+  ArrowDownAZ, Activity, Plus, ChevronRight, Calendar
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import StatCard from '@/components/StatCard';
