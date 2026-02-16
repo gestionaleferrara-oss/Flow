@@ -1,5 +1,5 @@
 import { cn, formatCurrency } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus, Eye } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 
 const gradientClasses = {
@@ -102,7 +102,7 @@ export default function StatCard({
               )}
               data-testid="stat-card-eye"
             >
-              <Eye className="w-3.5 h-3.5" />
+              <{pinned ? Eye : EyeOff} className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
