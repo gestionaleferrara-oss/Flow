@@ -56,6 +56,11 @@ export default function Dashboard() {
   
   // AI Floating state
   const [showAiPopup, setShowAiPopup] = useState(false);
+
+  // Card Detail Modal
+  const [cardDetail, setCardDetail] = useState(null);
+  const [cardDetailType, setCardDetailType] = useState(null);
+  const [loadingCardDetail, setLoadingCardDetail] = useState(false);
   
   // Cliente Analisi state
   const [showClienteModal, setShowClienteModal] = useState(false);
