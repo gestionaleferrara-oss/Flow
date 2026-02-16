@@ -2708,43 +2708,98 @@ async def scrape_freshplaza_market_links():
 
 @api_router.get("/prezzi-mercati")
 async def get_prezzi_mercati():
-    """Get links to official market price sources - Borsa Merci CCIAA"""
+    """
+    Scrapes the latest wholesale market price links from FreshPlaza.
+    Replicates the Google Apps Script logic for dynamic PDF links.
+    """
+    import httpx
+    import re
     
-    # Official sources: CCIAA Borsa Merci and ISMEA
-    mercati = [
-        {
-            "nome": "ISMEA Ortaggi",
-            "url": "https://www.ismeamercati.it/flex/cm/pages/ServeBLOB.php/L/IT/IDPagina/497",
-            "tipo": "Web"
-        },
-        {
-            "nome": "ISMEA Frutta",
-            "url": "https://www.ismeamercati.it/flex/cm/pages/ServeBLOB.php/L/IT/IDPagina/559",
-            "tipo": "Web"
-        },
-        {
-            "nome": "Bologna CCIAA",
-            "url": "https://www.bo.camcom.gov.it/it/borsa-merci/archivio-prezzi-ortofrutticoli",
-            "tipo": "Web"
-        },
-        {
-            "nome": "Firenze CCIAA",
-            "url": "https://www.fi.camcom.gov.it/tutela-di-consumatori-e-imprese/prezzi/listini-settimanali-dei-prezzi-allingrosso",
-            "tipo": "Web"
-        },
-        {
-            "nome": "Padova CCIAA",
-            "url": "https://www.pd.camcom.it/it/tutela-impresa-e-consumatore/prezzi/archivio-listini-prezzi-prodotti-ortofrutticoli",
-            "tipo": "Web"
-        },
-        {
-            "nome": "Bari CCIAA",
-            "url": "https://www.ba.camcom.it/bari/borsa-merci/listino-ortofrutta-e-mandorle",
-            "tipo": "Web"
-        }
+    BASE_URL = "https://www.freshplaza.it"
+    
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            # Step 1-3: Find the correct article URL from homepage
+            homepage_response = await client.get(BASE_URL + "/")
+            homepage_html = homepage_response.text
+            
+            # Find anchor text "Ultimi prezzi ortofrutticoli"
+            anchor_text = "<h3>Ultimi prezzi ortofrutticoli"
+            anchor_index = homepage_html.find(anchor_text)
+            
+            if anchor_index == -1:
+                logger.warning("FreshPlaza: Could not find anchor text, using fallback")
+                return get_fallback_prezzi_mercati()
+            
+            # Find the link before the anchor
+            link_start_string = '<a href="'
+            link_start_index = homepage_html.rfind(link_start_string, 0, anchor_index)
+            url_start_index = link_start_index + len(link_start_string)
+            url_end_index = homepage_html.find('"', url_start_index)
+            relative_url = homepage_html[url_start_index:url_end_index]
+            article_url = BASE_URL + relative_url
+            
+            logger.info(f"FreshPlaza: Found article URL: {article_url}")
+            
+            # Step 4: Open the article and find the content block
+            article_response = await client.get(article_url)
+            article_html = article_response.text
+            
+            # Find the start marker
+            start_string = '<main itemprop="articleBody">'
+            text_start_index = article_html.find(start_string)
+            
+            if text_start_index == -1:
+                logger.warning("FreshPlaza: Could not find article content, using fallback")
+                return get_fallback_prezzi_mercati()
+            
+            # Step 5: Extract links using regex
+            article_text_block = article_html[text_start_index:]
+            
+            # Regex to find links with "prezzi all'ingrosso"
+            links_regex = re.compile(r'<a href="([^"]+)"[^>]*>([\s\S]*?)</a>', re.IGNORECASE)
+            links = []
+            
+            for match in links_regex.finditer(article_text_block):
+                link_url = match.group(1)
+                link_content = match.group(2)
+                
+                # Only care about market price links
+                if "prezzi all" in link_content.lower() or "ingrosso" in link_content.lower():
+                    # Extract city name (before the colon)
+                    clean_name = re.sub(r'<[^>]*>', '', link_content).split(':')[0].strip()
+                    if clean_name and len(clean_name) > 2:
+                        # Make URL absolute if relative
+                        if link_url.startswith('/'):
+                            link_url = BASE_URL + link_url
+                        links.append({
+                            "nome": clean_name,
+                            "url": link_url,
+                            "tipo": "PDF" if link_url.endswith('.pdf') else "Web"
+                        })
+            
+            if links:
+                logger.info(f"FreshPlaza: Found {len(links)} market links")
+                return links
+            else:
+                logger.warning("FreshPlaza: No links found, using fallback")
+                return get_fallback_prezzi_mercati()
+                
+    except Exception as e:
+        logger.error(f"FreshPlaza scraping error: {e}")
+        return get_fallback_prezzi_mercati()
+
+
+def get_fallback_prezzi_mercati():
+    """Fallback static links if scraping fails"""
+    return [
+        {"nome": "Cesena", "url": "https://www.freshplaza.it/article/9714986/cesena-prezzi-all-ingrosso-di-frutta-e-verdura/", "tipo": "Web"},
+        {"nome": "Bologna", "url": "https://www.freshplaza.it/article/9714987/bologna-prezzi-all-ingrosso-di-frutta-e-verdura/", "tipo": "Web"},
+        {"nome": "Milano", "url": "https://www.freshplaza.it/article/9714988/milano-prezzi-all-ingrosso-di-frutta-e-verdura/", "tipo": "Web"},
+        {"nome": "Verona", "url": "https://www.freshplaza.it/article/9714989/verona-prezzi-all-ingrosso-di-frutta-e-verdura/", "tipo": "Web"},
+        {"nome": "Torino", "url": "https://www.freshplaza.it/article/9714990/torino-prezzi-all-ingrosso-di-frutta-e-verdura/", "tipo": "Web"},
+        {"nome": "Padova", "url": "https://www.freshplaza.it/article/9714991/padova-prezzi-all-ingrosso-di-frutta-e-verdura/", "tipo": "Web"},
     ]
-    
-    return mercati
 
 
 # ----- Meteo (usando Open-Meteo API gratuita) -----
