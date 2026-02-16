@@ -3290,6 +3290,243 @@ Sii specifico nei suggerimenti, usando i nomi reali di prodotti e clienti dai da
         raise HTTPException(status_code=500, detail=f"Errore generazione report: {str(e)}")
 
 
+# ----- Sales Insight Widget (Insight dinamici su Vendite e Prodotti) -----
+@api_router.get("/sales-insight")
+async def get_sales_insight():
+    """
+    Get dynamic, useful insights about sales AND products.
+    Returns multiple insights that change based on data patterns.
+    """
+    
+    # Get reference date from most recent sale
+    latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
+    if latest_sale and latest_sale.get('data'):
+        try:
+            reference_date = datetime.strptime(latest_sale['data'], "%Y-%m-%d")
+        except:
+            reference_date = datetime.now()
+    else:
+        reference_date = datetime.now()
+    
+    # Define time periods
+    current_month_start = reference_date.replace(day=1).strftime("%Y-%m-%d")
+    prev_month = reference_date.replace(day=1) - timedelta(days=1)
+    prev_month_start = prev_month.replace(day=1).strftime("%Y-%m-%d")
+    prev_month_end = prev_month.strftime("%Y-%m-%d")
+    
+    last_30_days = (reference_date - timedelta(days=30)).strftime("%Y-%m-%d")
+    last_90_days = (reference_date - timedelta(days=90)).strftime("%Y-%m-%d")
+    
+    insights = []
+    
+    # Fetch all relevant data
+    all_vendite = await db.vendite.find({}, {"_id": 0}).to_list(100000)
+    all_ordini = await db.ordini.find({}, {"_id": 0}).to_list(100000)
+    all_prodotti = await db.prodotti.find({}, {"_id": 0}).to_list(10000)
+    all_clienti = await db.clienti.find({}, {"_id": 0}).to_list(10000)
+    
+    # ===== INSIGHT 1: Best performing product this month =====
+    vendite_mese = [v for v in all_vendite if v.get('data', '') >= current_month_start]
+    prodotti_mese = {}
+    for v in vendite_mese:
+        prod = v.get('prodotto_nome', '')
+        if prod:
+            if prod not in prodotti_mese:
+                prodotti_mese[prod] = {'qty': 0, 'fatturato': 0}
+            prodotti_mese[prod]['qty'] += abs(v.get('quantita', 0))
+            prodotti_mese[prod]['fatturato'] += abs(v.get('totale', 0))
+    
+    if prodotti_mese:
+        best_prod = max(prodotti_mese.items(), key=lambda x: x[1]['fatturato'])
+        insights.append({
+            "tipo": "top_product",
+            "icona": "🏆",
+            "titolo": "Prodotto Top del Mese",
+            "valore": best_prod[0],
+            "dettaglio": f"€{best_prod[1]['fatturato']:,.0f} • {best_prod[1]['qty']:,.0f} unità",
+            "colore": "emerald"
+        })
+    
+    # ===== INSIGHT 2: Most improved product (biggest growth) =====
+    vendite_prev_mese = [v for v in all_vendite if prev_month_start <= v.get('data', '') <= prev_month_end]
+    prodotti_prev = {}
+    for v in vendite_prev_mese:
+        prod = v.get('prodotto_nome', '')
+        if prod:
+            prodotti_prev[prod] = prodotti_prev.get(prod, 0) + abs(v.get('totale', 0))
+    
+    crescite = []
+    for prod, curr_data in prodotti_mese.items():
+        prev_fatt = prodotti_prev.get(prod, 0)
+        curr_fatt = curr_data['fatturato']
+        if prev_fatt > 0 and curr_fatt > prev_fatt:
+            crescita_pct = ((curr_fatt - prev_fatt) / prev_fatt) * 100
+            if crescita_pct > 10:  # Only meaningful growth
+                crescite.append((prod, crescita_pct, curr_fatt))
+    
+    if crescite:
+        best_growth = max(crescite, key=lambda x: x[1])
+        insights.append({
+            "tipo": "growth_product",
+            "icona": "📈",
+            "titolo": "Crescita Maggiore",
+            "valore": best_growth[0],
+            "dettaglio": f"+{best_growth[1]:.0f}% vs mese prec. • €{best_growth[2]:,.0f}",
+            "colore": "cyan"
+        })
+    
+    # ===== INSIGHT 3: Best customer this month =====
+    clienti_mese = {}
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    for v in vendite_mese:
+        cliente = v.get('cliente_nome', '')
+        if cliente and cliente.upper() not in [c.upper() for c in EXCLUDED_CLIENTS]:
+            clienti_mese[cliente] = clienti_mese.get(cliente, 0) + abs(v.get('totale', 0))
+    
+    if clienti_mese:
+        best_cliente = max(clienti_mese.items(), key=lambda x: x[1])
+        insights.append({
+            "tipo": "top_client",
+            "icona": "👤",
+            "titolo": "Miglior Cliente del Mese",
+            "valore": best_cliente[0][:25] + ('...' if len(best_cliente[0]) > 25 else ''),
+            "dettaglio": f"€{best_cliente[1]:,.0f} di acquisti",
+            "colore": "violet"
+        })
+    
+    # ===== INSIGHT 4: Product needing restock soon =====
+    prodotti_critici = []
+    for p in all_prodotti:
+        qty = p.get('quantita', 0)
+        minima = p.get('quantita_minima', 0)
+        nome = p.get('nome', '')
+        if qty > 0 and minima > 0 and qty <= minima * 1.2:  # Within 20% of minimum
+            prodotti_critici.append((nome, qty, minima))
+    
+    if prodotti_critici:
+        # Sort by urgency (lowest ratio)
+        prodotti_critici.sort(key=lambda x: x[1] / max(x[2], 0.1))
+        critical = prodotti_critici[0]
+        insights.append({
+            "tipo": "restock_alert",
+            "icona": "⚠️",
+            "titolo": "Da Riordinare Presto",
+            "valore": critical[0][:20] + ('...' if len(critical[0]) > 20 else ''),
+            "dettaglio": f"Rimaste {critical[1]:.0f} (min: {critical[2]:.0f})",
+            "colore": "amber"
+        })
+    
+    # ===== INSIGHT 5: New customer acquired this month =====
+    clienti_recenti = []
+    for c in all_clienti:
+        # Find first sale for each cliente
+        vendite_cliente = [v for v in all_vendite if v.get('cliente_nome', '') == c.get('nome', '')]
+        if vendite_cliente:
+            prima_vendita = min(v.get('data', '9999') for v in vendite_cliente)
+            if prima_vendita >= current_month_start:
+                totale_cliente = sum(abs(v.get('totale', 0)) for v in vendite_cliente if v.get('data', '') >= current_month_start)
+                clienti_recenti.append((c.get('nome', ''), totale_cliente, prima_vendita))
+    
+    if clienti_recenti:
+        # Best new customer
+        best_new = max(clienti_recenti, key=lambda x: x[1])
+        insights.append({
+            "tipo": "new_client",
+            "icona": "🆕",
+            "titolo": "Nuovo Cliente Acquisito",
+            "valore": best_new[0][:25] + ('...' if len(best_new[0]) > 25 else ''),
+            "dettaglio": f"€{best_new[1]:,.0f} dal {best_new[2]}",
+            "colore": "blue"
+        })
+    
+    # ===== INSIGHT 6: Best margin product (if we have purchase prices) =====
+    margini = []
+    for p in all_prodotti:
+        nome = p.get('nome', '')
+        prezzo_acquisto = p.get('prezzo_medio', 0)
+        if prezzo_acquisto > 0 and nome in prodotti_mese:
+            # Get average selling price from sales
+            vendite_prod = [v for v in vendite_mese if v.get('prodotto_nome', '') == nome]
+            if vendite_prod:
+                prezzi_vendita = [v.get('prezzo_unitario', 0) for v in vendite_prod if v.get('prezzo_unitario', 0) > 0]
+                if prezzi_vendita:
+                    prezzo_vendita_medio = sum(prezzi_vendita) / len(prezzi_vendita)
+                    if prezzo_vendita_medio > prezzo_acquisto:
+                        margine_pct = ((prezzo_vendita_medio - prezzo_acquisto) / prezzo_acquisto) * 100
+                        fatturato = prodotti_mese[nome]['fatturato']
+                        if fatturato > 100:  # Only meaningful products
+                            margini.append((nome, margine_pct, prezzo_vendita_medio, prezzo_acquisto, fatturato))
+    
+    if margini:
+        # Best margin with decent revenue
+        margini.sort(key=lambda x: x[1] * min(x[4], 1000), reverse=True)  # Balance margin and revenue
+        best_margin = margini[0]
+        insights.append({
+            "tipo": "best_margin",
+            "icona": "💰",
+            "titolo": "Margine Migliore",
+            "valore": best_margin[0][:20] + ('...' if len(best_margin[0]) > 20 else ''),
+            "dettaglio": f"+{best_margin[1]:.0f}% (€{best_margin[2]:.2f} vs €{best_margin[3]:.2f})",
+            "colore": "emerald"
+        })
+    
+    # ===== INSIGHT 7: Sales velocity - fastest moving product =====
+    vendite_30d = [v for v in all_vendite if v.get('data', '') >= last_30_days]
+    velocita = {}
+    for v in vendite_30d:
+        prod = v.get('prodotto_nome', '')
+        if prod:
+            velocita[prod] = velocita.get(prod, 0) + abs(v.get('quantita', 0))
+    
+    if velocita:
+        fastest = max(velocita.items(), key=lambda x: x[1])
+        media_giornaliera = fastest[1] / 30
+        insights.append({
+            "tipo": "velocity",
+            "icona": "🚀",
+            "titolo": "Prodotto Più Venduto (30gg)",
+            "valore": fastest[0][:20] + ('...' if len(fastest[0]) > 20 else ''),
+            "dettaglio": f"{fastest[1]:,.0f} unità • ~{media_giornaliera:.1f}/giorno",
+            "colore": "rose"
+        })
+    
+    # ===== INSIGHT 8: Biggest single sale =====
+    if vendite_mese:
+        biggest_sale = max(vendite_mese, key=lambda x: abs(x.get('totale', 0)))
+        if abs(biggest_sale.get('totale', 0)) > 100:
+            insights.append({
+                "tipo": "big_sale",
+                "icona": "🎯",
+                "titolo": "Vendita Più Grande del Mese",
+                "valore": f"€{abs(biggest_sale.get('totale', 0)):,.0f}",
+                "dettaglio": f"{biggest_sale.get('cliente_nome', 'N/A')[:20]} • {biggest_sale.get('prodotto_nome', 'N/A')[:15]}",
+                "colore": "orange"
+            })
+    
+    # Calculate summary stats
+    fatturato_mese = sum(abs(v.get('totale', 0)) for v in vendite_mese)
+    fatturato_prev = sum(abs(v.get('totale', 0)) for v in vendite_prev_mese)
+    diff_pct = ((fatturato_mese - fatturato_prev) / fatturato_prev * 100) if fatturato_prev > 0 else 0
+    
+    mesi_it = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+              'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+    mese_nome = mesi_it[reference_date.month - 1]
+    
+    return {
+        "mese_riferimento": f"{mese_nome} {reference_date.year}",
+        "data_aggiornamento": reference_date.strftime("%Y-%m-%d"),
+        "riepilogo": {
+            "fatturato_mese": round(fatturato_mese, 2),
+            "fatturato_prev": round(fatturato_prev, 2),
+            "variazione_pct": round(diff_pct, 1),
+            "num_vendite": len(vendite_mese),
+            "num_clienti_attivi": len(clienti_mese),
+            "num_prodotti_venduti": len(prodotti_mese)
+        },
+        "insights": insights[:6]  # Max 6 insights for UI
+    }
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
