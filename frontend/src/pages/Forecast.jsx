@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { 
   Sparkles, Search, Calendar, TrendingUp, Package, Users, 
-  RefreshCw, ChevronRight, ArrowRight, Target, Lightbulb
+  RefreshCw, RotateCcw, FileDown, Target, Lightbulb
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ export default function Forecast() {
   const [meseTarget, setMeseTarget] = useState('');
   const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
 
   // Set default target month to next month
@@ -33,6 +34,42 @@ export default function Forecast() {
     const formatted = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
     setMeseTarget(formatted);
   }, []);
+
+  // Reset everything
+  const handleReset = () => {
+    setSelectedEntity(null);
+    setForecast(null);
+    setError(null);
+    setSearch('');
+    setSearchResults([]);
+    // Reset to next month
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    setMeseTarget(`${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`);
+  };
+
+  // Export PDF
+  const handleExportPdf = async () => {
+    if (!forecast) return;
+    setExporting(true);
+    try {
+      const response = await axios.post(`${API}/forecast/export-pdf`, forecast, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `forecast_${forecast.nome.replace(/\s+/g, '_')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Export error:', e);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Search for products or clients
   const searchEntities = useCallback(async (query) => {
