@@ -558,19 +558,19 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
 
     if card_type == "fatturato":
         daily_pipeline = [
-            {"$match": {"data": {"$gte": date_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"data": date_filter, "cliente_nome": {"$nin": EXCLUDED}}},
             {"$group": {"_id": "$data", "totale": {"$sum": {"$abs": "$totale"}}, "count": {"$sum": 1}}},
             {"$sort": {"_id": 1}}
         ]
         daily = await db.vendite.aggregate(daily_pipeline).to_list(90)
         top_prod_pipeline = [
-            {"$match": {"data": {"$gte": date_start}}},
+            {"$match": {"data": date_filter}},
             {"$group": {"_id": "$prodotto_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
             {"$sort": {"totale": -1}}, {"$limit": 5}
         ]
         top_prod = await db.vendite.aggregate(top_prod_pipeline).to_list(5)
         week_pipeline = [
-            {"$match": {"data": {"$gte": date_start}}},
+            {"$match": {"data": date_filter}},
             {"$addFields": {"giorno": {"$dayOfMonth": {"$dateFromString": {"dateString": "$data"}}}}},
             {"$addFields": {"settimana": {"$ceil": {"$divide": ["$giorno", 7]}}}},
             {"$group": {"_id": "$settimana", "totale": {"$sum": {"$abs": "$totale"}}}},
@@ -587,7 +587,7 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
 
     elif card_type == "ordini":
         scontrino_pipeline = [
-            {"$match": {"data": {"$gte": date_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"data": date_filter, "cliente_nome": {"$nin": EXCLUDED}}},
             {"$group": {"_id": {"cliente": "$cliente_nome", "data": "$data"}, "totale_visita": {"$sum": {"$abs": "$totale"}}}},
             {"$group": {"_id": None, "media": {"$avg": "$totale_visita"}, "num_visite": {"$sum": 1}, "totale": {"$sum": "$totale_visita"}}}
         ]
@@ -595,14 +595,14 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
         avg_order = scontrino_res[0]["media"] if scontrino_res else 0
         num_visite = scontrino_res[0]["num_visite"] if scontrino_res else 0
         daily_pipeline = [
-            {"$match": {"data": {"$gte": date_start}, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"data": date_filter, "cliente_nome": {"$nin": EXCLUDED}}},
             {"$group": {"_id": {"data": "$data", "cliente": "$cliente_nome"}, "totale_visita": {"$sum": {"$abs": "$totale"}}}},
             {"$group": {"_id": "$_id.data", "visite": {"$sum": 1}, "totale": {"$sum": "$totale_visita"}}},
             {"$sort": {"_id": 1}}
         ]
         daily = await db.vendite.aggregate(daily_pipeline).to_list(90)
         req_pipeline = [
-            {"$match": {"data": {"$gte": date_start}}},
+            {"$match": {"data": date_filter}},
             {"$group": {"_id": "$prodotto_nome", "richieste": {"$sum": 1}, "quantita": {"$sum": {"$abs": "$quantita"}}}},
             {"$sort": {"richieste": -1}}, {"$limit": 5}
         ]
