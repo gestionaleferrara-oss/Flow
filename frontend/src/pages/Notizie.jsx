@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   RefreshCw, ExternalLink, Wind, Thermometer,
   MapPin, Clock, ArrowUpRight, FileText, CloudSun,
-  TrendingUp, TrendingDown, Minus, Search as SearchIcon
+  TrendingUp, TrendingDown, Minus, Search as SearchIcon,
+  ChevronDown, ChevronUp, Filter, Sparkles, Lightbulb
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
