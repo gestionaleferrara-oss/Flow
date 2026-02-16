@@ -106,8 +106,11 @@ export default function Dashboard() {
   // Load card detail for popup
   const [cardDetailPeriodo, setCardDetailPeriodo] = useState('mese');
   const [alertPeriodo, setAlertPeriodo] = useState('30gg');
+  const [fatturatoPeriodo, setFatturatoPeriodo] = useState('mese');
+  const [ordiniPeriodo, setOrdiniPeriodo] = useState('mese');
   const openCardDetail = async (type, periodo) => {
-    const p = periodo || (type === 'clienti' ? cardDetailPeriodo : type === 'alert' ? alertPeriodo : undefined);
+    const pMap = { fatturato: fatturatoPeriodo, ordini: ordiniPeriodo, clienti: cardDetailPeriodo, alert: alertPeriodo };
+    const p = periodo || pMap[type];
     setCardDetailType(type);
     setLoadingCardDetail(true);
     try {
