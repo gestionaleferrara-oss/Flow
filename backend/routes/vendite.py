@@ -149,15 +149,65 @@ async def get_statistiche(
         prodotti_totale[prod] = prodotti_totale.get(prod, 0) + abs(v.get('totale', 0))
         prodotti_qty[prod] = prodotti_qty.get(prod, 0) + abs(v.get('quantita', 0))
     
-    # Get purchase prices for margin calculation
-    top_prodotti = []
+    # First pass: Calculate margin for ALL products to get accurate totals
     totale_fatturato_con_margine = 0
     somma_margini_ponderati = 0
     totale_profitto = 0
+    prodotti_margine_data = {}  # Store margin data for all products
     
+    for nome, totale in prodotti_totale.items():
+        qty = prodotti_qty.get(nome, 0)
+        if qty <= 0:
+            continue
+            
+        # Get last purchase price
+        ultimo_ordine = await db.ordini.find_one(
+            {"prodotto_nome": nome, "prezzo_unitario": {"$gt": 0}},
+            {"_id": 0, "prezzo_unitario": 1},
+            sort=[("data", -1)]
+        )
+        if ultimo_ordine:
+            prezzo_acquisto = ultimo_ordine.get('prezzo_unitario', 0)
+            # Weighted average sale price = total revenue / total quantity
+            prezzo_vendita_medio = totale / qty
+            
+            # Filter out anomalous prices
+            if prezzo_acquisto > 0 and prezzo_acquisto < 500:
+                # Skip if sale price is unreasonably different from purchase price
+                if prezzo_vendita_medio <= prezzo_acquisto * 5 and prezzo_vendita_medio >= prezzo_acquisto * 0.2:
+                    margine_pct = ((prezzo_vendita_medio - prezzo_acquisto) / prezzo_acquisto) * 100
+                    costo_totale = prezzo_acquisto * qty
+                    profitto = totale - costo_totale
+                    
+                    # Only include reasonable margins (-50% to +200%)
+                    if -50 < margine_pct < 200:
+                        # Accumulate for weighted average margin calculation
+                        totale_fatturato_con_margine += totale
+                        somma_margini_ponderati += margine_pct * totale
+                        totale_profitto += profitto
+                        
+                        # Store for top products display
+                        prodotti_margine_data[nome] = {
+                            'margine_pct': round(margine_pct, 1),
+                            'profitto': round(profitto, 2),
+                            'prezzo_acquisto': round(prezzo_acquisto, 2),
+                            'prezzo_vendita': round(prezzo_vendita_medio, 2)
+                        }
+    
+    # Calculate weighted average margin: sum(margine * fatturato) / sum(fatturato)
+    margine_medio = (somma_margini_ponderati / totale_fatturato_con_margine) if totale_fatturato_con_margine > 0 else 0
+    
+    # Build top 10 products with margin data
+    top_prodotti = []
     for nome, totale in sorted(prodotti_totale.items(), key=lambda x: x[1], reverse=True)[:10]:
         qty = prodotti_qty.get(nome, 0)
         prod_data = {"nome": nome, "totale_euro": round(totale, 2), "quantita": round(qty, 2)}
+        
+        # Add margin data if available
+        if nome in prodotti_margine_data:
+            prod_data.update(prodotti_margine_data[nome])
+        
+        top_prodotti.append(prod_data)
         
         # Get last purchase price
         ultimo_ordine = await db.ordini.find_one(
