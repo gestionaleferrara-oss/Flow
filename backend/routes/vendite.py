@@ -141,23 +141,23 @@ async def get_statistiche(
             clienti_fatturato[c] = clienti_fatturato.get(c, 0) + abs(v.get('totale', 0))
     top_clienti = [{"nome": k, "spesa": v} for k, v in sorted(clienti_fatturato.items(), key=lambda x: x[1], reverse=True)[:10]]
     
-    # Calculate margin for products
+    # Calculate margin for products using WEIGHTED average
     prodotti_totale = {}
     prodotti_qty = {}
-    prodotti_prezzi_vendita = {}
     for v in vendite_filtrate:
         prod = v.get('prodotto_nome', '')
         prodotti_totale[prod] = prodotti_totale.get(prod, 0) + abs(v.get('totale', 0))
         prodotti_qty[prod] = prodotti_qty.get(prod, 0) + abs(v.get('quantita', 0))
-        if v.get('prezzo_unitario', 0) > 0:
-            if prod not in prodotti_prezzi_vendita:
-                prodotti_prezzi_vendita[prod] = []
-            prodotti_prezzi_vendita[prod].append(v.get('prezzo_unitario', 0))
     
     # Get purchase prices for margin calculation
     top_prodotti = []
+    totale_fatturato_con_margine = 0
+    somma_margini_ponderati = 0
+    totale_profitto = 0
+    
     for nome, totale in sorted(prodotti_totale.items(), key=lambda x: x[1], reverse=True)[:10]:
-        prod_data = {"nome": nome, "totale_euro": round(totale, 2), "quantita": round(prodotti_qty.get(nome, 0), 2)}
+        qty = prodotti_qty.get(nome, 0)
+        prod_data = {"nome": nome, "totale_euro": round(totale, 2), "quantita": round(qty, 2)}
         
         # Get last purchase price
         ultimo_ordine = await db.ordini.find_one(
@@ -165,23 +165,35 @@ async def get_statistiche(
             {"_id": 0, "prezzo_unitario": 1},
             sort=[("data", -1)]
         )
-        if ultimo_ordine and nome in prodotti_prezzi_vendita:
+        if ultimo_ordine and qty > 0:
             prezzo_acquisto = ultimo_ordine.get('prezzo_unitario', 0)
-            prezzo_vendita_medio = sum(prodotti_prezzi_vendita[nome]) / len(prodotti_prezzi_vendita[nome])
-            if prezzo_acquisto > 0 and prezzo_vendita_medio > 0:
-                margine_pct = ((prezzo_vendita_medio - prezzo_acquisto) / prezzo_acquisto) * 100
-                costo_totale = prezzo_acquisto * prodotti_qty.get(nome, 0)
-                profitto = totale - costo_totale
-                prod_data['margine_pct'] = round(margine_pct, 1)
-                prod_data['profitto'] = round(profitto, 2)
-                prod_data['prezzo_acquisto'] = round(prezzo_acquisto, 2)
-                prod_data['prezzo_vendita'] = round(prezzo_vendita_medio, 2)
+            # Weighted average sale price = total revenue / total quantity
+            prezzo_vendita_medio = totale / qty
+            
+            # Filter out anomalous prices
+            if prezzo_acquisto > 0 and prezzo_acquisto < 500:
+                # Skip if sale price is unreasonably different from purchase price
+                if prezzo_vendita_medio <= prezzo_acquisto * 5 and prezzo_vendita_medio >= prezzo_acquisto * 0.2:
+                    margine_pct = ((prezzo_vendita_medio - prezzo_acquisto) / prezzo_acquisto) * 100
+                    costo_totale = prezzo_acquisto * qty
+                    profitto = totale - costo_totale
+                    
+                    # Only include reasonable margins (-50% to +200%)
+                    if -50 < margine_pct < 200:
+                        prod_data['margine_pct'] = round(margine_pct, 1)
+                        prod_data['profitto'] = round(profitto, 2)
+                        prod_data['prezzo_acquisto'] = round(prezzo_acquisto, 2)
+                        prod_data['prezzo_vendita'] = round(prezzo_vendita_medio, 2)
+                        
+                        # Accumulate for weighted average margin calculation
+                        totale_fatturato_con_margine += totale
+                        somma_margini_ponderati += margine_pct * totale
+                        totale_profitto += profitto
         
         top_prodotti.append(prod_data)
     
-    # Calculate total margin
-    totale_profitto = sum(p.get('profitto', 0) for p in top_prodotti if p.get('profitto'))
-    margine_medio = (totale_profitto / totale_euro * 100) if totale_euro > 0 else 0
+    # Calculate weighted average margin: sum(margine * fatturato) / sum(fatturato)
+    margine_medio = (somma_margini_ponderati / totale_fatturato_con_margine) if totale_fatturato_con_margine > 0 else 0
     
     return {
         "totaleEuro": totale_euro, "totaleArticoli": totale_articoli, "clientiAttivi": clienti_attivi,

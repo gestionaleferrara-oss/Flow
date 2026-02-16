@@ -96,6 +96,10 @@ async def export_statistiche_pdf(
         
         # Get purchase prices and calculate margins
         top_prod_with_margin = []
+        totale_fatturato_con_margine = 0
+        somma_margini_ponderati = 0
+        totale_profitto = 0
+        
         for nome, dati in sorted(prod_data.items(), key=lambda x: x[1]['fatturato'], reverse=True)[:10]:
             item = {'nome': nome, 'fatturato': dati['fatturato'], 'margine': None, 'profitto': None}
             
@@ -122,8 +126,16 @@ async def export_statistiche_pdf(
                         if -50 < margine < 200:
                             item['margine'] = round(margine, 1)
                             item['profitto'] = round(profitto, 2)
+                            
+                            # Accumulate for weighted average margin calculation
+                            totale_fatturato_con_margine += dati['fatturato']
+                            somma_margini_ponderati += margine * dati['fatturato']
+                            totale_profitto += profitto
             
             top_prod_with_margin.append(item)
+        
+        # Calculate weighted average margin: sum(margine * fatturato) / sum(fatturato)
+        margine_medio = (somma_margini_ponderati / totale_fatturato_con_margine) if totale_fatturato_con_margine > 0 else 0
 
         # Top clienti
         cli_rev = {}
