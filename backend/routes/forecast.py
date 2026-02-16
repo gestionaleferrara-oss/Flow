@@ -211,3 +211,89 @@ Sii conciso e vai dritto al punto."""
     except Exception as e:
         logger.error(f"Error generating forecast: {e}")
         raise HTTPException(status_code=500, detail=f"Errore generazione previsione: {str(e)}")
+
+
+@router.post("/forecast/export-pdf")
+async def export_forecast_pdf(data: dict):
+    """Export forecast to PDF"""
+    from fpdf import FPDF
+    from fastapi.responses import Response
+    import re
+    
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        
+        # Header
+        pdf.set_font('Helvetica', 'B', 18)
+        pdf.set_text_color(30, 64, 175)
+        pdf.cell(0, 12, 'FORECAST AI', ln=True, align='C')
+        
+        pdf.set_font('Helvetica', '', 11)
+        pdf.set_text_color(100, 100, 100)
+        pdf.cell(0, 8, f"Previsione per {data.get('mese_target_nome', '')}", ln=True, align='C')
+        pdf.ln(5)
+        
+        # Entity info
+        pdf.set_font('Helvetica', 'B', 12)
+        pdf.set_text_color(0, 0, 0)
+        tipo_label = "PRODOTTO" if data.get('tipo') == 'prodotto' else "CLIENTE"
+        pdf.cell(0, 8, f"{tipo_label}: {data.get('nome', '')}", ln=True)
+        pdf.ln(3)
+        
+        # Statistics
+        stats = data.get('statistiche', {})
+        pdf.set_font('Helvetica', 'B', 10)
+        pdf.set_fill_color(240, 240, 240)
+        pdf.cell(0, 7, 'STATISTICHE STORICHE', ln=True, fill=True)
+        pdf.set_font('Helvetica', '', 10)
+        pdf.cell(0, 6, f"Media mensile: EUR {stats.get('media_mensile', 0):,.2f}", ln=True)
+        pdf.cell(0, 6, f"Totale periodo analizzato: EUR {stats.get('totale_periodo', 0):,.2f}", ln=True)
+        pdf.cell(0, 6, f"Mesi con dati: {stats.get('num_mesi_dati', 0)}", ln=True)
+        pdf.ln(5)
+        
+        # AI Forecast
+        pdf.set_font('Helvetica', 'B', 10)
+        pdf.cell(0, 7, 'PREVISIONE AI', ln=True, fill=True)
+        pdf.set_font('Helvetica', '', 10)
+        
+        # Clean and format AI response
+        ai_text = data.get('previsione_ai', '')
+        # Remove markdown formatting
+        ai_text = re.sub(r'\*\*([^*]+)\*\*', r'\1', ai_text)
+        ai_text = re.sub(r'\*([^*]+)\*', r'\1', ai_text)
+        ai_text = re.sub(r'#{1,3}\s*', '', ai_text)
+        ai_text = re.sub(r'- ', '  * ', ai_text)
+        
+        # Split into lines and add to PDF
+        for line in ai_text.split('\n'):
+            line = line.strip()
+            if line:
+                # Check if it's a header-like line
+                if line.isupper() or line.endswith(':'):
+                    pdf.set_font('Helvetica', 'B', 10)
+                    pdf.ln(2)
+                else:
+                    pdf.set_font('Helvetica', '', 10)
+                pdf.multi_cell(0, 5, line)
+        
+        pdf.ln(8)
+        
+        # Footer
+        pdf.set_font('Helvetica', 'I', 8)
+        pdf.set_text_color(150, 150, 150)
+        pdf.cell(0, 6, f"Generato il {data.get('generated_at', '')[:10]} - Flow Business Analytics", ln=True, align='C')
+        
+        # Output PDF
+        pdf_bytes = pdf.output()
+        
+        return Response(
+            content=bytes(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=forecast_{data.get('nome', 'report').replace(' ', '_')}.pdf"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Error exporting PDF: {e}")
+        raise HTTPException(status_code=500, detail=f"Errore esportazione PDF: {str(e)}")
