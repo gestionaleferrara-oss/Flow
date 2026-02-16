@@ -404,7 +404,7 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
         vendita = Vendita(
             data=data, cliente_id=cliente_id, cliente_nome=nome_cliente_fornitore,
             prodotto_nome=nome_prodotto, quantita=quantita,
-            prezzo_unitario=importo_unitario, totale=importo_totale, movimento=movimento
+            prezzo_unitario=importo_unitario, totale=importo_totale, movimento=movimento, causale=causale
         )
         cache['vendite_batch'].append(serialize_doc(vendita.model_dump()))
         stats['vendite_created'] += 1
