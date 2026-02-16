@@ -240,9 +240,22 @@ export default function ReportAI() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <Clock className="w-3 h-3" />
-                    Generato il {formatDate(selectedReport.created_at)}
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportPdf}
+                      disabled={exporting}
+                      className="gap-2"
+                      data-testid="export-report-pdf"
+                    >
+                      {exporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                      PDF
+                    </Button>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <Clock className="w-3 h-3" />
+                      {formatDate(selectedReport.created_at)}
+                    </div>
                   </div>
                 </div>
 
