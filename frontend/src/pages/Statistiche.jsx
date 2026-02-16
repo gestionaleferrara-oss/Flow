@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import {
   Euro, Package, Users, Calendar, RefreshCw, Truck,
-  Download, Filter, X
+  Download, Filter, X, TrendingUp
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
