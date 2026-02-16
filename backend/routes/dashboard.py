@@ -772,7 +772,6 @@ async def generate_ai_report(report_type: str = Query("settimanale", enum=["sett
     vendite = await db.vendite.find({"data": {"$gte": start_date}}, {"_id": 0}).to_list(10000)
     vendite = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
     ordini = await db.ordini.find({"data": {"$gte": start_date}}, {"_id": 0}).to_list(5000)
-    prodotti = await db.prodotti.find({}, {"_id": 0}).to_list(1000)
     clienti = await db.clienti.find({}, {"_id": 0}).to_list(1000)
 
     fatturato_totale = sum(abs(v.get('totale', 0)) for v in vendite)
