@@ -520,7 +520,7 @@ async def get_sales_insight():
 
 
 @router.get("/dashboard/card-detail/{card_type}")
-async def get_card_detail(card_type: str):
+async def get_card_detail(card_type: str, periodo: str = "mese"):
     """Get detailed analytics for each KPI card popup"""
     latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
     if latest_sale and latest_sale.get('data'):
