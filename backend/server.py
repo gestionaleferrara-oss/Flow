@@ -787,6 +787,14 @@ async def upload_multiple_files(files: List[UploadFile] = File(...)):
     if cache['ordini_batch']:
         await db.ordini.insert_many(cache['ordini_batch'])
     
+    # Batch update product quantities
+    for nome_prodotto, prod_data in cache['prodotti'].items():
+        if isinstance(prod_data, dict):
+            await db.prodotti.update_one(
+                {"nome": nome_prodotto},
+                {"$set": {"quantita": prod_data.get('quantita', 0), "prezzo_medio": prod_data.get('prezzo_medio', 0)}}
+            )
+    
     return {
         "success": True,
         "message": f"Elaborati {total_stats['files_processed']} file con successo",
