@@ -414,7 +414,7 @@ function PieChartCard({ data }) {
   );
 }
 
-function HBarChart({ data, color, label }) {
+function HBarChart({ data, color, label, showMargin = false }) {
   const d = data || [];
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -423,8 +423,19 @@ function HBarChart({ data, color, label }) {
         <XAxis type="number" stroke="#475569" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
         <YAxis type="category" dataKey="nome" stroke="#475569" fontSize={10} width={110}
           tickFormatter={v => v?.length > 14 ? v.slice(0, 14) + '..' : v} />
-        <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: 8 }}
-          formatter={v => [formatCurrency(v), label]} />
+        <Tooltip 
+          contentStyle={{ background: '#0f172a', border: '1px solid #334155', color: '#fff', borderRadius: 8 }}
+          formatter={(value, name, props) => {
+            const result = [[formatCurrency(value), label]];
+            if (showMargin && props.payload.margine_pct !== undefined) {
+              result.push([`${props.payload.margine_pct > 0 ? '+' : ''}${props.payload.margine_pct}%`, 'Margine']);
+            }
+            if (showMargin && props.payload.profitto !== undefined) {
+              result.push([formatCurrency(props.payload.profitto), 'Profitto']);
+            }
+            return result;
+          }}
+        />
         <Bar dataKey="totale_euro" fill={color} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ResponsiveContainer>
