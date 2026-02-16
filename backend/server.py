@@ -409,7 +409,7 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
         cache['vendite_batch'].append(serialize_doc(vendita.model_dump()))
         stats['vendite_created'] += 1
         
-    elif not is_vendita and nome_cliente_fornitore:
+    elif is_acquisto and nome_cliente_fornitore:
         if nome_cliente_fornitore not in cache['fornitori']:
             existing = await db.fornitori.find_one({"nome": nome_cliente_fornitore}, {"_id": 0, "id": 1})
             if not existing:
