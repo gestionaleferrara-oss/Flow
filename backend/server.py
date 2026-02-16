@@ -632,8 +632,18 @@ async def upload_csv(file: UploadFile = File(...)):
         # Flush remaining batches
         if cache['vendite_batch']:
             await db.vendite.insert_many(cache['vendite_batch'])
+            cache['vendite_batch'] = []
         if cache['ordini_batch']:
             await db.ordini.insert_many(cache['ordini_batch'])
+            cache['ordini_batch'] = []
+        
+        # Batch update product quantities
+        for nome_prodotto, prod_data in cache['prodotti'].items():
+            if isinstance(prod_data, dict):
+                await db.prodotti.update_one(
+                    {"nome": nome_prodotto},
+                    {"$set": {"quantita": prod_data.get('quantita', 0), "prezzo_medio": prod_data.get('prezzo_medio', 0)}}
+                )
         
         return {
             "success": True,
