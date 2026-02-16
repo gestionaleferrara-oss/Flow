@@ -2596,78 +2596,104 @@ async def create_notizia(data: NotiziaCreate):
 # ----- Prezzi Mercati (scraping dinamico da FreshPlaza) -----
 
 async def scrape_freshplaza_market_links():
-    """Scrape latest market price links from FreshPlaza like the original Google Script"""
+    """Scrape latest market price links from FreshPlaza - improved and robust"""
     global _market_price_cache
     
     BASE_URL = "https://www.freshplaza.it"
     try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as http_client:
-            # Step 1: Get homepage
-            resp = await http_client.get(BASE_URL + "/", headers={"User-Agent": "Mozilla/5.0"})
-            if resp.status_code != 200:
-                return _market_price_cache.get("links", [])
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as http_client:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "it-IT,it;q=0.9,en;q=0.8"
+            }
             
-            homepage_html = resp.text
-            
-            # Step 2: Find the article link for "Ultimi prezzi ortofrutticoli"
-            anchor_text = "Ultimi prezzi ortofrutticoli"
-            anchor_idx = homepage_html.find(anchor_text)
-            
-            if anchor_idx == -1:
-                logger.warning("FreshPlaza: anchor text not found on homepage")
-                return _market_price_cache.get("links", [])
-            
-            # Find the <a href="..."> before this text
-            link_start_str = '<a href="'
-            link_start_idx = homepage_html.rfind(link_start_str, 0, anchor_idx)
-            if link_start_idx == -1:
-                return _market_price_cache.get("links", [])
-            
-            url_start = link_start_idx + len(link_start_str)
-            url_end = homepage_html.find('"', url_start)
-            relative_url = homepage_html[url_start:url_end]
-            article_url = BASE_URL + relative_url if relative_url.startswith('/') else relative_url
-            
-            logger.info(f"FreshPlaza article URL: {article_url}")
-            
-            # Step 3: Fetch the article page
-            article_resp = await http_client.get(article_url, headers={"User-Agent": "Mozilla/5.0"})
-            if article_resp.status_code != 200:
-                return _market_price_cache.get("links", [])
-            
-            article_html = article_resp.text
-            
-            # Step 4: Extract market price links
-            start_marker = '<main'
-            text_start = article_html.find(start_marker)
-            if text_start == -1:
-                start_marker = '<article'
-                text_start = article_html.find(start_marker)
-            
-            if text_start == -1:
-                return _market_price_cache.get("links", [])
-            
-            article_block = article_html[text_start:]
-            
-            # Parse with BeautifulSoup for robustness
-            soup = BeautifulSoup(article_block, 'html.parser')
+            # Try multiple approaches to get market prices
             links = []
             
-            for a_tag in soup.find_all('a', href=True):
-                text = a_tag.get_text(strip=True)
-                href = a_tag['href']
-                
-                # Look for market price links
-                if "prezzi all'ingrosso" in text.lower() or "prezzi all&#39;ingrosso" in text.lower():
-                    city_name = text.split(':')[0].strip()
-                    if city_name:
-                        links.append({"nome": city_name, "url": href})
-                elif "listino" in href.lower() or "prezzi" in href.lower():
-                    # Also catch direct price links
-                    if text and len(text) < 60:
-                        links.append({"nome": text.split(':')[0].strip(), "url": href})
+            # Approach 1: Direct search for market prices
+            search_url = f"{BASE_URL}/search/?q=prezzi+all%27ingrosso+ortofrutticoli"
+            try:
+                resp = await http_client.get(search_url, headers=headers)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    
+                    # Find article links related to prices
+                    for a_tag in soup.find_all('a', href=True):
+                        href = a_tag['href']
+                        text = a_tag.get_text(strip=True)
+                        
+                        # Look for price-related articles
+                        if ('prezzi' in href.lower() or 'listino' in href.lower()) and href.startswith('/'):
+                            full_url = BASE_URL + href
+                            # Extract city name from text or URL
+                            cities = ['cesena', 'lusia', 'torino', 'verona', 'bologna', 'milano', 'roma', 'firenze', 'napoli', 'padova']
+                            for city in cities:
+                                if city in text.lower() or city in href.lower():
+                                    if not any(l['nome'].lower() == city for l in links):
+                                        links.append({"nome": city.capitalize(), "url": full_url})
+                                    break
+            except Exception as e:
+                logger.warning(f"FreshPlaza search approach failed: {e}")
+            
+            # Approach 2: Get homepage and find "Ultimi prezzi ortofrutticoli" section
+            if len(links) < 3:
+                try:
+                    resp = await http_client.get(BASE_URL + "/", headers=headers)
+                    if resp.status_code == 200:
+                        soup = BeautifulSoup(resp.text, 'html.parser')
+                        
+                        # Find all links containing price-related keywords
+                        for a_tag in soup.find_all('a', href=True):
+                            text = a_tag.get_text(strip=True).lower()
+                            href = a_tag['href']
+                            
+                            if "prezzi all'ingrosso" in text or "prezzi all&#39;ingrosso" in text:
+                                city_name = a_tag.get_text(strip=True).split(':')[0].strip()
+                                full_url = BASE_URL + href if href.startswith('/') else href
+                                if city_name and len(city_name) < 30 and not any(l['nome'] == city_name for l in links):
+                                    links.append({"nome": city_name, "url": full_url})
+                except Exception as e:
+                    logger.warning(f"FreshPlaza homepage approach failed: {e}")
+            
+            # Approach 3: Direct category page for prices
+            if len(links) < 3:
+                try:
+                    category_urls = [
+                        f"{BASE_URL}/categoria/prezzi/",
+                        f"{BASE_URL}/tag/prezzi-ortofrutticoli/"
+                    ]
+                    for cat_url in category_urls:
+                        resp = await http_client.get(cat_url, headers=headers)
+                        if resp.status_code == 200:
+                            soup = BeautifulSoup(resp.text, 'html.parser')
+                            for a_tag in soup.find_all('a', href=True)[:20]:
+                                href = a_tag['href']
+                                text = a_tag.get_text(strip=True)
+                                if 'prezzi' in text.lower() and href.startswith('/'):
+                                    full_url = BASE_URL + href
+                                    cities = ['cesena', 'lusia', 'torino', 'verona', 'bologna', 'milano']
+                                    for city in cities:
+                                        if city in text.lower():
+                                            if not any(l['nome'].lower() == city for l in links):
+                                                links.append({"nome": city.capitalize(), "url": full_url})
+                                            break
+                        if len(links) >= 6:
+                            break
+                except Exception as e:
+                    logger.warning(f"FreshPlaza category approach failed: {e}")
             
             if links:
+                # Remove duplicates and limit to 10
+                seen = set()
+                unique_links = []
+                for l in links:
+                    key = l['nome'].lower()
+                    if key not in seen:
+                        seen.add(key)
+                        unique_links.append(l)
+                links = unique_links[:10]
+                
                 _market_price_cache["links"] = links
                 _market_price_cache["last_updated"] = datetime.now(timezone.utc)
                 logger.info(f"FreshPlaza: found {len(links)} market links")
