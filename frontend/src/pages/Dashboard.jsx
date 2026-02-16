@@ -105,8 +105,9 @@ export default function Dashboard() {
 
   // Load card detail for popup
   const [cardDetailPeriodo, setCardDetailPeriodo] = useState('mese');
+  const [alertPeriodo, setAlertPeriodo] = useState('30gg');
   const openCardDetail = async (type, periodo) => {
-    const p = periodo || (type === 'clienti' ? cardDetailPeriodo : undefined);
+    const p = periodo || (type === 'clienti' ? cardDetailPeriodo : type === 'alert' ? alertPeriodo : undefined);
     setCardDetailType(type);
     setLoadingCardDetail(true);
     try {
