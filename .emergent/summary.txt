@@ -2,198 +2,116 @@
 The user wants to migrate a Google Apps Script application to a modern full-stack web application named Flusso.
 
 **PRODUCT REQUIREMENTS:**
-1.  **Data Import & Processing:** Upload CSV/XLSX sales data, automatically handle new customers/products, update prices, and manage stock levels based on CARICO (load) and SCARICO (unload/sale) movements. The system must handle various other transaction types () correctly.
-2.  **Inventory Management ():** Display current stock, editable minimum quantity (), and an editable expiry date ().
-3.  **Advanced Statistics ():** A dashboard with detailed statistics, including charts and KPIs for both sales and purchases.
-4.  **UI/UX Improvement:** A complete UI overhaul with a modern, professional fintech aesthetic, using the Plus Jakarta Sans font. The UI must be fast, responsive, well-aligned, and optimized for mobile and tablet.
-5.  **News & Market Prices:** A news feature with images, a live news ticker, and reliable market price data from specific sources provided by the user (dynamic scraping from FreshPlaza).
-6.  **Data Integrity & Accuracy:** Sales totals and other calculations must be precise. Dashboard metrics must reflect the correct time periods (e.g., current month).
+1.  **Data Import & Processing:** Upload CSV/XLSX sales data, automatically handle new customers/products, update prices, and manage stock levels.
+2.  **Inventory Management ():** Display current stock with editable minimum quantity and expiry dates.
+3.  **Advanced Statistics ():** A dashboard with detailed statistics, charts, and KPIs for sales and purchases.
+4.  **UI/UX Improvement:** A modern, professional fintech aesthetic, fast, responsive, and mobile-friendly.
+5.  **News & Market Prices:** A news feature with images and a live news ticker from specific sources.
+6.  **Data Integrity & Accuracy:** All calculations (sales totals, margins, etc.) must be precise.
 7.  **AI-Powered Features:** An AI-driven weekly suggestion on the dashboard and a dedicated AI Reports section.
-8.  **Customizable Data Insights:** The user wants to see trends derived from their own sales data, with advanced filtering and display options (e.g., popup on hover). They also want a new widget showing unique, dynamic sales insights with hover-to-expand details.
+8.  **Customizable Data Insights:** Widgets showing dynamic sales insights with advanced filtering and display options.
+9.  **Margin Calculation:** Calculate and display the profit margin on sales based on the last purchase price.
+10. **Performance:** The application, especially the dashboard, should load instantly without noticeable waiting times.
 
 **User's preferred language**: Italian. The next agent MUST respond in Italian.
 
 **what currently exists?**
-The application has a modular FastAPI backend and a React frontend. The backend was recently refactored from a single  file into a structured directory with separate files for routes, services, and utils. The frontend received significant updates to fix UI/UX regressions on the dashboard and to improve mobile responsiveness. A new PDF export feature has been partially implemented.
+The application is a functional FastAPI backend and React frontend. The initial white screen bug has been resolved. The agent has implemented a significant number of features and fixes in this session, including:
+*   A redesigned, compact AI widget.
+*   Server-side product search to improve performance and accuracy.
+*   A new sales margin calculation feature, with results displayed on the Dashboard, Statistics page, and included in the PDF export. The logic filters data outliers.
+*   Instant page loading via skeleton loader components on the dashboard.
+*   The product analysis modal has been enhanced with a time-period filter (month, 3m, 6m, all) and interactive line charts (using Recharts) for sales, purchases, and price trends.
+*   A critical bug in the average sale/purchase price calculation was fixed, implementing a weighted average instead of a simple average.
 
-However, the application is currently in a broken state and does not load, as reported by the user in their last message.
+The user has just reviewed the latest changes and provided a new list of required fixes and improvements.
 
 **Last working item**:
-*   Last item agent was working: The agent had just finished a large batch of work including UI/UX fixes (P0), a full backend refactoring (P1), and implementing a new PDF export feature (P2). The agent then attempted to run the testing agent, after which the user reported the application was no longer loading. The current critical task is to debug and fix this application-breaking issue.
-*   Status: BLOCKED
-*   Agent Testing Done: N (Agent's self-tests passed, but the final state is broken).
-*   Which testing method agent to use? manual testing by curl. The priority is to debug the white screen issue. Start by checking the frontend supervisor logs for compilation errors ((node:310) [DEP_WEBPACK_DEV_SERVER_ON_AFTER_SETUP_MIDDLEWARE] DeprecationWarning: 'onAfterSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-(node:310) [DEP_WEBPACK_DEV_SERVER_ON_BEFORE_SETUP_MIDDLEWARE] DeprecationWarning: 'onBeforeSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
-(node:74) [DEP_WEBPACK_DEV_SERVER_ON_AFTER_SETUP_MIDDLEWARE] DeprecationWarning: 'onAfterSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-(node:74) [DEP_WEBPACK_DEV_SERVER_ON_BEFORE_SETUP_MIDDLEWARE] DeprecationWarning: 'onBeforeSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.). Once the app loads, use the screenshot tool to verify UI and  for backend endpoints.
-*   User Testing Done: Y (User has confirmed the application is not loading).
+*   **Last item agent was working:** The agent was processing the user's latest feedback. The user has requested fixes for the News page, PDF margin calculations, and the Inventory page layout, while raising a critical concern about the overall accuracy of calculations. The agent had just started investigating the relevant files.
+*   **Status:** IN PROGRESS
+*   **Agent Testing Done:** N
+*   **Which testing method agent to use?** manual testing by curl. First, use  to validate the backend margin calculation logic in  and . Then, use the  tool to verify UI changes on the News () and Inventory () pages. Given the user's high sensitivity to calculation errors, a full regression test using  is mandatory after implementing all fixes.
+*   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-*   Issue 1: Application is not loading for the user (P0 - CRITICAL)
-*   Issue 2: PDF Export feature needs user verification (P1)
-*   Issue 3: Original news scraper does not fetch images (P2)
+*   Issue 1: Verify and fix all calculations across the application (P0 - CRITICAL)
+*   Issue 2: Incorrect margin calculation in the exported PDF (P1)
+*   Issue 3: Disorganized layout on the Inventory () page (P1)
+*   Issue 4: The Hero section on the News page is static and doesn't show the latest news (P2)
+*   Issue 5: The Breaking News section should only display news from the current day (P2)
+*   Issue 6: Original news scraper for  does not fetch images (P2)
 
-Issues Detail:
--   **Issue 1: Application is not loading for the user**
-    -   Attempted fixes: None. This is a new, critical regression.
+**Issues Detail:**
+-   **Issue 1: Verify and fix all calculations**
+    -   Attempted fixes: The agent fixed a major weighted average calculation bug, but the user is still reporting inaccuracies, specifically in the PDF.
     -   Next debug checklist:
-        1.  Check frontend logs for compilation errors: (node:310) [DEP_WEBPACK_DEV_SERVER_ON_AFTER_SETUP_MIDDLEWARE] DeprecationWarning: 'onAfterSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-(node:310) [DEP_WEBPACK_DEV_SERVER_ON_BEFORE_SETUP_MIDDLEWARE] DeprecationWarning: 'onBeforeSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
-(node:74) [DEP_WEBPACK_DEV_SERVER_ON_AFTER_SETUP_MIDDLEWARE] DeprecationWarning: 'onAfterSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-(node:74) [DEP_WEBPACK_DEV_SERVER_ON_BEFORE_SETUP_MIDDLEWARE] DeprecationWarning: 'onBeforeSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.. This is the most likely cause.
-        2.  Check backend logs for any startup errors after the refactor: INFO:     Started server process [286]
-INFO:     Waiting for application startup.
-2026-02-16 08:38:31,777 - server - INFO - Database indexes created successfully
-INFO:     Application startup complete.
-WARNING:  WatchFiles detected changes in 'server.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [286]
-INFO:     Started server process [844]
-INFO:     Waiting for application startup.
-2026-02-16 08:42:44,841 - server - INFO - Database indexes created successfully
-INFO:     Application startup complete.
-WARNING:  WatchFiles detected changes in 'database.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for connections to close. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [844]
-WARNING:  WatchFiles detected changes in 'models.py', 'utils.py', 'routes/__init__.py'. Reloading...
-INFO:     Started server process [2150]
-INFO:     Waiting for application startup.
-2026-02-16 08:51:37,711 - server - INFO - Database indexes created successfully
-INFO:     Application startup complete.
-WARNING:  WatchFiles detected changes in 'routes/upload.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [2150]
-WARNING:  WatchFiles detected changes in 'routes/vendite.py', 'routes/entities.py', 'routes/prodotti.py'. Reloading...
-INFO:     Started server process [2224]
-INFO:     Waiting for application startup.
-2026-02-16 08:53:59,480 - server - INFO - Database indexes created successfully
-INFO:     Application startup complete.
-2026-02-16 08:55:56,835 - httpx - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=44.4949&longitude=11.3426&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=Europe/Rome "HTTP/1.1 200 OK"
-2026-02-16 08:55:57,223 - httpx - INFO - HTTP Request: GET https://www.freshplaza.it/ "HTTP/1.1 200 OK"
-2026-02-16 08:55:57,239 - server - INFO - FreshPlaza: Found article URL: https://www.freshplaza.it/article/9811161/ultimi-prezzi-ortofrutticoli-all-ingrosso-rilevati-fino-al-16-febbraio-2026/
-2026-02-16 08:55:57,437 - httpx - INFO - HTTP Request: GET https://www.freshplaza.it/article/9811161/ultimi-prezzi-ortofrutticoli-all-ingrosso-rilevati-fino-al-16-febbraio-2026/ "HTTP/1.1 200 OK"
-2026-02-16 08:55:57,441 - server - INFO - FreshPlaza: Found 4 market links
-2026-02-16 08:55:57,822 - httpx - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=44.4949&longitude=11.3426&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=Europe/Rome "HTTP/1.1 200 OK"
-2026-02-16 08:55:58,009 - httpx - INFO - HTTP Request: GET https://www.freshplaza.it/ "HTTP/1.1 200 OK"
-2026-02-16 08:55:58,015 - server - INFO - FreshPlaza: Found article URL: https://www.freshplaza.it/article/9811161/ultimi-prezzi-ortofrutticoli-all-ingrosso-rilevati-fino-al-16-febbraio-2026/
-2026-02-16 08:55:58,037 - httpx - INFO - HTTP Request: GET https://www.freshplaza.it/article/9811161/ultimi-prezzi-ortofrutticoli-all-ingrosso-rilevati-fino-al-16-febbraio-2026/ "HTTP/1.1 200 OK"
-2026-02-16 08:55:58,042 - server - INFO - FreshPlaza: Found 4 market links
-WARNING:  WatchFiles detected changes in 'routes/dashboard.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for connections to close. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [2224]
-INFO:     Stopping reloader process [42]
-INFO:     Will watch for changes in these directories: ['/app/backend']
-INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     Started reloader process [2447] using WatchFiles
-INFO:     Started server process [2450]
-INFO:     Waiting for application startup.
-2026-02-16 08:58:22,463 - server - INFO - Database indexes created successfully
-INFO:     Application startup complete.
-2026-02-16 08:58:52,436 - httpx - INFO - HTTP Request: GET https://www.freshplaza.it/ "HTTP/1.1 200 OK"
-2026-02-16 08:58:52,441 - server - INFO - FreshPlaza: Found article URL: https://www.freshplaza.it/article/9811161/ultimi-prezzi-ortofrutticoli-all-ingrosso-rilevati-fino-al-16-febbraio-2026/
-2026-02-16 08:58:52,465 - httpx - INFO - HTTP Request: GET https://www.freshplaza.it/article/9811161/ultimi-prezzi-ortofrutticoli-all-ingrosso-rilevati-fino-al-16-febbraio-2026/ "HTTP/1.1 200 OK"
-2026-02-16 08:58:52,469 - server - INFO - FreshPlaza: Found 4 market links
-WARNING:  WatchFiles detected changes in 'routes/pdf_export.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [2450]
-INFO:     Started server process [2727]
-INFO:     Waiting for application startup.
-2026-02-16 08:59:54,034 - server - INFO - Database indexes created successfully
-INFO:     Application startup complete.
-WARNING:  WatchFiles detected changes in 'server.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [2727]
-INFO:     Started server process [2776]
-INFO:     Waiting for application startup.
-2026-02-16 09:00:00,450 - server - INFO - Database indexes created successfully
-INFO:     Application startup complete.
-WARNING:  WatchFiles detected changes in 'tests/test_backend_api_v6.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [2776]
-INFO:     Started server process [3189]
-INFO:     Waiting for application startup.
-2026-02-16 09:02:40,307 - server - INFO - Database indexes created successfully
-INFO:     Application startup complete.
-2026-02-16 09:03:11,436 - httpx - INFO - HTTP Request: GET https://www.freshplaza.it/ "HTTP/1.1 200 OK"
-2026-02-16 09:03:11,443 - server - INFO - FreshPlaza: Found article URL: https://www.freshplaza.it/article/9811161/ultimi-prezzi-ortofrutticoli-all-ingrosso-rilevati-fino-al-16-febbraio-2026/
-2026-02-16 09:03:11,572 - httpx - INFO - HTTP Request: GET https://www.freshplaza.it/article/9811161/ultimi-prezzi-ortofrutticoli-all-ingrosso-rilevati-fino-al-16-febbraio-2026/ "HTTP/1.1 200 OK"
-2026-02-16 09:03:11,576 - server - INFO - FreshPlaza: Found 4 market links
-INFO:     Will watch for changes in these directories: ['/app/backend']
-INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
-INFO:     Started reloader process [48] using WatchFiles
-INFO:     Started server process [64]
-INFO:     Waiting for application startup.
-2026-02-16 09:13:13,977 - server - INFO - Database indexes created successfully
-INFO:     Application startup complete..
-        3.  Review the last modified files for syntax errors, especially , , and the new backend route files.
-    -   Why fix this issue and what will be achieved with the fix? The application is completely unusable. Fixing this will restore basic functionality and unblock all other progress.
-    -   Status: NOT STARTED
-    -   Is recurring issue? N
-    -   Should Test frontend/backend/both after fix? Frontend first to ensure the app loads, then a full functionality check.
-    -   Blocked on other issue: None. This is the primary blocker.
-
--   **Issue 2: PDF Export feature needs user verification**
-    -   Attempted fixes: The backend endpoint () and frontend button () were implemented.
-    -   Next debug checklist: After fixing Issue 1, the user must test the Esporta PDF button on the Statistiche page to confirm it works as expected.
-    -   Why fix this issue and what will be achieved with the fix? This will complete a core feature request from the original problem statement.
-    -   Status: USER VERIFICATION PENDING
-    -   Is recurring issue? N
-    -   Should Test frontend/backend/both after fix? Both (End-to-end user test).
-    -   Blocked on other issue: Issue 1.
-
--   **Issue 3: Original news scraper does not fetch images**
-    -   Attempted fixes: None.
-    -   Next debug checklist: Examine the  function in  and update BeautifulSoup selectors for .
-    -   Why fix this issue and what will be achieved with the fix? Completes a feature for the original news source.
-    -   Status: NOT STARTED
+        1.  Start with  in the  function. Trace the margin data being passed to the PDF.
+        2.  Review the margin calculation in  to ensure its logic is universally correct.
+        3.  Cross-verify the totals and margins shown on the Dashboard, Statistics page, and the PDF to ensure consistency.
+    -   Why fix this issue and what will be achieved with the fix? This is critical for user trust. The application's core value depends on providing accurate financial data.
+    -   Status: IN PROGRESS
     -   Is recurring issue? Y
-    -   Should Test frontend/backend/both after fix? Backend.
+    -   Should Test frontend/backend/both after fix? Both.
+    -   Blocked on other issue: None. This is the main blocker for user confidence.
+
+-   **Issue 2: Incorrect margin calculation in the exported PDF**
+    -   Details are covered in Issue 1. This is a specific instance of the broader calculation accuracy problem.
+    -   Status: IN PROGRESS
+
+-   **Issue 3: Disorganized layout on the Inventory () page**
+    -   Attempted fixes: None.
+    -   Next debug checklist:
+        1.  View  to understand the current layout.
+        2.  Check the backend endpoint that serves inventory data (likely in ) to see if a default sort order can be applied.
+        3.  Implement a default sorting logic (e.g., alphabetical by product name) or add sorting controls to the UI.
+    -   Why fix this issue and what will be achieved with the fix? Improves usability of a core feature.
+    -   Status: NOT STARTED
+    -   Is recurring issue? N
+    -   Should Test frontend/backend/both after fix? Frontend.
     -   Blocked on other issue: None.
 
+-   **Issue 4 & 5: News page fixes (Static Hero, Breaking News filter)**
+    -   Attempted fixes: None.
+    -   Next debug checklist:
+        1.  Examine  to see how the hero and breaking news sections are populated.
+        2.  Check . The  endpoint logic needs to be modified to differentiate between today's news and older news, and to ensure the latest article is always featured. This may involve adding a timestamp to the scraped news data.
+    -   Why fix this issue and what will be achieved with the fix? Makes the news feature more dynamic and relevant.
+    -   Status: NOT STARTED
+    -   Is recurring issue? N
+    -   Should Test frontend/backend/both after fix? Both.
+    -   Blocked on other issue: None.
+
+-   **Issue 6: Original news scraper does not fetch images**
+    -   This is a known, low-priority issue from a previous session that has not been addressed.
+    -   Status: NOT STARTED
+
 **In progress Task List**:
-*   None. The agent must first resolve the critical Application not loading issue.
+*   **Task 1: Address User's Latest Feedback (P0)**
+    -   **Where to resume:** Start by fixing the calculation inaccuracies (Issue 1 & 2), then implement the UI/UX changes for the Inventory and News pages (Issues 3, 4, 5).
+    -   **What will be achieved with this?** Resolve all of the user's immediate concerns and restore their confidence in the application's data and functionality.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** Both.
+    -   **Blocked on something:** Nothing.
 
 **Upcoming and Future Tasks**
 *   **Upcoming Tasks:**
-    *   (P1) Guide the user to verify the PDF export functionality once the app is stable.
+    *   (P1) Guide the user to verify the PDF export functionality again after the margin calculations are fixed.
 *   **Future Tasks:**
     *   (P2) Fix image scraping for the  news source.
-    *   (P3) Refactor  into smaller components (e.g., , ).
-    *   (P3) Systematically review the original Google Apps Script to ensure no minor features were missed.
+    -   (P3) Refactor  into smaller components (e.g., , ).
+    -   (P3) Systematically review the original Google Apps Script to ensure no minor features were missed.
 
 **Completed work in this session**
--   **P0 - UI/UX & Logic Fixes (DONE)**:
-    -   Fixed KPI logic in  to correctly calculate stats for the current month.
-    -   Resolved multiple UI regressions on  (Quick Links, Trend Selectors, Insight text).
-    -   Implemented a responsive sidebar with a hamburger menu for mobile views.
--   **P1 - Backend Refactoring (DONE)**:
-    -   Successfully modularized the monolithic  into a structured application with separate , , and  directories.
--   **P2 - PDF Export Feature (Implemented, pending verification)**:
-    -   Installed  and created a new backend endpoint .
-    -   Added an Esporta PDF button to the  page.
+-   **Critical Bug Fix:** Resolved the initial white screen issue, making the application functional again.
+-   **Margin Calculation Feature (Implemented, needs fix):** Added logic to calculate sales margin. Displayed it on the Dashboard, Stats page, and PDF.
+-   **Performance Optimization (DONE):** Implemented skeleton loaders on the Dashboard for an instant loading feel.
+-   **Product Analysis Modal Overhaul (DONE):** Replaced static grids with interactive line charts for sales/purchase history and price trends, and added a time period filter.
+-   **Product Search Enhancement (DONE):** Switched to a more performant and accurate server-side search.
+-   **UI/UX Improvements (DONE):** Redesigned the AI widget to be compact and fixed interaction logic on the Sales Trend widget.
+-   **Data Accuracy Fix (DONE):** Corrected the average price calculation to use a weighted average, resolving a major data discrepancy.
 
 **Earlier issues found/mentioned but not fixed**
--   The image scraper for the  news source is still broken.
+-   The image scraper for the  news source remains broken. This was noted in the initial handoff summary and has not been addressed.
 
 **Known issue recurrence from previous fork**
 -   None.
@@ -203,51 +121,61 @@ INFO:     Application startup complete..
 
 **Key Technical Concepts**
 -   **Frontend:** React.js, Tailwind CSS, Recharts, Framer Motion.
--   **Backend:** FastAPI, Pandas, Pydantic, Requests, BeautifulSoup4, FPDF2.
+-   **Backend:** FastAPI, Pandas, Pydantic, FPDF2.
 -   **Database:** MongoDB.
--   **Architecture:** Modular backend with routes separated from the main app file.
+-   **Architecture:** Modular backend with services, routes, and utils.
 
 **key DB schema**
--   No changes made to the schema in this session.
+-   No changes made to the schema.
 
 **changes in tech stack**
--   **Added:**  was installed for PDF generation in the backend.
+-   No new dependencies were added. The agent made extensive use of existing  for data analysis and  for visualization.
 
 **All files of reference**
--   **/var/log/supervisor/frontend.err.log**: **CRITICAL file to check first** to debug the loading issue.
--   **/var/log/supervisor/backend.err.log**: Secondary log file to check for errors.
--   **/app/frontend/src/pages/Statistiche.js**: One of the last files edited; a potential source of the error.
--   **/app/frontend/src/App.js**: Modified for the responsive sidebar; another potential source of error.
--   **/app/backend/routes/**: The newly created directory with all refactored backend endpoints.
--   **/app/backend/server.py**: The new, slimmed-down main server file.
+*   **Files to fix:**
+    *   : To fix margin calculation in the PDF export.
+    *   : To review the core margin calculation logic.
+    *   : To re-order the inventory display.
+    *    & : To fix the hero section and filter breaking news.
+*   **Recently modified files:**
+    *   : Major changes for new widgets, charts, and loaders.
+    *   : Added server-side search and period filtering for analysis.
+    *   : Updated to display margin data.
 
 **Areas that need refactoring**:
--    is still a large component and should be broken down into smaller, more manageable components in the future.
+-    remains a very large monolithic component and is a prime candidate for being broken down into smaller, reusable components to improve maintainability.
 
 **key api endpoints**
--   : **New endpoint** for generating PDF reports.
--   All other existing endpoints (e.g., , ) were successfully moved into the new  structure.
+*   : (New) Server-side product search.
+*   : (New) Global margin calculation for the dashboard banner.
+*   : (Modified) Supports a  query parameter for time-based filtering.
+*   : (Modified) Supports a  query parameter.
+*   : (Modified) Updated to include margin data, but is reportedly incorrect.
 
 **Critical Info for New Agent**
--   **The application is currently broken and does not load.** Your absolute top priority is to debug and fix this white screen issue. The user is blocked.
--   Start your investigation by checking the frontend supervisor logs: (node:310) [DEP_WEBPACK_DEV_SERVER_ON_AFTER_SETUP_MIDDLEWARE] DeprecationWarning: 'onAfterSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-(node:310) [DEP_WEBPACK_DEV_SERVER_ON_BEFORE_SETUP_MIDDLEWARE] DeprecationWarning: 'onBeforeSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
-(node:74) [DEP_WEBPACK_DEV_SERVER_ON_AFTER_SETUP_MIDDLEWARE] DeprecationWarning: 'onAfterSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-(node:74) [DEP_WEBPACK_DEV_SERVER_ON_BEFORE_SETUP_MIDDLEWARE] DeprecationWarning: 'onBeforeSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.. The problem is most likely a React compilation error introduced in the last set of changes.
--   The backend was heavily refactored. Although initial  tests passed, remain aware that a subtle issue might exist there.
--   Once the application is loading again, you must perform a full regression test to ensure all the recently completed fixes (KPI logic, dashboard UI, responsive sidebar) are still working correctly before moving on.
+-   **The user's primary concern is DATA ACCURACY.** They have lost some trust due to calculation errors. Your first and highest priority is to meticulously review and fix all financial calculations (margins, totals), especially in the PDF export. Do not move on to other tasks until you are confident the data is correct.
+-   After fixing the calculations, address the user's other requests in order: disorganized inventory, and then the two issues on the news page.
+-   The application is currently functional, but the user's confidence is low. Prioritize stability and correctness over adding new features.
+-   A full regression test via the testing agent is required before finishing to ensure your fixes haven't introduced new bugs.
 
 **documents and test reports created in this job**
 -   None.
 
 **Last 10 User Messages and any pending HUMAN messages**
--   **1. (PENDING) C’è qualcosa che non va, non carica nulla** - The user reports that the application is not loading anything. This is the current, highest-priority issue.
--   2. Ok procedi con p0 e p1 e p2 - The user approved the agent's plan to work on the UI fixes (P0), backend refactor (P1), and PDF export (P2).
+-   **10. (PENDING) User requests 5 fixes:**
+    1.  Breaking News should only be for the current day.
+    2.  The News Hero section is static and doesn't update.
+    3.  Margins in the PDF are calculated incorrectly.
+    4.  A general request to ensure all calculations are accurate everywhere.
+    5.  The Inventory () page is disorganized and needs better ordering.
+-   **9. User reports an error in the average sale price** calculation in the product analysis card. (This was fixed by the agent).
+-   **8. User asks to implement charts and time filters** for the product analysis card. (This was implemented).
+-   **7. User requests 4 new features:** a compact AI widget, sales margin calculation, instant page loading, and a fix for the product search. (These were all implemented).
+-   **6. User reports 3 issues:** incorrect hover behavior on the sales trend widget, poor product search results, and missing details in the product analysis card. (These were all fixed).
+-   **5. User reports the app is not loading.** (This was the initial P0 bug, which the agent fixed).
 
 **Project Health Check:**
--   **Broken**: The entire application is non-functional due to a likely frontend compilation or runtime error.
+-   **Working**: The app is running, but with known functional bugs related to data accuracy.
 -   **Mocked**: None.
 
 **3rd Party Integrations**
@@ -260,13 +188,14 @@ INFO:     Application startup complete..
 -   : For generating PDF reports.
 
 **Testing status**
--   Testing agent used after significant changes: NO (The attempt to run it was followed by the app breaking).
+-   Testing agent used after significant changes: NO (The agent was interrupted by the user before the final test run).
 -   Troubleshoot agent used after agent stuck in loop: NO
 -   Test files created: []
--   Known regressions: The entire application is currently down.
+-   Known regressions: The user has reported that the margin calculation in the PDF export is incorrect. This is a functional regression/bug.
 
 **Credentials to test flow:**
 -   N/A
 
 **What agent forgot to execute**
--   The agent did not perform a sanity check (e.g., refreshing the app preview) after the final set of file edits and before concluding the implementation phase. This led to a broken state being presented to the user.</analysis>
+-   The agent did not run a final, comprehensive test with the  after implementing the margin and charting features, which could have caught the PDF calculation error before the user did.
+-   The long-standing issue of the broken image scraper for  has still not been addressed.</analysis>
