@@ -453,21 +453,54 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Product Analysis Modal - Complete Details */}
+      {/* Product Analysis Modal - Complete Details with Charts */}
       <Dialog open={showProdottoModal} onOpenChange={setShowProdottoModal}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-auto">
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-auto">
           <DialogHeader><DialogTitle>{selectedProdotto?.nome}</DialogTitle></DialogHeader>
+          
+          {/* Period Selector + View Tabs */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/[0.06]">
+            <div className="flex gap-2">
+              <Button variant={analisiView === 'vendite' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('vendite')} data-testid="analisi-vendite-tab">Vendite</Button>
+              <Button variant={analisiView === 'acquisti' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('acquisti')} data-testid="analisi-acquisti-tab">Acquisti</Button>
+            </div>
+            <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
+              <Calendar className="w-3 h-3 text-slate-500 ml-1" />
+              {[
+                { v: '1m', l: 'Mese' },
+                { v: '3m', l: '3 Mesi' },
+                { v: '6m', l: '6 Mesi' },
+                { v: 'all', l: 'Tutto' }
+              ].map(p => (
+                <button 
+                  key={p.v} 
+                  onClick={() => changeAnalisiPeriodo(p.v)}
+                  disabled={loadingAnalisi}
+                  data-testid={`analisi-periodo-${p.v}`}
+                  className={cn(
+                    "px-2 py-1 rounded-md text-[10px] font-medium transition-all",
+                    analisiPeriodo === p.v 
+                      ? "bg-blue-500/20 text-blue-300 shadow-sm" 
+                      : "text-slate-500 hover:text-slate-300"
+                  )}
+                >
+                  {p.l}
+                </button>
+              ))}
+            </div>
+          </div>
+          
           {loadingAnalisi ? (
             <div className="py-8 text-center"><LoadingSpinner /></div>
           ) : (
             <div className="space-y-4">
-              <div className="flex gap-2">
-                <Button variant={analisiView === 'vendite' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('vendite')} data-testid="analisi-vendite-tab">Vendite</Button>
-                <Button variant={analisiView === 'acquisti' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('acquisti')} data-testid="analisi-acquisti-tab">Acquisti</Button>
-              </div>
-              
               {analisiView === 'vendite' && prodottoAnalisi && (
                 <div className="space-y-4">
+                  {/* Period Label */}
+                  <p className="text-[10px] text-slate-500 text-right">
+                    Periodo: {analisiPeriodo === '1m' ? 'Ultimo mese' : analisiPeriodo === '3m' ? 'Ultimi 3 mesi' : analisiPeriodo === '6m' ? 'Ultimi 6 mesi' : 'Storico completo'}
+                  </p>
+                  
                   {/* Main Stats Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
@@ -475,8 +508,8 @@ export default function Dashboard() {
                       <p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisi.totale_venduto || 0)}</p>
                     </div>
                     <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
-                      <p className="text-[10px] text-slate-500 mb-0.5">Quantità Venduta</p>
-                      <p className="text-lg font-bold text-white">{prodottoAnalisi.quantita_venduta || 0}</p>
+                      <p className="text-[10px] text-slate-500 mb-0.5">Quantità</p>
+                      <p className="text-lg font-bold text-white">{Math.round(prodottoAnalisi.quantita_venduta || 0)}</p>
                     </div>
                     <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
                       <p className="text-[10px] text-slate-500 mb-0.5">Prezzo Medio</p>
@@ -485,18 +518,6 @@ export default function Dashboard() {
                     <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
                       <p className="text-[10px] text-slate-500 mb-0.5">N. Clienti</p>
                       <p className="text-lg font-bold text-white">{prodottoAnalisi.numero_clienti || 0}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Secondary Stats */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                      <p className="text-[10px] text-blue-400 mb-0.5">Media Mensile (Fatturato)</p>
-                      <p className="text-base font-semibold text-white">{formatCurrency(prodottoAnalisi.fatturatoMensile || 0)}</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
-                      <p className="text-[10px] text-emerald-400 mb-0.5">Media Mensile (Quantità)</p>
-                      <p className="text-base font-semibold text-white">{prodottoAnalisi.mediaMensile || 0}</p>
                     </div>
                   </div>
                   
@@ -518,16 +539,133 @@ export default function Dashboard() {
                     </div>
                   )}
                   
-                  {/* Vendite Mensili */}
-                  {prodottoAnalisi.venditeMensili?.length > 0 && (
+                  {/* Vendite Mensili - Line Chart */}
+                  {prodottoAnalisi.venditeMensili?.length > 1 && (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                      <h4 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
+                        <TrendingUp className="w-3.5 h-3.5 text-violet-400" /> Andamento Vendite
+                      </h4>
+                      <div className="h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={prodottoAnalisi.venditeMensili}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                            <XAxis dataKey="mese" stroke="#475569" fontSize={10} tickFormatter={v => v?.slice(-5)} />
+                            <YAxis stroke="#475569" fontSize={10} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+                            <Tooltip 
+                              contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
+                              labelStyle={{ color: '#94a3b8' }}
+                              formatter={(v) => [formatCurrency(v), 'Fatturato']}
+                            />
+                            <Line type="monotone" dataKey="totale" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6', r: 3 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {analisiView === 'acquisti' && prodottoAnalisiAcquisti && (
+                <div className="space-y-4">
+                  {/* Period Label */}
+                  <p className="text-[10px] text-slate-500 text-right">
+                    Periodo: {analisiPeriodo === '1m' ? 'Ultimo mese' : analisiPeriodo === '3m' ? 'Ultimi 3 mesi' : analisiPeriodo === '6m' ? 'Ultimi 6 mesi' : 'Storico completo'}
+                  </p>
+                  
+                  {/* Main Stats Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">Totale Acquistato</p>
+                      <p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisiAcquisti.totale_acquistato || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">Quantità</p>
+                      <p className="text-lg font-bold text-white">{Math.round(prodottoAnalisiAcquisti.quantita_acquistata || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">Costo Medio</p>
+                      <p className="text-lg font-bold text-white">{formatCurrency(prodottoAnalisiAcquisti.costo_medio || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                      <p className="text-[10px] text-slate-500 mb-0.5">N. Fornitori</p>
+                      <p className="text-lg font-bold text-white">{prodottoAnalisiAcquisti.numero_fornitori || 0}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Top Fornitori */}
+                  {prodottoAnalisiAcquisti.topFornitori?.length > 0 && (
                     <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
                       <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-2">
-                        <BarChart3 className="w-3.5 h-3.5 text-violet-400" /> Storico Mensile
+                        <Package className="w-3.5 h-3.5 text-orange-400" /> Top Fornitori
                       </h4>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                        {prodottoAnalisi.venditeMensili.slice(-8).map((m) => (
-                          <div key={m.mese} className="p-2 rounded bg-violet-500/5 border border-violet-500/10 text-center">
-                            <p className="text-[9px] text-slate-500">{m.mese}</p>
+                      <div className="space-y-1.5">
+                        {prodottoAnalisiAcquisti.topFornitori.slice(0, 5).map((f, i) => (
+                          <div key={f.nome} className="flex items-center gap-2 text-sm">
+                            <span className="w-5 h-5 rounded-full bg-orange-500/15 text-orange-400 text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                            <span className="flex-1 text-slate-300 truncate text-xs">{f.nome}</span>
+                            <span className="text-orange-400 font-medium text-xs">{formatCurrency(f.totale)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Acquisti Mensili - Line Chart */}
+                  {prodottoAnalisiAcquisti.acquistiMensili?.length > 1 && (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                      <h4 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
+                        <TrendingUp className="w-3.5 h-3.5 text-amber-400" /> Andamento Acquisti
+                      </h4>
+                      <div className="h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={prodottoAnalisiAcquisti.acquistiMensili}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                            <XAxis dataKey="mese" stroke="#475569" fontSize={10} tickFormatter={v => v?.slice(-5)} />
+                            <YAxis stroke="#475569" fontSize={10} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+                            <Tooltip 
+                              contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
+                              labelStyle={{ color: '#94a3b8' }}
+                              formatter={(v) => [formatCurrency(v), 'Spesa']}
+                            />
+                            <Line type="monotone" dataKey="totale" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b', r: 3 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Andamento Prezzi - Line Chart */}
+                  {prodottoAnalisiAcquisti.variazionePrezzi?.length > 1 && (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                      <h4 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
+                        <Activity className="w-3.5 h-3.5 text-rose-400" /> Andamento Prezzi
+                      </h4>
+                      <div className="h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={prodottoAnalisiAcquisti.variazionePrezzi}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                            <XAxis dataKey="mese" stroke="#475569" fontSize={10} tickFormatter={v => v?.slice(-5)} />
+                            <YAxis stroke="#475569" fontSize={10} domain={['auto', 'auto']} tickFormatter={v => `€${v.toFixed(1)}`} />
+                            <Tooltip 
+                              contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
+                              labelStyle={{ color: '#94a3b8' }}
+                              formatter={(v) => [formatCurrency(v), 'Prezzo Medio']}
+                            />
+                            <Line type="monotone" dataKey="prezzo_medio" stroke="#f43f5e" strokeWidth={2} dot={{ fill: '#f43f5e', r: 3 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </PageWrapper>
+  );
+}
                             <p className="text-xs font-semibold text-violet-300">{formatCurrency(m.totale)}</p>
                           </div>
                         ))}
