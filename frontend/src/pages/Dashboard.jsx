@@ -391,7 +391,7 @@ export default function Dashboard() {
           transition={{ delay: 0.2 }}
           className={cn(
             "rounded-2xl overflow-hidden border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] transition-all duration-300",
-            trendsExpanded && "lg:col-span-2"
+            trendsExpanded ? "lg:col-span-8" : "lg:col-span-5"
           )}
           data-testid="trends-widget"
         >
