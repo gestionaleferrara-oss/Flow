@@ -441,14 +441,10 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
     # Handle CESSIONI/OMAGGI as sales with 0 value (for tracking)
     elif is_cessione and nome_cliente_fornitore:
         if nome_cliente_fornitore not in cache['clienti']:
-            existing = await db.clienti.find_one({"nome": nome_cliente_fornitore}, {"_id": 0, "id": 1})
-            if not existing:
-                cliente = Cliente(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
-                await db.clienti.insert_one(serialize_doc(cliente.model_dump()))
-                cache['clienti'][nome_cliente_fornitore] = cliente.id
-                stats['new_clienti'] += 1
-            else:
-                cache['clienti'][nome_cliente_fornitore] = existing.get('id')
+            cliente = Cliente(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
+            await db.clienti.insert_one(serialize_doc(cliente.model_dump()))
+            cache['clienti'][nome_cliente_fornitore] = cliente.id
+            stats['new_clienti'] += 1
         
         cliente_id = cache['clienti'].get(nome_cliente_fornitore)
         vendita = Vendita(
@@ -462,14 +458,10 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
     # Handle RESI as negative orders (returns to supplier)
     elif is_reso and nome_cliente_fornitore:
         if nome_cliente_fornitore not in cache['fornitori']:
-            existing = await db.fornitori.find_one({"nome": nome_cliente_fornitore}, {"_id": 0, "id": 1})
-            if not existing:
-                fornitore = Fornitore(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
-                await db.fornitori.insert_one(serialize_doc(fornitore.model_dump()))
-                cache['fornitori'][nome_cliente_fornitore] = fornitore.id
-                stats['new_fornitori'] += 1
-            else:
-                cache['fornitori'][nome_cliente_fornitore] = existing.get('id')
+            fornitore = Fornitore(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
+            await db.fornitori.insert_one(serialize_doc(fornitore.model_dump()))
+            cache['fornitori'][nome_cliente_fornitore] = fornitore.id
+            stats['new_fornitori'] += 1
         
         fornitore_id = cache['fornitori'].get(nome_cliente_fornitore)
         # Resi are recorded as negative totals
@@ -489,35 +481,17 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
     # Use the qty_change calculated earlier which already accounts for special cases
     if nome_prodotto:
         if nome_prodotto not in cache['prodotti']:
-            existing = await db.prodotti.find_one({"nome": nome_prodotto}, {"_id": 0, "id": 1, "prezzo_medio": 1, "quantita": 1})
-            if not existing:
-                # New product - set initial quantity based on movement type
-                prodotto = Prodotto(nome=nome_prodotto, codice=codice_prodotto, prezzo_medio=importo_unitario, quantita=qty_change)
-                await db.prodotti.insert_one(serialize_doc(prodotto.model_dump()))
-                cache['prodotti'][nome_prodotto] = qty_change
-                stats['new_prodotti'] += 1
-            else:
-                # Update price if a new CARICO has a different price
-                if is_acquisto and importo_unitario > 0:
-                    old_price = existing.get('prezzo_medio', 0)
-                    if old_price != importo_unitario:
-                        await db.prodotti.update_one(
-                            {"nome": nome_prodotto},
-                            {"$set": {"prezzo_medio": importo_unitario}}
-                        )
-                # Update quantity
-                await db.prodotti.update_one(
-                    {"nome": nome_prodotto},
-                    {"$inc": {"quantita": qty_change}}
-                )
-                cache['prodotti'][nome_prodotto] = existing.get('quantita', 0) + qty_change
-                stats['existing_prodotti'] += 1
+            # New product - set initial quantity based on movement type
+            prodotto = Prodotto(nome=nome_prodotto, codice=codice_prodotto, prezzo_medio=importo_unitario, quantita=qty_change)
+            await db.prodotti.insert_one(serialize_doc(prodotto.model_dump()))
+            cache['prodotti'][nome_prodotto] = {'id': prodotto.id, 'prezzo_medio': importo_unitario, 'quantita': qty_change}
+            stats['new_prodotti'] += 1
         else:
-            # Product already seen in this upload - update price if CARICO
+            # Product exists - track quantity change in cache, batch update later
+            cache['prodotti'][nome_prodotto]['quantita'] = cache['prodotti'][nome_prodotto].get('quantita', 0) + qty_change
             if is_acquisto and importo_unitario > 0:
-                await db.prodotti.update_one(
-                    {"nome": nome_prodotto},
-                    {"$set": {"prezzo_medio": importo_unitario}}
+                cache['prodotti'][nome_prodotto]['prezzo_medio'] = importo_unitario
+            stats['existing_prodotti'] += 1
                 )
             # Update quantity
             await db.prodotti.update_one(
