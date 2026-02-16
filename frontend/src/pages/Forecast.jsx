@@ -432,18 +432,19 @@ export default function Forecast() {
               <div className="flex items-center gap-2 mb-4">
                 <Sparkles className="w-4 h-4 text-amber-400" />
                 <span className="text-sm font-medium text-white">Previsione AI</span>
-                <span className="ml-auto text-[10px] text-slate-500">{forecast.mese_target_nome}</span>
+                <span className="ml-auto text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">{forecast.mese_target_nome}</span>
               </div>
-              <div className="prose prose-invert prose-sm max-w-none text-slate-300 overflow-auto max-h-[350px]">
+              <div className="prose prose-invert prose-sm max-w-none text-slate-300 overflow-auto max-h-[380px] pr-2 scrollbar-thin">
                 <ReactMarkdown
                   components={{
-                    h1: ({ children }) => <h3 className="text-base font-semibold text-white mt-3 mb-2">{children}</h3>,
-                    h2: ({ children }) => <h4 className="text-sm font-semibold text-white mt-3 mb-1.5">{children}</h4>,
-                    h3: ({ children }) => <h5 className="text-sm font-medium text-slate-200 mt-2 mb-1">{children}</h5>,
+                    h1: ({ children }) => <div className="text-sm font-bold text-white bg-white/[0.05] px-3 py-2 rounded-lg mt-4 mb-2 first:mt-0">{children}</div>,
+                    h2: ({ children }) => <div className="text-sm font-bold text-amber-400 mt-4 mb-2 flex items-center gap-2"><span className="w-1 h-4 bg-amber-400 rounded-full"></span>{children}</div>,
+                    h3: ({ children }) => <div className="text-sm font-semibold text-slate-200 mt-3 mb-1.5">{children}</div>,
                     p: ({ children }) => <p className="text-sm text-slate-400 mb-2 leading-relaxed">{children}</p>,
-                    strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
-                    ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-2">{children}</ul>,
-                    li: ({ children }) => <li className="text-sm text-slate-400">{children}</li>,
+                    strong: ({ children }) => <strong className="text-emerald-400 font-semibold">{children}</strong>,
+                    ul: ({ children }) => <ul className="space-y-1.5 my-2 ml-1">{children}</ul>,
+                    li: ({ children }) => <li className="text-sm text-slate-400 flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-1.5 shrink-0"></span><span>{children}</span></li>,
+                    em: ({ children }) => <em className="text-cyan-400 not-italic">{children}</em>,
                   }}
                 >
                   {forecast.previsione_ai}
