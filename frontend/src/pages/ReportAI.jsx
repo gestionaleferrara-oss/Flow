@@ -209,7 +209,7 @@ export default function ReportAI() {
                       </div>
                       <div>
                         <h2 className="text-xl font-semibold">
-                          Report {selectedReport.tipo === 'settimanale' ? 'Settimanale' : 'Mensile'}
+                          Report {selectedReport.tipo === 'settimanale' ? 'Settimanale' : selectedReport.tipo === 'dashboard' ? 'Dashboard' : 'Mensile'}
                         </h2>
                         <p className="text-sm text-slate-400">
                           {formatDate(selectedReport.periodo_inizio)} - {formatDate(selectedReport.periodo_fine)}
