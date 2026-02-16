@@ -454,7 +454,7 @@ export default function Dashboard() {
                   <p className="text-sm font-medium text-slate-200 truncate">{p.nome}</p>
                   <div className="flex items-center gap-2 text-xs text-slate-500">
                     <span>Qty: {p.quantita || 0}</span>
-                    {p.codice && <span>· {p.codice}</span>}
+                    {p.prezzo_vendita_medio > 0 && <span className="text-emerald-400">Prezzo medio: {p.prezzo_vendita_medio.toFixed(2)} €</span>}
                   </div>
                 </button>
               ))
