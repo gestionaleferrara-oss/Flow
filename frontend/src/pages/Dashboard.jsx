@@ -498,8 +498,11 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Quick Links - shrinks when trends expanded */}
-        <div className={cn("space-y-3", trendsExpanded && "lg:col-span-1")}>
+        {/* Quick Links - responsive grid */}
+        <div className={cn(
+          "grid gap-3",
+          trendsExpanded ? "lg:col-span-4 grid-cols-1" : "lg:col-span-7 grid-cols-1 lg:grid-cols-3"
+        )}>
           <QuickLinkCard
             title="Importa Dati"
             description="Carica CSV o XLSX"
