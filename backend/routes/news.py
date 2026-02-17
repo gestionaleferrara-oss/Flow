@@ -359,8 +359,15 @@ async def get_trends_vendite(periodo: str = "2w", ordina_per: str = "interest", 
     prev_end = current_start
     prev_start = (reference_date - timedelta(days=periodo_days * 2)).strftime("%Y-%m-%d")
 
-    current_sales = await db.vendite.find({"data": {"$gt": current_start, "$lte": current_end}}, {"_id": 0, "prodotto_nome": 1, "quantita": 1, "totale": 1}).to_list(100000)
+    current_sales = await db.vendite.find({"data": {"$gt": current_start, "$lte": current_end}}, {"_id": 0, "prodotto_nome": 1, "quantita": 1, "totale": 1, "prezzo_unitario": 1}).to_list(100000)
     prev_sales = await db.vendite.find({"data": {"$gt": prev_start, "$lte": prev_end}}, {"_id": 0, "prodotto_nome": 1, "quantita": 1, "totale": 1}).to_list(100000)
+    
+    # Get purchase prices for margin calculation
+    prezzi_acquisto = {}
+    prodotti = await db.prodotti.find({}, {"_id": 0, "nome": 1, "prezzo_medio": 1}).to_list(10000)
+    for p in prodotti:
+        if p.get('prezzo_medio', 0) > 0:
+            prezzi_acquisto[p['nome']] = p['prezzo_medio']
 
     current_by_product = {}
     total_fatturato = 0
@@ -368,9 +375,13 @@ async def get_trends_vendite(periodo: str = "2w", ordina_per: str = "interest", 
         prod = s.get('prodotto_nome', '')
         if prod:
             if prod not in current_by_product:
-                current_by_product[prod] = {'qty': 0, 'totale': 0}
+                current_by_product[prod] = {'qty': 0, 'totale': 0, 'richieste': 0, 'prezzo_vendita_sum': 0, 'prezzo_vendita_count': 0}
             current_by_product[prod]['qty'] += abs(s.get('quantita', 0))
             current_by_product[prod]['totale'] += abs(s.get('totale', 0))
+            current_by_product[prod]['richieste'] += 1
+            if s.get('prezzo_unitario', 0) > 0:
+                current_by_product[prod]['prezzo_vendita_sum'] += s.get('prezzo_unitario', 0)
+                current_by_product[prod]['prezzo_vendita_count'] += 1
             total_fatturato += abs(s.get('totale', 0))
 
     prev_by_product = {}
@@ -378,9 +389,10 @@ async def get_trends_vendite(periodo: str = "2w", ordina_per: str = "interest", 
         prod = s.get('prodotto_nome', '')
         if prod:
             if prod not in prev_by_product:
-                prev_by_product[prod] = {'qty': 0, 'totale': 0}
+                prev_by_product[prod] = {'qty': 0, 'totale': 0, 'richieste': 0}
             prev_by_product[prod]['qty'] += abs(s.get('quantita', 0))
             prev_by_product[prod]['totale'] += abs(s.get('totale', 0))
+            prev_by_product[prod]['richieste'] += 1
 
     trends = []
     for prod, curr_data in current_by_product.items():
