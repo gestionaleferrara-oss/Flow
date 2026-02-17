@@ -201,6 +201,35 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
         )
         cache['ordini_batch'].append(serialize_doc(ordine.model_dump()))
         stats['resi_created'] = stats.get('resi_created', 0) + 1
+    
+    # Handle rettifiche - adjust stock without sales/purchases record
+    elif is_rettifica:
+        stats['rettifiche_processed'] = stats.get('rettifiche_processed', 0) + 1
+    
+    # Handle trasferimenti - internal movements, still affect stock
+    elif is_trasferimento:
+        stats['trasferimenti_processed'] = stats.get('trasferimenti_processed', 0) + 1
+    
+    # Handle vuotati - emptied containers, affects stock
+    elif is_vuotati:
+        stats['vuotati_processed'] = stats.get('vuotati_processed', 0) + 1
+    
+    # Handle commissioni - sales with commission
+    elif is_commissione and nome_cliente_fornitore:
+        if nome_cliente_fornitore not in cache['clienti']:
+            cliente = Cliente(nome=nome_cliente_fornitore, codice=codice_cliente_fornitore)
+            await db.clienti.insert_one(serialize_doc(cliente.model_dump()))
+            cache['clienti'][nome_cliente_fornitore] = cliente.id
+            stats['new_clienti'] += 1
+        cliente_id = cache['clienti'].get(nome_cliente_fornitore)
+        vendita = Vendita(
+            data=data, cliente_id=cliente_id, cliente_nome=nome_cliente_fornitore,
+            prodotto_nome=nome_prodotto, quantita=quantita,
+            prezzo_unitario=importo_unitario, totale=importo_totale, movimento=movimento, causale=causale
+        )
+        cache['vendite_batch'].append(serialize_doc(vendita.model_dump()))
+        stats['commissioni_created'] = stats.get('commissioni_created', 0) + 1
+    
     else:
         stats['other_movements'] = stats.get('other_movements', 0) + 1
 
