@@ -158,7 +158,7 @@ export default function Forecast() {
       />
 
       {/* Selection Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         {/* Step 1: Select Type */}
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
@@ -195,47 +195,6 @@ export default function Forecast() {
             >
               <Users className="w-4 h-4" />
               Cliente
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Step 1.5: Select Metric */}
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.025 }}
-          className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">
-              <Target className="w-3 h-3" />
-            </div>
-            <span className="text-sm font-medium text-white">Metrica</span>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMetrica('fatturato')}
-              data-testid="metrica-fatturato"
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                metrica === 'fatturato' 
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
-                  : "bg-white/[0.03] text-slate-400 border border-white/[0.06] hover:bg-white/[0.06]"
-              )}
-            >
-              € Fatturato
-            </button>
-            <button
-              onClick={() => setMetrica('richieste')}
-              data-testid="metrica-richieste"
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                metrica === 'richieste' 
-                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" 
-                  : "bg-white/[0.03] text-slate-400 border border-white/[0.06] hover:bg-white/[0.06]"
-              )}
-            >
-              # Richieste
             </button>
           </div>
         </motion.div>
