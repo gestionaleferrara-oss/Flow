@@ -1174,6 +1174,9 @@ DATI AZIENDA ORTOFRUTTICOLA - Aggiornati al {reference_date.strftime("%Y-%m-%d")
 === TOP 10 CLIENTI (90gg) ===
 {chr(10).join([f"- {c['_id']}: €{c['fatturato']:,.2f} | {c['ordini']} ordini" for c in top_clienti[:10]])}
 
+=== VENDITE ULTIME 2 SETTIMANE PER CLIENTE (dettaglio prodotti) ===
+{chr(10).join(recent_sales_context) if recent_sales_context else "Nessuna vendita nelle ultime 2 settimane"}
+
 === PRODOTTI SOTTO SCORTA (da riordinare) ===
 {chr(10).join([f"- {nome}" for nome in low_stock_products[:15]]) if low_stock_products else "Nessun prodotto sotto scorta"}
 
