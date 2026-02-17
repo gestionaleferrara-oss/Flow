@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, UploadFile
 from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
