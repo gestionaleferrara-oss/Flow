@@ -58,7 +58,7 @@ async def upload_csv(file: UploadFile = File(...)):
 
 
 @router.post("/upload-multiple")
-async def upload_multiple_files(files: List[UploadFile] = File(...), mode: str = "incremental"):
+async def upload_multiple_files(files: List[UploadFile] = File(...), mode: Optional[str] = Form("incremental")):
     total_stats = {
         'new_clienti': 0, 'existing_clienti': 0, 'new_fornitori': 0, 'existing_fornitori': 0,
         'new_prodotti': 0, 'existing_prodotti': 0, 'vendite_created': 0, 'ordini_created': 0,
