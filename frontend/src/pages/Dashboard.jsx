@@ -422,38 +422,26 @@ export default function Dashboard() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-white">Trend Prodotti</h3>
-                <p className="text-xs text-slate-500">Top 5</p>
+                <p className="text-xs text-slate-500">Top 5 - Variazione</p>
               </div>
             </div>
-            {/* Visible selectors */}
-            <div className="flex items-center gap-2 flex-wrap" data-testid="trends-selectors">
-              {/* Period selectors */}
+            {/* Only period selectors + expand button */}
+            <div className="flex items-center gap-2" data-testid="trends-selectors">
               <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
                 <Clock className="w-3.5 h-3.5 text-slate-500 ml-1" />
                 {periodoOptions.map(p => (
-                  <button key={p.v} onClick={(e) => { e.stopPropagation(); setTrendsPeriodo(p.v); loadTrendsVendite(p.v, trendsOrdinaPer, 5); }}
+                  <button key={p.v} onClick={(e) => { e.stopPropagation(); setTrendsPeriodo(p.v); loadTrendsVendite(p.v, 'interest', 5); }}
                     data-testid={`trend-periodo-${p.v}`}
                     className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
                       trendsPeriodo === p.v ? "bg-emerald-500/20 text-emerald-300 shadow-sm" : "text-slate-500 hover:text-slate-300"
                     )}>{p.l}</button>
                 ))}
               </div>
-              {/* Sort selectors */}
-              <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
-                <Filter className="w-3.5 h-3.5 text-slate-500 ml-1" />
-                {ordinaPerOptions.map(o => (
-                  <button key={o.v} onClick={(e) => { e.stopPropagation(); setTrendsOrdinaPer(o.v); loadTrendsVendite(trendsPeriodo, o.v, 5); }}
-                    data-testid={`trend-ordina-${o.v}`}
-                    className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
-                      trendsOrdinaPer === o.v ? "bg-cyan-500/20 text-cyan-300 shadow-sm" : "text-slate-500 hover:text-slate-300"
-                    )}>{o.l}</button>
-                ))}
-              </div>
               <button 
                 onClick={() => { setShowTrendsPopup(true); loadTrendsVendite(trendsPeriodo, trendsOrdinaPer, 20); }}
                 data-testid="trends-expand-btn"
                 className="p-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 transition-all hover:scale-105"
-                title="Mostra top 20"
+                title="Espandi con filtri"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
@@ -468,21 +456,10 @@ export default function Dashboard() {
                     className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] cursor-pointer hover:bg-white/[0.05] transition-colors">
                     <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
                     <span className="flex-1 text-sm text-slate-300 truncate">{t.prodotto}</span>
-                    {/* Dynamic badge based on sort type */}
-                    {trendsOrdinaPer === 'richieste' ? (
-                      <span className="text-xs font-semibold px-2 py-1 rounded text-cyan-400 bg-cyan-500/10">{t.richieste} ord.</span>
-                    ) : trendsOrdinaPer === 'margine' ? (
-                      <span className={cn("text-xs font-semibold px-2 py-1 rounded",
-                        t.margine_pct > 15 ? 'text-emerald-400 bg-emerald-500/10' : 
-                        t.margine_pct > 0 ? 'text-amber-400 bg-amber-500/10' : 'text-red-400 bg-red-500/10'
-                      )}>{t.margine_pct > 0 ? '+' : ''}{t.margine_pct}%</span>
-                    ) : trendsOrdinaPer === 'revenue' ? (
-                      <span className="text-xs font-semibold px-2 py-1 rounded text-blue-400 bg-blue-500/10">{formatCurrency(t.fatturato_2w)}</span>
-                    ) : (
-                      <span className={cn("text-xs font-semibold px-2 py-1 rounded",
-                        t.trend === 'up' ? 'text-emerald-400 bg-emerald-500/10' : t.trend === 'down' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 bg-slate-500/10'
-                      )}>{t.variazione_qty_pct > 0 ? '+' : ''}{t.variazione_qty_pct}%</span>
-                    )}
+                    {/* Always show variation % in widget */}
+                    <span className={cn("text-xs font-semibold px-2 py-1 rounded",
+                      t.trend === 'up' ? 'text-emerald-400 bg-emerald-500/10' : t.trend === 'down' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 bg-slate-500/10'
+                    )}>{t.variazione_qty_pct > 0 ? '+' : ''}{t.variazione_qty_pct}%</span>
                   </div>
                 ))}
               </div>
