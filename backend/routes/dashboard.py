@@ -1189,13 +1189,13 @@ DATI AZIENDA ORTOFRUTTICOLA - Aggiornati al {reference_date.strftime("%Y-%m-%d")
 
         # Add list of all entity names for fuzzy matching
         all_prodotti_names = [p['nome'] for p in prodotti_list]
-        all_clienti_names = [c['_id'] for c in top_clienti]
+        all_clienti_names = list(set([c['_id'] for c in top_clienti] + list(vendite_per_cliente.keys())))
         all_fornitori_names = [f.get('nome', '') for f in fornitori]
         
         entity_lists = f"""
 === LISTA COMPLETA NOMI (per riferimento) ===
-PRODOTTI: {', '.join(all_prodotti_names[:50])}...
-CLIENTI ATTIVI: {', '.join(all_clienti_names[:30])}
+PRODOTTI (primi 50): {', '.join(all_prodotti_names[:50])}...
+CLIENTI CON ACQUISTI RECENTI: {', '.join(sorted(all_clienti_names)[:40])}
 FORNITORI: {', '.join(all_fornitori_names[:30])}
 """
 
