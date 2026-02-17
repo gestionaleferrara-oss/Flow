@@ -88,6 +88,13 @@ export default function Dashboard() {
   const [showClienteQuickView, setShowClienteQuickView] = useState(false);
   const [clienteQuickViewData, setClienteQuickViewData] = useState(null);
   const [loadingClienteQuickView, setLoadingClienteQuickView] = useState(false);
+  
+  // AI Chat state
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [aiChatMessage, setAiChatMessage] = useState('');
+  const [aiChatResponse, setAiChatResponse] = useState(null);
+  const [aiChatLoading, setAiChatLoading] = useState(false);
+  const [aiChatHistory, setAiChatHistory] = useState([]);
 
   useEffect(() => {
     // Load all data in parallel - non-blocking
