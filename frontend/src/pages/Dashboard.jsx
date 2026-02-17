@@ -738,6 +738,114 @@ export default function Dashboard() {
                   )}
                 </div>
               )}
+
+              {/* NEW: Clienti & Prezzi Tab */}
+              {analisiView === 'clienti' && prodottoStoricoClienti && (
+                <div className="space-y-4">
+                  {/* Margin Summary */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <p className="text-[10px] text-emerald-400/70 mb-0.5">Prezzo Vendita Medio</p>
+                      <p className="text-lg font-bold text-emerald-400">{formatCurrency(prodottoStoricoClienti.prezzoMedioVendita || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <p className="text-[10px] text-amber-400/70 mb-0.5">Costo Acquisto Medio</p>
+                      <p className="text-lg font-bold text-amber-400">{formatCurrency(prodottoStoricoClienti.costoMedioAcquisto || 0)}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                      <p className="text-[10px] text-violet-400/70 mb-0.5">Margine Globale</p>
+                      <p className={cn("text-lg font-bold", prodottoStoricoClienti.margineGlobale >= 0 ? "text-violet-400" : "text-red-400")}>
+                        {prodottoStoricoClienti.margineGlobale >= 0 ? '+' : ''}{prodottoStoricoClienti.margineGlobale || 0}%
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                      <p className="text-[10px] text-cyan-400/70 mb-0.5">Clienti Totali</p>
+                      <p className="text-lg font-bold text-cyan-400">{prodottoStoricoClienti.clienti?.length || 0}</p>
+                    </div>
+                  </div>
+
+                  {/* Price History Chart */}
+                  {prodottoStoricoClienti.storicoPrezzi?.length > 1 && (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                      <h4 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
+                        <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> Storico Prezzi Vendita
+                      </h4>
+                      <div className="h-[150px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={prodottoStoricoClienti.storicoPrezzi}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                            <XAxis dataKey="mese" stroke="#475569" fontSize={10} tickFormatter={v => v?.slice(-5)} />
+                            <YAxis stroke="#475569" fontSize={10} domain={['auto', 'auto']} tickFormatter={v => `€${v.toFixed(2)}`} />
+                            <Tooltip 
+                              contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
+                              labelStyle={{ color: '#94a3b8' }}
+                              formatter={(v, name) => [formatCurrency(v), name === 'prezzo_medio' ? 'Media' : name === 'prezzo_min' ? 'Min' : 'Max']}
+                            />
+                            <Line type="monotone" dataKey="prezzo_medio" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', r: 3 }} name="Media" />
+                            <Line type="monotone" dataKey="prezzo_min" stroke="#6b7280" strokeWidth={1} strokeDasharray="3 3" dot={false} name="Min" />
+                            <Line type="monotone" dataKey="prezzo_max" stroke="#6b7280" strokeWidth={1} strokeDasharray="3 3" dot={false} name="Max" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Customers with Last 3 Sales */}
+                  {prodottoStoricoClienti.clienti?.length > 0 && (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                      <h4 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-cyan-400" /> Ultime Vendite per Cliente
+                        <span className="ml-auto text-[10px] text-slate-500">Ultime 3 per cliente</span>
+                      </h4>
+                      <div className="space-y-3 max-h-[300px] overflow-auto pr-1">
+                        {prodottoStoricoClienti.clienti.slice(0, 10).map((cliente, idx) => (
+                          <div key={cliente.nome} className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-cyan-500/15 text-cyan-400 text-[10px] font-bold flex items-center justify-center">{idx + 1}</span>
+                                <span className="text-sm font-medium text-white truncate max-w-[200px]">{cliente.nome}</span>
+                                <button
+                                  onClick={() => viewClienteProdotti(null, cliente.nome)}
+                                  className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-cyan-400 transition-colors"
+                                  title="Cerca prodotti di questo cliente"
+                                >
+                                  <Search className="w-3 h-3" />
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className={cn(
+                                  "text-xs font-medium px-1.5 py-0.5 rounded",
+                                  cliente.margine_percentuale >= 20 ? "bg-emerald-500/20 text-emerald-400" :
+                                  cliente.margine_percentuale >= 0 ? "bg-amber-500/20 text-amber-400" :
+                                  "bg-red-500/20 text-red-400"
+                                )}>
+                                  {cliente.margine_percentuale >= 0 ? '+' : ''}{cliente.margine_percentuale}%
+                                </span>
+                                <span className="text-xs text-cyan-400 font-medium">{formatCurrency(cliente.totale_venduto)}</span>
+                              </div>
+                            </div>
+                            {/* Last 3 sales */}
+                            <div className="space-y-1 pl-7">
+                              {cliente.ultime_vendite.map((v, i) => (
+                                <div key={i} className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-500">{formatDate(v.data)}</span>
+                                  <span className="text-slate-400">x{v.quantita}</span>
+                                  <span className="text-emerald-400 font-medium">{formatCurrency(v.prezzo_unitario)}/u</span>
+                                  <span className="text-white">{formatCurrency(v.totale)}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex items-center justify-between mt-1 pt-1 border-t border-white/[0.04] pl-7">
+                              <span className="text-[10px] text-slate-500">{cliente.num_acquisti} acquisti totali</span>
+                              <span className="text-[10px] text-slate-400">Media: {formatCurrency(cliente.prezzo_medio)}/u</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
