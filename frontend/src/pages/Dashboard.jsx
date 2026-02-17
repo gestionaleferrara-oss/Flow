@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [selectedProdotto, setSelectedProdotto] = useState(null);
   const [prodottoAnalisi, setProdottoAnalisi] = useState(null);
   const [prodottoAnalisiAcquisti, setProdottoAnalisiAcquisti] = useState(null);
+  const [prodottoStoricoClienti, setProdottoStoricoClienti] = useState(null);
   const [loadingAnalisi, setLoadingAnalisi] = useState(false);
   const [analisiView, setAnalisiView] = useState('vendite');
   const [analisiPeriodo, setAnalisiPeriodo] = useState('1m'); // 1m, 3m, 6m, all
@@ -41,6 +42,13 @@ export default function Dashboard() {
   const [loadingAi, setLoadingAi] = useState(false);
   const [alerts, setAlerts] = useState(null);
   const [loadingAlerts, setLoadingAlerts] = useState(false);
+  
+  // Cliente prodotti search state
+  const [showClienteProdottiModal, setShowClienteProdottiModal] = useState(false);
+  const [clienteProdotti, setClienteProdotti] = useState(null);
+  const [clienteProdottiSearch, setClienteProdottiSearch] = useState('');
+  const [loadingClienteProdotti, setLoadingClienteProdotti] = useState(false);
+  const [selectedClienteForProdotti, setSelectedClienteForProdotti] = useState(null);
 
   // Trends state
   const [trendsVendite, setTrendsVendite] = useState(null);
