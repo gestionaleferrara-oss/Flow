@@ -56,6 +56,89 @@ async def root():
     return {"message": "Gestio API v1.0"}
 
 
+@api_router.post("/fix-prezzi")
+async def fix_prezzi_vendite():
+    """
+    Fix incorrect prices in vendite records.
+    If prezzo_unitario is way off from totale/quantita, recalculate it.
+    """
+    fixed_count = 0
+    errors = []
+    
+    try:
+        # Get all vendite with both totale and quantita
+        vendite = await db.vendite.find(
+            {"quantita": {"$ne": 0}, "totale": {"$ne": 0}},
+            {"_id": 1, "id": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1, "prodotto_nome": 1}
+        ).to_list(100000)
+        
+        for v in vendite:
+            quantita = abs(v.get('quantita', 0))
+            totale = abs(v.get('totale', 0))
+            prezzo_attuale = v.get('prezzo_unitario', 0)
+            
+            if quantita > 0 and totale > 0:
+                prezzo_calcolato = totale / quantita
+                
+                # If current price is more than 10x or less than 0.1x the calculated price, fix it
+                if prezzo_attuale > 0:
+                    ratio = prezzo_attuale / prezzo_calcolato
+                    if ratio > 10 or ratio < 0.1:
+                        # Fix the price
+                        await db.vendite.update_one(
+                            {"_id": v["_id"]},
+                            {"$set": {"prezzo_unitario": round(prezzo_calcolato, 4)}}
+                        )
+                        fixed_count += 1
+                elif prezzo_attuale == 0:
+                    # Set missing price
+                    await db.vendite.update_one(
+                        {"_id": v["_id"]},
+                        {"$set": {"prezzo_unitario": round(prezzo_calcolato, 4)}}
+                    )
+                    fixed_count += 1
+        
+        # Also fix ordini (purchases)
+        ordini = await db.ordini.find(
+            {"quantita": {"$ne": 0}, "totale": {"$ne": 0}},
+            {"_id": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1}
+        ).to_list(100000)
+        
+        ordini_fixed = 0
+        for o in ordini:
+            quantita = abs(o.get('quantita', 0))
+            totale = abs(o.get('totale', 0))
+            prezzo_attuale = o.get('prezzo_unitario', 0)
+            
+            if quantita > 0 and totale > 0:
+                prezzo_calcolato = totale / quantita
+                
+                if prezzo_attuale > 0:
+                    ratio = prezzo_attuale / prezzo_calcolato
+                    if ratio > 10 or ratio < 0.1:
+                        await db.ordini.update_one(
+                            {"_id": o["_id"]},
+                            {"$set": {"prezzo_unitario": round(prezzo_calcolato, 4)}}
+                        )
+                        ordini_fixed += 1
+                elif prezzo_attuale == 0:
+                    await db.ordini.update_one(
+                        {"_id": o["_id"]},
+                        {"$set": {"prezzo_unitario": round(prezzo_calcolato, 4)}}
+                    )
+                    ordini_fixed += 1
+        
+        return {
+            "success": True,
+            "vendite_fixed": fixed_count,
+            "ordini_fixed": ordini_fixed,
+            "message": f"Corretti {fixed_count} vendite e {ordini_fixed} ordini"
+        }
+    except Exception as e:
+        logger.error(f"Error fixing prices: {e}")
+        return {"success": False, "error": str(e)}
+
+
 # Import and include all route modules
 from routes.upload import router as upload_router
 from routes.entities import router as entities_router
