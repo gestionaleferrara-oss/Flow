@@ -139,6 +139,89 @@ async def fix_prezzi_vendite():
         return {"success": False, "error": str(e)}
 
 
+@api_router.post("/import-giacenze")
+async def import_giacenze_excel(file: UploadFile):
+    """
+    Import stock levels from GiacenzediMagazzino.xlsx
+    Updates existing products with correct stock quantities.
+    """
+    import pandas as pd
+    from io import BytesIO
+    
+    try:
+        contents = await file.read()
+        df = pd.read_excel(BytesIO(contents), header=1)
+        
+        # Expected column names
+        cols = df.columns.tolist()
+        
+        updated = 0
+        created = 0
+        errors = []
+        
+        for _, row in df.iterrows():
+            try:
+                # Get product info - try different column name variants
+                codice = str(row.get('Codice', row.get(cols[2], ''))).strip() if pd.notna(row.get('Codice', row.get(cols[2], ''))) else ''
+                descrizione = str(row.get('Descrizione', row.get(cols[3], ''))).strip() if pd.notna(row.get('Descrizione', row.get(cols[3], ''))) else ''
+                
+                if not descrizione:
+                    continue
+                
+                # Get stock data
+                giacenza = float(row.get('Giacenza Prodotto', row.get(cols[25], 0)) or 0)
+                scorta_minima = float(row.get('Scorta minima', row.get(cols[24], 0)) or 0)
+                
+                # Try to find existing product by name
+                existing = await db.prodotti.find_one({"nome": {"$regex": f"^{descrizione[:20]}", "$options": "i"}})
+                
+                if existing:
+                    # Update existing product
+                    update_data = {
+                        "quantita": max(0, giacenza),  # Don't allow negative
+                        "quantita_minima": scorta_minima
+                    }
+                    if codice:
+                        update_data["codice"] = codice
+                    
+                    await db.prodotti.update_one(
+                        {"_id": existing["_id"]},
+                        {"$set": update_data}
+                    )
+                    updated += 1
+                else:
+                    # Create new product
+                    from models import Prodotto
+                    from utils import serialize_doc
+                    import uuid
+                    
+                    prodotto = {
+                        "id": str(uuid.uuid4()),
+                        "nome": descrizione,
+                        "codice": codice,
+                        "quantita": max(0, giacenza),
+                        "quantita_minima": scorta_minima,
+                        "prezzo_medio": 0,
+                        "valore_scorte": 0
+                    }
+                    await db.prodotti.insert_one(prodotto)
+                    created += 1
+                    
+            except Exception as e:
+                errors.append(f"{descrizione}: {str(e)}")
+        
+        return {
+            "success": True,
+            "updated": updated,
+            "created": created,
+            "errors": errors[:10],  # First 10 errors
+            "message": f"Aggiornati {updated} prodotti, creati {created} nuovi"
+        }
+    except Exception as e:
+        logger.error(f"Error importing giacenze: {e}")
+        return {"success": False, "error": str(e)}
+
+
 # Import and include all route modules
 from routes.upload import router as upload_router
 from routes.entities import router as entities_router
