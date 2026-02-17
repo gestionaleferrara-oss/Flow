@@ -753,6 +753,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
               <Calendar className="w-3 h-3 text-slate-500 ml-1" />
               {[
+                { v: 'prev_month', l: 'Mese Prec.' },
                 { v: '1m', l: 'Mese' },
                 { v: '3m', l: '3 Mesi' },
                 { v: '6m', l: '6 Mesi' },
