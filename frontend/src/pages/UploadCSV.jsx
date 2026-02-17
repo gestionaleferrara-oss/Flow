@@ -189,24 +189,60 @@ export default function UploadCSV() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-6 flex justify-center gap-4"
+                className="mt-6 space-y-4"
               >
-                <Button
-                  variant="outline"
-                  onClick={() => setFiles([])}
-                  data-testid="clear-files-btn"
-                >
-                  Cancella tutto
-                </Button>
-                <Button
-                  onClick={handleUpload}
-                  disabled={uploading}
-                  data-testid="upload-btn"
-                  className="uppercase tracking-wider"
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Carica {files.length > 1 ? `${files.length} File` : 'e Elabora'}
-                </Button>
+                {/* Upload Mode Selector */}
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-sm text-muted-foreground">Modalità caricamento:</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setUploadMode('incremental')}
+                      data-testid="mode-incremental"
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-medium transition-all border",
+                        uploadMode === 'incremental' 
+                          ? "bg-green-500/20 text-green-400 border-green-500/30" 
+                          : "bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/50"
+                      )}
+                    >
+                      + Aggiungi ai dati esistenti
+                    </button>
+                    <button
+                      onClick={() => setUploadMode('full')}
+                      data-testid="mode-full"
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-medium transition-all border",
+                        uploadMode === 'full' 
+                          ? "bg-amber-500/20 text-amber-400 border-amber-500/30" 
+                          : "bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/50"
+                      )}
+                    >
+                      Sostituisci tutto
+                    </button>
+                  </div>
+                  {uploadMode === 'full' && (
+                    <p className="text-xs text-amber-400 mt-1">⚠️ Questa modalità eliminerà tutte le vendite/ordini esistenti</p>
+                  )}
+                </div>
+                
+                <div className="flex justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setFiles([])}
+                    data-testid="clear-files-btn"
+                  >
+                    Cancella tutto
+                  </Button>
+                  <Button
+                    onClick={handleUpload}
+                    disabled={uploading}
+                    data-testid="upload-btn"
+                    className="uppercase tracking-wider"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Carica {files.length > 1 ? `${files.length} File` : 'e Elabora'}
+                  </Button>
+                </div>
               </motion.div>
             )}
           </motion.div>
