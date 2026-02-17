@@ -1109,10 +1109,46 @@ async def ai_chat(data: dict):
                     'top_prodotti': [{'nome': o['_id'], 'totale': o['totale_acquistato'], 'qty': o['quantita']} for o in fornitore_top]
                 })
         
-        # 5. Monthly revenue summary
+        # 5. RECENT SALES - Last 14 days with full details (for specific queries)
+        fourteen_days_ago = (reference_date - timedelta(days=14)).strftime("%Y-%m-%d")
+        recent_sales = await db.vendite.find(
+            {"data": {"$gte": fourteen_days_ago}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}},
+            {"_id": 0, "data": 1, "cliente_nome": 1, "prodotto_nome": 1, "quantita": 1, "totale": 1}
+        ).sort("data", -1).to_list(500)
+        
+        # Group recent sales by client
+        vendite_per_cliente = {}
+        for v in recent_sales:
+            cliente = v.get('cliente_nome', '')
+            if cliente:
+                if cliente not in vendite_per_cliente:
+                    vendite_per_cliente[cliente] = []
+                vendite_per_cliente[cliente].append({
+                    'data': v.get('data', ''),
+                    'prodotto': v.get('prodotto_nome', ''),
+                    'qty': abs(v.get('quantita', 0)),
+                    'totale': abs(v.get('totale', 0))
+                })
+        
+        # Build detailed recent sales context
+        recent_sales_context = []
+        for cliente, vendite in sorted(vendite_per_cliente.items(), key=lambda x: sum(v['totale'] for v in x[1]), reverse=True)[:20]:
+            prodotti_cliente = {}
+            for v in vendite:
+                prod = v['prodotto']
+                if prod not in prodotti_cliente:
+                    prodotti_cliente[prod] = {'qty': 0, 'totale': 0}
+                prodotti_cliente[prod]['qty'] += v['qty']
+                prodotti_cliente[prod]['totale'] += v['totale']
+            
+            top_prods = sorted(prodotti_cliente.items(), key=lambda x: x[1]['totale'], reverse=True)[:5]
+            prods_str = ', '.join([f"{p[0]} ({p[1]['qty']:.0f}u €{p[1]['totale']:.0f})" for p in top_prods])
+            recent_sales_context.append(f"- {cliente}: {prods_str}")
+        
+        # 6. Monthly revenue summary
         fatturato_mese = sum(t['fatturato'] for t in top_vendite)
         
-        # 6. Current stock value
+        # 7. Current stock value
         valore_totale_magazzino = sum(p['valore_scorte'] for p in prodotti_list)
         
         # Helper function for building fornitore line
