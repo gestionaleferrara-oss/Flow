@@ -954,6 +954,72 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* NEW: Cliente Prodotti Search Modal */}
+      <Dialog open={showClienteProdottiModal} onOpenChange={setShowClienteProdottiModal}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-auto" data-testid="cliente-prodotti-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-cyan-400" />
+              Prodotti di: {selectedClienteForProdotti?.nome || clienteProdotti?.cliente_nome}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {/* Search Box */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Cerca prodotto... (es: noci, chandler, howard)"
+              value={clienteProdottiSearch}
+              onChange={(e) => searchClienteProdotti(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+              data-testid="cliente-prodotti-search"
+            />
+          </div>
+
+          {loadingClienteProdotti ? (
+            <div className="py-8 flex justify-center"><LoadingSpinner /></div>
+          ) : clienteProdotti?.prodotti?.length > 0 ? (
+            <div className="space-y-2 mt-4">
+              <p className="text-xs text-slate-500 mb-2">{clienteProdotti.totale_prodotti} prodotti trovati</p>
+              {clienteProdotti.prodotti.map((prod, idx) => (
+                <div key={prod.prodotto_nome} className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-white">{prod.prodotto_nome}</h4>
+                    <span className="text-xs text-emerald-400 font-medium">{formatCurrency(prod.totale_acquistato)}</span>
+                  </div>
+                  
+                  {/* Last 3 purchases */}
+                  <div className="space-y-1 mb-2">
+                    {prod.ultime_3.map((v, i) => (
+                      <div key={i} className="flex items-center justify-between text-[11px] bg-white/[0.02] px-2 py-1 rounded">
+                        <span className="text-slate-500">{formatDate(v.data)}</span>
+                        <span className="text-slate-400">Qty: {v.quantita}</span>
+                        <span className="text-cyan-400 font-medium">{formatCurrency(v.prezzo_unitario)}/u</span>
+                        <span className="text-white font-medium">{formatCurrency(v.totale)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-white/[0.04]">
+                    <span>Ultimo acquisto: {formatDate(prod.ultima_data)}</span>
+                    <span>{prod.num_acquisti} ordini totali</span>
+                    <span>Tot. qty: {prod.quantita_totale}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center">
+              <Package className="w-10 h-10 mx-auto text-slate-600 mb-2" />
+              <p className="text-slate-500 text-sm">
+                {clienteProdottiSearch ? `Nessun prodotto trovato per "${clienteProdottiSearch}"` : 'Nessun prodotto acquistato da questo cliente'}
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
 
       {/* Card Detail Modal */}
       <Dialog open={!!cardDetailType} onOpenChange={(open) => { if (!open) { setCardDetailType(null); setCardDetail(null); } }}>
