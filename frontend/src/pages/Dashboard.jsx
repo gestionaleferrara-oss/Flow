@@ -214,16 +214,37 @@ export default function Dashboard() {
   }, [prodottoSearch, searchProdotti, searchClienti]);
 
   // Open cliente quick view modal
-  const openClienteQuickView = async (clienteNome) => {
+  const openClienteQuickView = async (clienteNome, periodo = '3m') => {
     setShowSearchModal(false);
     setShowClienteQuickView(true);
     setLoadingClienteQuickView(true);
     setClienteQuickViewData(null);
+    setClienteQuickViewNome(clienteNome);
+    setClienteQuickViewPeriodo(periodo);
     try {
-      const response = await axios.get(`${API}/clienti-by-name/${encodeURIComponent(clienteNome)}/quick-view`);
+      const response = await axios.get(`${API}/clienti-by-name/${encodeURIComponent(clienteNome)}/quick-view`, {
+        params: { periodo }
+      });
       setClienteQuickViewData(response.data);
     } catch (e) {
       setClienteQuickViewData(null);
+    } finally {
+      setLoadingClienteQuickView(false);
+    }
+  };
+
+  // Reload cliente quick view with different period
+  const reloadClienteQuickView = async (periodo) => {
+    if (!clienteQuickViewNome) return;
+    setLoadingClienteQuickView(true);
+    setClienteQuickViewPeriodo(periodo);
+    try {
+      const response = await axios.get(`${API}/clienti-by-name/${encodeURIComponent(clienteQuickViewNome)}/quick-view`, {
+        params: { periodo }
+      });
+      setClienteQuickViewData(response.data);
+    } catch (e) {
+      // Keep old data on error
     } finally {
       setLoadingClienteQuickView(false);
     }
