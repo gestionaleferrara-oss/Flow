@@ -438,31 +438,23 @@ export default function Forecast() {
                       </div>
                     )}
                   </div>
-                )})}
+                ))}
               </div>
               
               {/* Summary Cards */}
               <div className="mt-4 grid grid-cols-3 gap-2">
-                {(() => {
-                  const isFatturato = forecast.metrica !== 'richieste';
-                  const formatValue = (v) => isFatturato ? formatCurrency(v) : `${Math.round(v)} ord.`;
-                  const total = (forecast.previsioni || []).reduce((sum, p) => sum + p.previsione, 0);
-                  
-                  return <>
-                    <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
-                      <p className="text-[9px] text-emerald-400/70">Totale Previsto</p>
-                      <p className="text-sm font-bold text-emerald-400">{formatValue(total)}</p>
-                    </div>
-                    <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
-                      <p className="text-[9px] text-blue-400/70">Media Prevista</p>
-                      <p className="text-sm font-bold text-blue-400">{formatValue(total / 3)}</p>
-                    </div>
-                    <div className="p-2 rounded-lg bg-violet-500/10 border border-violet-500/20 text-center">
-                      <p className="text-[9px] text-violet-400/70">Media Storica</p>
-                      <p className="text-sm font-bold text-violet-400">{formatValue(forecast.statistiche?.media_mensile || 0)}</p>
-                    </div>
-                  </>;
-                })()}
+                <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
+                  <p className="text-[9px] text-emerald-400/70">Totale Previsto</p>
+                  <p className="text-sm font-bold text-emerald-400">{formatCurrency((forecast.previsioni || []).reduce((sum, p) => sum + p.previsione, 0))}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
+                  <p className="text-[9px] text-blue-400/70">Media Prevista</p>
+                  <p className="text-sm font-bold text-blue-400">{formatCurrency((forecast.previsioni || []).reduce((sum, p) => sum + p.previsione, 0) / 3)}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-violet-500/10 border border-violet-500/20 text-center">
+                  <p className="text-[9px] text-violet-400/70">Media Storica</p>
+                  <p className="text-sm font-bold text-violet-400">{formatCurrency(forecast.statistiche?.media_mensile || 0)}</p>
+                </div>
               </div>
             </div>
 
