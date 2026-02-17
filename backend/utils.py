@@ -237,10 +237,12 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
         if nome_prodotto not in cache['prodotti']:
             prodotto = Prodotto(nome=nome_prodotto, codice=codice_prodotto, prezzo_medio=importo_unitario, quantita=qty_change)
             await db.prodotti.insert_one(serialize_doc(prodotto.model_dump()))
-            cache['prodotti'][nome_prodotto] = {'id': prodotto.id, 'prezzo_medio': importo_unitario, 'quantita': qty_change}
+            cache['prodotti'][nome_prodotto] = {'id': prodotto.id, 'prezzo_medio': importo_unitario, 'quantita': qty_change, 'qty_change': qty_change}
             stats['new_prodotti'] += 1
         else:
             cache['prodotti'][nome_prodotto]['quantita'] = cache['prodotti'][nome_prodotto].get('quantita', 0) + qty_change
+            # Track incremental change separately
+            cache['prodotti'][nome_prodotto]['qty_change'] = cache['prodotti'][nome_prodotto].get('qty_change', 0) + qty_change
             # Update price: prefer acquisto price, but use vendita price if no price exists
             current_price = cache['prodotti'][nome_prodotto].get('prezzo_medio', 0)
             if is_acquisto and importo_unitario > 0:
