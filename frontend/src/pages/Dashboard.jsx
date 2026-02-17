@@ -1236,9 +1236,35 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-cyan-400" />
-              {clienteQuickViewData?.cliente?.nome || 'Cliente'}
+              {clienteQuickViewData?.cliente?.nome || clienteQuickViewNome || 'Cliente'}
             </DialogTitle>
           </DialogHeader>
+          
+          {/* Period Filters */}
+          <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5 w-fit">
+            <Calendar className="w-3 h-3 text-slate-500 ml-1" />
+            {[
+              { v: '1m', l: 'Mese' },
+              { v: '3m', l: '3 Mesi' },
+              { v: '6m', l: '6 Mesi' },
+              { v: 'all', l: 'Tutto' }
+            ].map(p => (
+              <button 
+                key={p.v} 
+                onClick={() => reloadClienteQuickView(p.v)}
+                disabled={loadingClienteQuickView}
+                data-testid={`cliente-periodo-${p.v}`}
+                className={cn(
+                  "px-2 py-1 rounded-md text-[10px] font-medium transition-all",
+                  clienteQuickViewPeriodo === p.v 
+                    ? "bg-cyan-500/20 text-cyan-300 shadow-sm" 
+                    : "text-slate-500 hover:text-slate-300"
+                )}
+              >
+                {p.l}
+              </button>
+            ))}
+          </div>
           
           {loadingClienteQuickView ? (
             <div className="py-8 flex justify-center"><LoadingSpinner /></div>
@@ -1247,7 +1273,7 @@ export default function Dashboard() {
               {/* Stats */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
-                  <p className="text-[10px] text-cyan-400/70 mb-0.5">Fatturato Totale</p>
+                  <p className="text-[10px] text-cyan-400/70 mb-0.5">Fatturato {clienteQuickViewPeriodo === 'all' ? 'Totale' : clienteQuickViewPeriodo === '1m' ? 'Mese' : clienteQuickViewPeriodo === '3m' ? '3 Mesi' : '6 Mesi'}</p>
                   <p className="text-lg font-bold text-cyan-400">{formatCurrency(clienteQuickViewData.fatturato_totale)}</p>
                 </div>
                 <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
