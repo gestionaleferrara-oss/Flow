@@ -539,6 +539,9 @@ export default function Dashboard() {
             <div className="flex gap-2">
               <Button variant={analisiView === 'vendite' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('vendite')} data-testid="analisi-vendite-tab">Vendite</Button>
               <Button variant={analisiView === 'acquisti' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('acquisti')} data-testid="analisi-acquisti-tab">Acquisti</Button>
+              <Button variant={analisiView === 'clienti' ? 'default' : 'outline'} size="sm" onClick={() => setAnalisiView('clienti')} data-testid="analisi-clienti-tab" className="gap-1">
+                <Users className="w-3 h-3" /> Clienti & Prezzi
+              </Button>
             </div>
             <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
               <Calendar className="w-3 h-3 text-slate-500 ml-1" />
