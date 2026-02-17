@@ -165,6 +165,7 @@ async def import_giacenze_excel(file: UploadFile):
     """
     Import stock levels from GiacenzediMagazzino.xlsx
     Updates existing products with correct stock quantities.
+    AUTOMATIC: Also fixes prices and resets anomalies.
     """
     import pandas as pd
     from io import BytesIO
@@ -174,11 +175,10 @@ async def import_giacenze_excel(file: UploadFile):
         """Normalize product name for matching"""
         if not name:
             return ""
-        # Remove leading/trailing whitespace and parentheses
         name = str(name).strip()
-        name = re.sub(r'^[\(\)\[\]]+', '', name)  # Remove leading brackets
-        name = re.sub(r'[\(\)\[\]]+$', '', name)  # Remove trailing brackets
-        name = re.sub(r'\s+', ' ', name)  # Normalize spaces
+        name = re.sub(r'^[\(\)\[\]]+', '', name)
+        name = re.sub(r'[\(\)\[\]]+$', '', name)
+        name = re.sub(r'\s+', ' ', name)
         return name.upper()
     
     try:
@@ -206,30 +206,24 @@ async def import_giacenze_excel(file: UploadFile):
         
         for _, row in df.iterrows():
             try:
-                # Get product info
                 codice = str(row.get('Codice', '')).strip() if pd.notna(row.get('Codice', '')) else ''
                 descrizione = str(row.get('Descrizione', '')).strip() if pd.notna(row.get('Descrizione', '')) else ''
                 
                 if not descrizione:
                     continue
                 
-                # Get stock data
                 giacenza = float(row.get('Giacenza Prodotto', 0) or 0)
                 scorta_minima = float(row.get('Scorta minima', 0) or 0)
                 
-                # Try to find existing product
                 norm_desc = normalize_name(descrizione)
                 existing = None
                 
-                # First try by code
                 if codice:
                     existing = products_by_code.get(codice.upper())
                 
-                # Then try by exact name
                 if not existing:
                     existing = products_by_name.get(norm_desc)
                 
-                # Try partial match (first 25 chars)
                 if not existing and len(norm_desc) > 25:
                     for pname, p in products_by_name.items():
                         if pname.startswith(norm_desc[:25]) or norm_desc.startswith(pname[:25]):
@@ -237,7 +231,6 @@ async def import_giacenze_excel(file: UploadFile):
                             break
                 
                 if existing:
-                    # Update existing product
                     update_data = {
                         "quantita": max(0, giacenza),
                         "quantita_minima": scorta_minima
@@ -256,14 +249,80 @@ async def import_giacenze_excel(file: UploadFile):
             except Exception as e:
                 errors.append(f"{descrizione[:30]}: {str(e)}")
         
+        # === AUTOMATIC FIX PRICES ===
+        vendite_fixed = 0
+        ordini_fixed = 0
+        
+        # Fix vendite prices
+        vendite = await db.vendite.find(
+            {"quantita": {"$ne": 0}, "totale": {"$ne": 0}},
+            {"_id": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1}
+        ).to_list(100000)
+        
+        for v in vendite:
+            quantita = abs(v.get('quantita', 0))
+            totale = abs(v.get('totale', 0))
+            prezzo_attuale = v.get('prezzo_unitario', 0)
+            
+            if quantita > 0 and totale > 0:
+                prezzo_calcolato = totale / quantita
+                if prezzo_attuale > 0:
+                    ratio = prezzo_attuale / prezzo_calcolato
+                    if ratio > 10 or ratio < 0.1:
+                        await db.vendite.update_one(
+                            {"_id": v["_id"]},
+                            {"$set": {"prezzo_unitario": round(prezzo_calcolato, 4)}}
+                        )
+                        vendite_fixed += 1
+                elif prezzo_attuale == 0:
+                    await db.vendite.update_one(
+                        {"_id": v["_id"]},
+                        {"$set": {"prezzo_unitario": round(prezzo_calcolato, 4)}}
+                    )
+                    vendite_fixed += 1
+        
+        # Fix ordini prices
+        ordini = await db.ordini.find(
+            {"quantita": {"$ne": 0}, "totale": {"$ne": 0}},
+            {"_id": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1}
+        ).to_list(100000)
+        
+        for o in ordini:
+            quantita = abs(o.get('quantita', 0))
+            totale = abs(o.get('totale', 0))
+            prezzo_attuale = o.get('prezzo_unitario', 0)
+            
+            if quantita > 0 and totale > 0:
+                prezzo_calcolato = totale / quantita
+                if prezzo_attuale > 0:
+                    ratio = prezzo_attuale / prezzo_calcolato
+                    if ratio > 10 or ratio < 0.1:
+                        await db.ordini.update_one(
+                            {"_id": o["_id"]},
+                            {"$set": {"prezzo_unitario": round(prezzo_calcolato, 4)}}
+                        )
+                        ordini_fixed += 1
+                elif prezzo_attuale == 0:
+                    await db.ordini.update_one(
+                        {"_id": o["_id"]},
+                        {"$set": {"prezzo_unitario": round(prezzo_calcolato, 4)}}
+                    )
+                    ordini_fixed += 1
+        
+        # === RESET ANOMALIES ===
+        anomalies_reset = await db.prodotti.update_many(
+            {"quantita": {"$gt": 10000}},
+            {"$set": {"quantita": 0, "valore_scorte": 0}}
+        )
+        
         return {
             "success": True,
-            "updated": updated,
-            "created": created,
+            "giacenze_updated": updated,
             "not_found": len(not_found),
-            "not_found_samples": not_found[:20],
-            "errors": errors[:10],
-            "message": f"Aggiornati {updated} prodotti. {len(not_found)} non trovati."
+            "vendite_fixed": vendite_fixed,
+            "ordini_fixed": ordini_fixed,
+            "anomalies_reset": anomalies_reset.modified_count,
+            "message": f"Importazione completata! Giacenze: {updated}, Prezzi corretti: {vendite_fixed + ordini_fixed}, Anomalie resettate: {anomalies_reset.modified_count}"
         }
     except Exception as e:
         logger.error(f"Error importing giacenze: {e}")
