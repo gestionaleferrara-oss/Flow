@@ -102,6 +102,57 @@ async def upload_multiple_files(files: List[UploadFile] = File(...)):
     return {"success": True, "message": f"Elaborati {total_stats['files_processed']} file con successo", "stats": total_stats}
 
 
+@router.post("/upload-incremental")
+async def upload_incremental(file: UploadFile = File(...)):
+    """
+    Upload sales/orders incrementally WITHOUT deleting existing data.
+    Updates stock quantities incrementally.
+    """
+    filename = file.filename.lower()
+    if not filename.endswith('.csv') and not filename.endswith('.xlsx'):
+        raise HTTPException(status_code=400, detail="Il file deve essere in formato CSV o XLSX")
+
+    stats = {
+        'new_clienti': 0, 'existing_clienti': 0, 'new_fornitori': 0, 'existing_fornitori': 0,
+        'new_prodotti': 0, 'existing_prodotti': 0, 'vendite_created': 0, 'ordini_created': 0,
+        'rows_processed': 0, 'rows_skipped': 0, 'columns_detected': {}, 'errors': []
+    }
+
+    try:
+        content = await file.read()
+        rows, headers = _parse_file(content, filename)
+        col_mapping = auto_detect_columns(headers)
+        stats['columns_detected'] = {k: v for k, v in col_mapping.items() if v is not None}
+
+        # Build cache with CURRENT quantities from DB
+        cache = await _build_cache_with_quantities()
+        BATCH_SIZE = 500
+
+        for row in rows:
+            try:
+                await process_csv_row(row, stats, col_mapping, cache)
+                stats['rows_processed'] += 1
+                if len(cache['vendite_batch']) >= BATCH_SIZE:
+                    await db.vendite.insert_many(cache['vendite_batch'])
+                    cache['vendite_batch'] = []
+                if len(cache['ordini_batch']) >= BATCH_SIZE:
+                    await db.ordini.insert_many(cache['ordini_batch'])
+                    cache['ordini_batch'] = []
+            except Exception as e:
+                stats['errors'].append(f"Riga {stats['rows_processed'] + 1}: {str(e)}")
+
+        await _flush_and_update_incremental(cache)
+        
+        return {
+            "success": True,
+            "message": f"Aggiunti {stats['vendite_created']} vendite, {stats['ordini_created']} ordini. Magazzino aggiornato.",
+            "stats": stats
+        }
+    except Exception as e:
+        logger.error(f"Error in incremental upload: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _parse_file(content: bytes, filename: str):
     rows = []
     headers = []
