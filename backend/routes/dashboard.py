@@ -1036,12 +1036,11 @@ async def ai_chat(data: dict):
         if latest_sale and latest_sale.get('data'):
             try:
                 reference_date = datetime.strptime(latest_sale['data'], "%Y-%m-%d")
-            except:
+            except Exception:
                 reference_date = now
         else:
             reference_date = now
         
-        current_month_start = reference_date.replace(day=1).strftime("%Y-%m-%d")
         ninety_days_ago = (reference_date - timedelta(days=90)).strftime("%Y-%m-%d")
         
         # 1. Products - with stock levels and prices
