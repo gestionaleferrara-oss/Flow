@@ -207,6 +207,27 @@ async def _build_cache():
     return cache
 
 
+async def _build_cache_with_quantities():
+    """Build cache preserving existing quantities from DB"""
+    cache = {'clienti': {}, 'fornitori': {}, 'prodotti': {}, 'vendite_batch': [], 'ordini_batch': [], 'qty_changes': {}}
+    existing_clienti = await db.clienti.find({}, {"_id": 0, "id": 1, "nome": 1}).to_list(10000)
+    for c in existing_clienti:
+        cache['clienti'][c['nome']] = c['id']
+    existing_fornitori = await db.fornitori.find({}, {"_id": 0, "id": 1, "nome": 1}).to_list(10000)
+    for f in existing_fornitori:
+        cache['fornitori'][f['nome']] = f['id']
+    existing_prodotti = await db.prodotti.find({}, {"_id": 0, "id": 1, "nome": 1, "prezzo_medio": 1, "quantita": 1}).to_list(10000)
+    for p in existing_prodotti:
+        # Keep existing quantity, track changes separately
+        cache['prodotti'][p['nome']] = {
+            'id': p['id'], 
+            'prezzo_medio': p.get('prezzo_medio', 0), 
+            'quantita': p.get('quantita', 0),
+            'qty_change': 0
+        }
+    return cache
+
+
 async def _flush_and_update(cache):
     if cache['vendite_batch']:
         await db.vendite.insert_many(cache['vendite_batch'])
