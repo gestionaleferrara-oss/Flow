@@ -228,6 +228,32 @@ export default function Dashboard() {
     } finally { setLoadingClienteAnalisi(false); }
   };
 
+  // Search products purchased by a specific customer
+  const viewClienteProdotti = async (clienteId, clienteNome, searchTerm = '') => {
+    setSelectedClienteForProdotti({ id: clienteId, nome: clienteNome });
+    setShowClienteProdottiModal(true);
+    setLoadingClienteProdotti(true);
+    setClienteProdottiSearch(searchTerm);
+    try {
+      const res = await axios.get(`${API}/clienti/${clienteId}/prodotti-acquistati`, { params: { search: searchTerm } });
+      setClienteProdotti(res.data);
+    } catch (e) {
+      setClienteProdotti(null);
+    } finally { setLoadingClienteProdotti(false); }
+  };
+
+  const searchClienteProdotti = async (searchTerm) => {
+    if (!selectedClienteForProdotti?.id) return;
+    setClienteProdottiSearch(searchTerm);
+    setLoadingClienteProdotti(true);
+    try {
+      const res = await axios.get(`${API}/clienti/${selectedClienteForProdotti.id}/prodotti-acquistati`, { params: { search: searchTerm } });
+      setClienteProdotti(res.data);
+    } catch (e) {
+      // Keep existing
+    } finally { setLoadingClienteProdotti(false); }
+  };
+
   const filteredProdotti = searchResults;
 
   if (loading) return <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>;
