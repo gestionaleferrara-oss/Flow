@@ -279,11 +279,14 @@ async def get_cliente_quick_view(cliente_id: str):
 
 
 @router.get("/clienti-by-name/{cliente_nome}/quick-view")
-async def get_cliente_quick_view_by_name(cliente_nome: str):
+async def get_cliente_quick_view_by_name(cliente_nome: str, periodo: str = "3m"):
     """
     Get quick view data for a client by name.
+    Period: 1m, 3m, 6m, all
     """
     from urllib.parse import unquote
+    from datetime import datetime, timedelta
+    
     cliente_nome = unquote(cliente_nome)
     
     cliente = await db.clienti.find_one({"nome": cliente_nome}, {"_id": 0})
@@ -293,21 +296,37 @@ async def get_cliente_quick_view_by_name(cliente_nome: str):
     
     nome = cliente_nome
     
-    # Get last 5 sales
+    # Calculate date filter based on period
+    now = datetime.now()
+    if periodo == "1m":
+        date_filter = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    elif periodo == "3m":
+        date_filter = (now - timedelta(days=90)).strftime("%Y-%m-%d")
+    elif periodo == "6m":
+        date_filter = (now - timedelta(days=180)).strftime("%Y-%m-%d")
+    else:
+        date_filter = None  # all time
+    
+    # Build query with optional date filter
+    base_query = {"cliente_nome": nome}
+    if date_filter:
+        base_query["data"] = {"$gte": date_filter}
+    
+    # Get last 5 sales (always most recent)
     ultime_vendite = await db.vendite.find(
         {"cliente_nome": nome},
         {"_id": 0, "data": 1, "prodotto_nome": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1}
     ).sort("data", -1).limit(5).to_list(5)
     
-    # Get all sales for top products
-    all_vendite = await db.vendite.find(
-        {"cliente_nome": nome},
-        {"_id": 0, "prodotto_nome": 1, "totale": 1, "quantita": 1}
+    # Get sales within period for stats
+    period_vendite = await db.vendite.find(
+        base_query,
+        {"_id": 0, "prodotto_nome": 1, "totale": 1, "quantita": 1, "data": 1}
     ).to_list(10000)
     
     # Calculate top products by revenue
     prodotti_stats = {}
-    for v in all_vendite:
+    for v in period_vendite:
         prod = v.get('prodotto_nome', '')
         if prod:
             if prod not in prodotti_stats:
@@ -322,14 +341,15 @@ async def get_cliente_quick_view_by_name(cliente_nome: str):
         reverse=True
     )[:3]
     
-    # Total stats
-    fatturato_totale = sum(abs(v.get('totale', 0)) for v in all_vendite)
-    num_ordini = len(set(v.get('data', '') for v in all_vendite))
+    # Total stats for period
+    fatturato_totale = sum(abs(v.get('totale', 0)) for v in period_vendite)
+    num_ordini = len(set(v.get('data', '') for v in period_vendite))
     
     return {
         "cliente": cliente,
         "fatturato_totale": round(fatturato_totale, 2),
         "num_ordini": num_ordini,
+        "periodo": periodo,
         "ultime_vendite": [
             {
                 "data": v.get('data', ''),
