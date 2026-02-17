@@ -13,7 +13,8 @@ import {
   ChevronRight,
   CircleCheck,
   CircleAlert,
-  CircleX
+  CircleX,
+  Package
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
