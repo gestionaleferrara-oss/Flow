@@ -122,12 +122,7 @@ export default function Magazzino() {
       <PageHeader
         title="Magazzino"
         subtitle="Gestione inventario e scorte"
-      >
-        <Button data-testid="add-product-btn">
-          <Plus className="w-4 h-4 mr-2" />
-          Aggiungi Prodotto
-        </Button>
-      </PageHeader>
+      />
 
       {/* Filter Bar */}
       <div className="rounded-lg mb-6">
