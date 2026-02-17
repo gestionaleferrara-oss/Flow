@@ -202,6 +202,11 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
             stats['new_prodotti'] += 1
         else:
             cache['prodotti'][nome_prodotto]['quantita'] = cache['prodotti'][nome_prodotto].get('quantita', 0) + qty_change
+            # Update price: prefer acquisto price, but use vendita price if no price exists
+            current_price = cache['prodotti'][nome_prodotto].get('prezzo_medio', 0)
             if is_acquisto and importo_unitario > 0:
+                cache['prodotti'][nome_prodotto]['prezzo_medio'] = importo_unitario
+            elif current_price == 0 and importo_unitario > 0:
+                # Use vendita price if no price exists
                 cache['prodotti'][nome_prodotto]['prezzo_medio'] = importo_unitario
             stats['existing_prodotti'] += 1
