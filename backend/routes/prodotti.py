@@ -246,3 +246,187 @@ async def get_prodotto_analisi_acquisti(prodotto_nome: str, periodo: str = "all"
         "acquistiMensili": mensili,
         "variazionePrezzi": variazione_prezzi
     }
+
+
+@router.get("/prodotti/{prodotto_nome:path}/storico-clienti")
+async def get_prodotto_storico_clienti(prodotto_nome: str):
+    """
+    Get price history and last 3 sales per customer for a product.
+    Also calculates average margin per customer.
+    """
+    from urllib.parse import unquote
+    from datetime import datetime
+    
+    prodotto_nome = unquote(prodotto_nome)
+    
+    # Get all sales for this product
+    vendite = await db.vendite.find(
+        {"prodotto_nome": prodotto_nome},
+        {"_id": 0, "cliente_nome": 1, "data": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1}
+    ).sort("data", -1).to_list(10000)
+    
+    if not vendite:
+        return {"clienti": [], "storicoPrezzi": [], "prezzoMedioVendita": 0, "costoMedioAcquisto": 0}
+    
+    # Get purchase cost for margin calculation
+    ordini = await db.ordini.find(
+        {"prodotto_nome": prodotto_nome, "prezzo_unitario": {"$gt": 0}},
+        {"_id": 0, "prezzo_unitario": 1}
+    ).to_list(1000)
+    
+    costo_medio = 0
+    if ordini:
+        prezzi_acquisto = [o.get('prezzo_unitario', 0) for o in ordini if o.get('prezzo_unitario', 0) > 0]
+        costo_medio = sum(prezzi_acquisto) / len(prezzi_acquisto) if prezzi_acquisto else 0
+    
+    # Group sales by customer
+    clienti_vendite = {}
+    for v in vendite:
+        cliente = v.get('cliente_nome', '')
+        if not cliente or cliente.upper() in ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']:
+            continue
+        if cliente not in clienti_vendite:
+            clienti_vendite[cliente] = []
+        clienti_vendite[cliente].append(v)
+    
+    # Build response with last 3 sales per customer + margin
+    clienti_result = []
+    for cliente, vendite_cliente in clienti_vendite.items():
+        ultime_3 = vendite_cliente[:3]  # Already sorted by date desc
+        
+        # Calculate totals for this customer
+        totale_venduto = sum(abs(v.get('totale', 0)) for v in vendite_cliente)
+        totale_qty = sum(abs(v.get('quantita', 0)) for v in vendite_cliente)
+        prezzo_medio_cliente = totale_venduto / totale_qty if totale_qty > 0 else 0
+        
+        # Calculate margin
+        margine_percentuale = 0
+        if costo_medio > 0 and prezzo_medio_cliente > 0:
+            margine_percentuale = ((prezzo_medio_cliente - costo_medio) / costo_medio) * 100
+        
+        clienti_result.append({
+            "nome": cliente,
+            "ultime_vendite": [
+                {
+                    "data": v.get('data', ''),
+                    "quantita": abs(v.get('quantita', 0)),
+                    "prezzo_unitario": v.get('prezzo_unitario', 0),
+                    "totale": abs(v.get('totale', 0))
+                }
+                for v in ultime_3
+            ],
+            "totale_venduto": round(totale_venduto, 2),
+            "quantita_totale": round(totale_qty, 2),
+            "prezzo_medio": round(prezzo_medio_cliente, 4),
+            "margine_percentuale": round(margine_percentuale, 1),
+            "num_acquisti": len(vendite_cliente)
+        })
+    
+    # Sort by total sold
+    clienti_result.sort(key=lambda x: x['totale_venduto'], reverse=True)
+    
+    # Price history by month
+    prezzi_mensili = {}
+    for v in vendite:
+        mese = v.get('data', '')[:7]
+        prezzo = v.get('prezzo_unitario', 0)
+        if mese and prezzo > 0:
+            if mese not in prezzi_mensili:
+                prezzi_mensili[mese] = []
+            prezzi_mensili[mese].append(prezzo)
+    
+    storico_prezzi = []
+    for mese in sorted(prezzi_mensili.keys()):
+        prezzi = prezzi_mensili[mese]
+        storico_prezzi.append({
+            "mese": mese,
+            "prezzo_medio": round(sum(prezzi) / len(prezzi), 4),
+            "prezzo_min": round(min(prezzi), 4),
+            "prezzo_max": round(max(prezzi), 4)
+        })
+    
+    # Overall average selling price
+    tutti_prezzi = [v.get('prezzo_unitario', 0) for v in vendite if v.get('prezzo_unitario', 0) > 0]
+    prezzo_medio_vendita = sum(tutti_prezzi) / len(tutti_prezzi) if tutti_prezzi else 0
+    
+    return {
+        "clienti": clienti_result[:20],  # Top 20 customers
+        "storicoPrezzi": storico_prezzi,
+        "prezzoMedioVendita": round(prezzo_medio_vendita, 4),
+        "costoMedioAcquisto": round(costo_medio, 4),
+        "margineGlobale": round(((prezzo_medio_vendita - costo_medio) / costo_medio * 100) if costo_medio > 0 else 0, 1)
+    }
+
+
+@router.get("/clienti/{cliente_id}/prodotti-acquistati")
+async def get_cliente_prodotti_acquistati(cliente_id: str, search: str = ""):
+    """
+    Get products purchased by a specific customer, with optional search filter.
+    Returns last purchase info for each product.
+    """
+    # Get cliente name from ID
+    cliente = await db.clienti.find_one({"id": cliente_id}, {"_id": 0, "nome": 1})
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente non trovato")
+    
+    cliente_nome = cliente.get('nome', '')
+    
+    # Build query
+    query = {"cliente_nome": cliente_nome}
+    if search:
+        query["prodotto_nome"] = {"$regex": search, "$options": "i"}
+    
+    # Get all sales for this customer
+    vendite = await db.vendite.find(
+        query,
+        {"_id": 0, "prodotto_nome": 1, "data": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1}
+    ).sort("data", -1).to_list(10000)
+    
+    if not vendite:
+        return {"prodotti": [], "cliente_nome": cliente_nome}
+    
+    # Group by product
+    prodotti_vendite = {}
+    for v in vendite:
+        prod = v.get('prodotto_nome', '')
+        if not prod:
+            continue
+        if prod not in prodotti_vendite:
+            prodotti_vendite[prod] = []
+        prodotti_vendite[prod].append(v)
+    
+    # Build response
+    prodotti_result = []
+    for prodotto, vendite_prod in prodotti_vendite.items():
+        ultima_vendita = vendite_prod[0]  # Most recent
+        totale = sum(abs(v.get('totale', 0)) for v in vendite_prod)
+        qty_totale = sum(abs(v.get('quantita', 0)) for v in vendite_prod)
+        
+        prodotti_result.append({
+            "prodotto_nome": prodotto,
+            "ultima_data": ultima_vendita.get('data', ''),
+            "ultimo_prezzo": ultima_vendita.get('prezzo_unitario', 0),
+            "ultima_quantita": abs(ultima_vendita.get('quantita', 0)),
+            "totale_acquistato": round(totale, 2),
+            "quantita_totale": round(qty_totale, 2),
+            "num_acquisti": len(vendite_prod),
+            "ultime_3": [
+                {
+                    "data": v.get('data', ''),
+                    "quantita": abs(v.get('quantita', 0)),
+                    "prezzo_unitario": v.get('prezzo_unitario', 0),
+                    "totale": abs(v.get('totale', 0))
+                }
+                for v in vendite_prod[:3]
+            ]
+        })
+    
+    # Sort by most recent purchase
+    prodotti_result.sort(key=lambda x: x['ultima_data'], reverse=True)
+    
+    return {
+        "prodotti": prodotti_result,
+        "cliente_nome": cliente_nome,
+        "totale_prodotti": len(prodotti_result)
+    }
+
