@@ -1208,6 +1208,9 @@ DATI AZIENDA ORTOFRUTTICOLA - Aggiornati al {reference_date.strftime("%Y-%m-%d")
 === VENDITE ULTIME 2 SETTIMANE PER CLIENTE (dettaglio prodotti) ===
 {chr(10).join(recent_sales_context) if recent_sales_context else "Nessuna vendita nelle ultime 2 settimane"}
 
+=== ACQUISTI DA FORNITORI (ultimo mese - dettaglio prodotti) ===
+{chr(10).join(fornitori_dettaglio) if fornitori_dettaglio else "Nessun ordine nell'ultimo mese"}
+
 === PRODOTTI SOTTO SCORTA (da riordinare) ===
 {chr(10).join([f"- {nome}" for nome in low_stock_products[:15]]) if low_stock_products else "Nessun prodotto sotto scorta"}
 
