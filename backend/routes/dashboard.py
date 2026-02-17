@@ -1116,6 +1116,11 @@ async def ai_chat(data: dict):
         # 6. Current stock value
         valore_totale_magazzino = sum(p['valore_scorte'] for p in prodotti_list)
         
+        # Helper function for building fornitore line
+        def build_fornitore_line(fo):
+            prods = ', '.join([p['nome'] + ' (€' + str(int(p['totale'])) + ')' for p in fo['top_prodotti'][:3]])
+            return f"- {fo['fornitore']}: {prods}"
+        
         # Build comprehensive context
         context = f"""
 DATI AZIENDA ORTOFRUTTICOLA - Aggiornati al {reference_date.strftime("%Y-%m-%d")}
