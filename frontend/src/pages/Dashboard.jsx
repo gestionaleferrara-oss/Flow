@@ -398,7 +398,8 @@ export default function Dashboard() {
               </div>
             </div>
             {/* Visible selectors */}
-            <div className="flex items-center gap-2" data-testid="trends-selectors">
+            <div className="flex items-center gap-2 flex-wrap" data-testid="trends-selectors">
+              {/* Period selectors */}
               <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
                 <Clock className="w-3.5 h-3.5 text-slate-500 ml-1" />
                 {periodoOptions.map(p => (
@@ -407,6 +408,17 @@ export default function Dashboard() {
                     className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
                       trendsPeriodo === p.v ? "bg-emerald-500/20 text-emerald-300 shadow-sm" : "text-slate-500 hover:text-slate-300"
                     )}>{p.l}</button>
+                ))}
+              </div>
+              {/* Sort selectors */}
+              <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
+                <Filter className="w-3.5 h-3.5 text-slate-500 ml-1" />
+                {ordinaPerOptions.map(o => (
+                  <button key={o.v} onClick={(e) => { e.stopPropagation(); setTrendsOrdinaPer(o.v); loadTrendsVendite(trendsPeriodo, o.v, 5); }}
+                    data-testid={`trend-ordina-${o.v}`}
+                    className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
+                      trendsOrdinaPer === o.v ? "bg-cyan-500/20 text-cyan-300 shadow-sm" : "text-slate-500 hover:text-slate-300"
+                    )}>{o.l}</button>
                 ))}
               </div>
               <button 
