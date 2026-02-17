@@ -102,7 +102,11 @@ async def upload_multiple_files(files: List[UploadFile] = File(...), mode: str =
         except Exception as e:
             total_stats['errors'].append(f"File {file.filename}: {str(e)}")
 
-    await _flush_and_update(cache)
+    # Use appropriate flush based on mode
+    if mode == 'full':
+        await _flush_and_update(cache)
+    else:
+        await _flush_and_update_incremental(cache)
     return {"success": True, "message": f"Elaborati {total_stats['files_processed']} file con successo", "stats": total_stats}
 
 
