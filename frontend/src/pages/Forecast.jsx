@@ -127,7 +127,8 @@ export default function Forecast() {
         params: {
           tipo,
           nome: selectedEntity.nome,
-          mese_target: meseTarget
+          mese_target: meseTarget,
+          metrica
         }
       });
       
