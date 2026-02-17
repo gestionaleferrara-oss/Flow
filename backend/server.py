@@ -51,6 +51,27 @@ async def health_check():
 api_router = APIRouter(prefix="/api")
 
 
+@api_router.post("/reset-giacenze-anomale")
+async def reset_giacenze_anomale(soglia: int = 10000):
+    """
+    Reset abnormally high stock quantities to 0.
+    These are likely parsing errors from old imports.
+    """
+    try:
+        result = await db.prodotti.update_many(
+            {"quantita": {"$gt": soglia}},
+            {"$set": {"quantita": 0, "valore_scorte": 0}}
+        )
+        return {
+            "success": True,
+            "reset_count": result.modified_count,
+            "message": f"Resettati {result.modified_count} prodotti con giacenza > {soglia}"
+        }
+    except Exception as e:
+        logger.error(f"Error resetting giacenze: {e}")
+        return {"success": False, "error": str(e)}
+
+
 @api_router.get("/")
 async def root():
     return {"message": "Gestio API v1.0"}
