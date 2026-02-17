@@ -468,7 +468,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Popup Modal - Full Trends */}
+          {/* Popup Modal - Full Trends with Filters */}
           <AnimatePresence>
             {showTrendsPopup && (
               <motion.div
@@ -486,16 +486,42 @@ export default function Dashboard() {
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="p-2 max-h-[280px] overflow-y-auto">
+                
+                {/* Filters in popup */}
+                <div className="px-3 py-2 border-b border-white/[0.06] flex flex-wrap gap-2">
+                  <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
+                    <Filter className="w-3 h-3 text-slate-500 ml-1" />
+                    {ordinaPerOptions.map(o => (
+                      <button key={o.v} onClick={() => { setTrendsOrdinaPer(o.v); loadTrendsVendite(trendsPeriodo, o.v, 20); }}
+                        className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
+                          trendsOrdinaPer === o.v ? "bg-cyan-500/20 text-cyan-300 shadow-sm" : "text-slate-500 hover:text-slate-300"
+                        )}>{o.l}</button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="p-2 max-h-[240px] overflow-y-auto">
                   {trendsVendite?.top_prodotti?.map((t, idx) => (
                     <div key={t.prodotto}
                       onClick={() => { setShowTrendsPopup(false); viewProdottoAnalisi({ nome: t.prodotto }); }}
                       className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/[0.04] cursor-pointer transition-colors">
                       <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold flex items-center justify-center">{idx + 1}</span>
                       <span className="flex-1 text-xs text-slate-300 truncate">{t.prodotto}</span>
-                      <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded",
-                        t.trend === 'up' ? 'text-emerald-400 bg-emerald-500/10' : t.trend === 'down' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 bg-slate-500/10'
-                      )}>{t.variazione_qty_pct > 0 ? '+' : ''}{t.variazione_qty_pct}%</span>
+                      {/* Dynamic badge based on filter */}
+                      {trendsOrdinaPer === 'richieste' ? (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded text-cyan-400 bg-cyan-500/10">{t.richieste} ord.</span>
+                      ) : trendsOrdinaPer === 'margine' ? (
+                        <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded",
+                          t.margine_pct > 15 ? 'text-emerald-400 bg-emerald-500/10' : 
+                          t.margine_pct > 0 ? 'text-amber-400 bg-amber-500/10' : 'text-red-400 bg-red-500/10'
+                        )}>{t.margine_pct > 0 ? '+' : ''}{t.margine_pct}%</span>
+                      ) : trendsOrdinaPer === 'revenue' ? (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded text-blue-400 bg-blue-500/10">{formatCurrency(t.fatturato_2w)}</span>
+                      ) : (
+                        <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded",
+                          t.trend === 'up' ? 'text-emerald-400 bg-emerald-500/10' : t.trend === 'down' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 bg-slate-500/10'
+                        )}>{t.variazione_qty_pct > 0 ? '+' : ''}{t.variazione_qty_pct}%</span>
+                      )}
                     </div>
                   ))}
                 </div>
