@@ -114,7 +114,7 @@ export default function ReportAI() {
 
   const getReportIcon = (tipo) => {
     switch(tipo) {
-      case 'dashboard': return <BarChart3 className="w-4 h-4" />;
+      case 'dashboard': return <LayoutDashboard className="w-4 h-4" />;
       case 'settimanale': return <Calendar className="w-4 h-4" />;
       case 'mensile': return <TrendingUp className="w-4 h-4" />;
       default: return <FileText className="w-4 h-4" />;
@@ -160,7 +160,7 @@ export default function ReportAI() {
                   : "bg-white/[0.03] text-slate-400 border border-white/[0.06] hover:bg-white/[0.06]"
               )}
             >
-              <BarChart3 className="w-4 h-4" />
+              <LayoutDashboard className="w-4 h-4" />
               Dashboard
             </button>
             <button
@@ -471,7 +471,7 @@ export default function ReportAI() {
                 </p>
                 <div className="flex items-center gap-4 mt-6 text-xs text-slate-600">
                   <div className="flex items-center gap-1.5">
-                    <BarChart3 className="w-3.5 h-3.5" />
+                    <LayoutDashboard className="w-3.5 h-3.5" />
                     <span>Overview business</span>
                   </div>
                   <div className="flex items-center gap-1.5">
