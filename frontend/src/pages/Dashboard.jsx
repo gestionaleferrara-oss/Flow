@@ -235,7 +235,11 @@ export default function Dashboard() {
     setLoadingClienteProdotti(true);
     setClienteProdottiSearch(searchTerm);
     try {
-      const res = await axios.get(`${API}/clienti/${clienteId}/prodotti-acquistati`, { params: { search: searchTerm } });
+      // Use ID-based endpoint if we have ID, otherwise use name-based endpoint
+      const endpoint = clienteId 
+        ? `${API}/clienti/${clienteId}/prodotti-acquistati`
+        : `${API}/clienti-by-name/${encodeURIComponent(clienteNome)}/prodotti-acquistati`;
+      const res = await axios.get(endpoint, { params: { search: searchTerm } });
       setClienteProdotti(res.data);
     } catch (e) {
       setClienteProdotti(null);
@@ -243,11 +247,14 @@ export default function Dashboard() {
   };
 
   const searchClienteProdotti = async (searchTerm) => {
-    if (!selectedClienteForProdotti?.id) return;
+    if (!selectedClienteForProdotti?.id && !selectedClienteForProdotti?.nome) return;
     setClienteProdottiSearch(searchTerm);
     setLoadingClienteProdotti(true);
     try {
-      const res = await axios.get(`${API}/clienti/${selectedClienteForProdotti.id}/prodotti-acquistati`, { params: { search: searchTerm } });
+      const endpoint = selectedClienteForProdotti.id 
+        ? `${API}/clienti/${selectedClienteForProdotti.id}/prodotti-acquistati`
+        : `${API}/clienti-by-name/${encodeURIComponent(selectedClienteForProdotti.nome)}/prodotti-acquistati`;
+      const res = await axios.get(endpoint, { params: { search: searchTerm } });
       setClienteProdotti(res.data);
     } catch (e) {
       // Keep existing
