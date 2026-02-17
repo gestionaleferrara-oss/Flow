@@ -165,6 +165,49 @@ export default function Dashboard() {
     return () => clearTimeout(timer);
   }, [prodottoSearch, searchProdotti]);
 
+  // Search clienti function
+  const searchClienti = useCallback(async (query) => {
+    if (!query || query.trim().length === 0) {
+      setClienteSearchResults([]);
+      return;
+    }
+    setClienteSearchLoading(true);
+    try {
+      const response = await axios.get(`${API}/clienti`, { params: { search: query, limit: 30 } });
+      setClienteSearchResults(response.data?.clienti || response.data || []);
+    } catch (e) {
+      setClienteSearchResults([]);
+    } finally {
+      setClienteSearchLoading(false);
+    }
+  }, []);
+
+  // Debounced cliente search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTab === 'clienti') {
+        searchClienti(clienteSearch);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [clienteSearch, searchTab, searchClienti]);
+
+  // Open cliente quick view modal
+  const openClienteQuickView = async (clienteNome) => {
+    setShowSearchModal(false);
+    setShowClienteQuickView(true);
+    setLoadingClienteQuickView(true);
+    setClienteQuickViewData(null);
+    try {
+      const response = await axios.get(`${API}/clienti-by-name/${encodeURIComponent(clienteNome)}/quick-view`);
+      setClienteQuickViewData(response.data);
+    } catch (e) {
+      setClienteQuickViewData(null);
+    } finally {
+      setLoadingClienteQuickView(false);
+    }
+  };
+
   const viewProdottoAnalisi = async (prodotto, periodo = '1m') => {
     setSelectedProdotto(prodotto);
     setShowSearchModal(false);
