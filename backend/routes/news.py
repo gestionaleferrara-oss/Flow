@@ -396,24 +396,34 @@ async def get_trends_vendite(periodo: str = "2w", ordina_per: str = "interest", 
 
     trends = []
     for prod, curr_data in current_by_product.items():
-        prev_data = prev_by_product.get(prod, {'qty': 0, 'totale': 0})
+        prev_data = prev_by_product.get(prod, {'qty': 0, 'totale': 0, 'richieste': 0})
         curr_qty = curr_data['qty']
         prev_qty = prev_data['qty']
         curr_totale = curr_data['totale']
         prev_totale = prev_data['totale']
+        curr_richieste = curr_data['richieste']
+        prev_richieste = prev_data.get('richieste', 0)
         qty_change = ((curr_qty - prev_qty) / prev_qty * 100) if prev_qty > 0 else (100.0 if curr_qty > 0 else 0.0)
         rev_change = ((curr_totale - prev_totale) / prev_totale * 100) if prev_totale > 0 else (100.0 if curr_totale > 0 else 0.0)
         rev_share = (curr_totale / total_fatturato * 100) if total_fatturato > 0 else 0
         interest_score = rev_share * (1 + min(abs(qty_change), 200) / 100)
+        
+        # Calculate margin percentage
+        prezzo_acquisto = prezzi_acquisto.get(prod, 0)
+        prezzo_vendita_medio = curr_data['prezzo_vendita_sum'] / curr_data['prezzo_vendita_count'] if curr_data['prezzo_vendita_count'] > 0 else 0
+        margine_pct = ((prezzo_vendita_medio - prezzo_acquisto) / prezzo_acquisto * 100) if prezzo_acquisto > 0 and prezzo_vendita_medio > 0 else 0
+        
         trends.append({
             "prodotto": prod, "quantita_2w": round(curr_qty, 1), "quantita_prev": round(prev_qty, 1),
             "fatturato_2w": round(curr_totale, 2), "fatturato_prev": round(prev_totale, 2),
+            "richieste": curr_richieste, "richieste_prev": prev_richieste,
+            "margine_pct": round(margine_pct, 1),
             "variazione_qty_pct": round(qty_change, 1), "variazione_fatturato_pct": round(rev_change, 1),
             "quota_fatturato_pct": round(rev_share, 2), "interest_score": round(interest_score, 2),
             "trend": "up" if qty_change > 5 else "down" if qty_change < -5 else "stable"
         })
 
-    sort_keys = {"interest": lambda x: x['interest_score'], "fatturato": lambda x: x['fatturato_2w'], "quantita": lambda x: x['quantita_2w'], "variazione": lambda x: abs(x['variazione_qty_pct']), "qty": lambda x: x['quantita_2w'], "revenue": lambda x: x['fatturato_2w']}
+    sort_keys = {"interest": lambda x: x['interest_score'], "fatturato": lambda x: x['fatturato_2w'], "quantita": lambda x: x['quantita_2w'], "variazione": lambda x: abs(x['variazione_qty_pct']), "qty": lambda x: x['quantita_2w'], "revenue": lambda x: x['fatturato_2w'], "richieste": lambda x: x['richieste'], "margine": lambda x: x['margine_pct']}
     sort_fn = sort_keys.get(ordina_per, sort_keys["interest"])
     trends.sort(key=sort_fn, reverse=True)
 
