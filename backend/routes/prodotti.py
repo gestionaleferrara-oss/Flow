@@ -430,3 +430,71 @@ async def get_cliente_prodotti_acquistati(cliente_id: str, search: str = ""):
         "totale_prodotti": len(prodotti_result)
     }
 
+
+@router.get("/clienti-by-name/{cliente_nome:path}/prodotti-acquistati")
+async def get_cliente_prodotti_by_name(cliente_nome: str, search: str = ""):
+    """
+    Get products purchased by a customer (by name), with optional search filter.
+    """
+    from urllib.parse import unquote
+    cliente_nome = unquote(cliente_nome)
+    
+    # Build query
+    query = {"cliente_nome": cliente_nome}
+    if search:
+        query["prodotto_nome"] = {"$regex": search, "$options": "i"}
+    
+    # Get all sales for this customer
+    vendite = await db.vendite.find(
+        query,
+        {"_id": 0, "prodotto_nome": 1, "data": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1}
+    ).sort("data", -1).to_list(10000)
+    
+    if not vendite:
+        return {"prodotti": [], "cliente_nome": cliente_nome, "totale_prodotti": 0}
+    
+    # Group by product
+    prodotti_vendite = {}
+    for v in vendite:
+        prod = v.get('prodotto_nome', '')
+        if not prod:
+            continue
+        if prod not in prodotti_vendite:
+            prodotti_vendite[prod] = []
+        prodotti_vendite[prod].append(v)
+    
+    # Build response
+    prodotti_result = []
+    for prodotto, vendite_prod in prodotti_vendite.items():
+        ultima_vendita = vendite_prod[0]
+        totale = sum(abs(v.get('totale', 0)) for v in vendite_prod)
+        qty_totale = sum(abs(v.get('quantita', 0)) for v in vendite_prod)
+        
+        prodotti_result.append({
+            "prodotto_nome": prodotto,
+            "ultima_data": ultima_vendita.get('data', ''),
+            "ultimo_prezzo": ultima_vendita.get('prezzo_unitario', 0),
+            "ultima_quantita": abs(ultima_vendita.get('quantita', 0)),
+            "totale_acquistato": round(totale, 2),
+            "quantita_totale": round(qty_totale, 2),
+            "num_acquisti": len(vendite_prod),
+            "ultime_3": [
+                {
+                    "data": v.get('data', ''),
+                    "quantita": abs(v.get('quantita', 0)),
+                    "prezzo_unitario": v.get('prezzo_unitario', 0),
+                    "totale": abs(v.get('totale', 0))
+                }
+                for v in vendite_prod[:3]
+            ]
+        })
+    
+    prodotti_result.sort(key=lambda x: x['ultima_data'], reverse=True)
+    
+    return {
+        "prodotti": prodotti_result,
+        "cliente_nome": cliente_nome,
+        "totale_prodotti": len(prodotti_result)
+    }
+
+
