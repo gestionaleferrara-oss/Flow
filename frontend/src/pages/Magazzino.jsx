@@ -129,53 +129,175 @@ export default function Magazzino() {
       </PageHeader>
 
       {/* Filter Bar */}
-      <div className="filter-bar rounded-lg mb-6">
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Cerca prodotto..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="pl-10"
-              data-testid="search-input"
-            />
+      <div className="rounded-lg mb-6">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Cerca prodotto..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="pl-10"
+                data-testid="search-input"
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <button
+              onClick={() => toggleFilter('ordinare')}
+              data-testid="filter-ordinare"
+              className={cn(
+                'flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg transition-all flex-1 sm:flex-none justify-center',
+                filter === 'ordinare'
+                  ? 'bg-amber-500/20 text-amber-500 ring-1 ring-amber-500'
+                  : 'bg-card hover:bg-muted'
+              )}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              <span className="font-medium">{stats.ordinare_count}</span>
+              <span className="text-sm hidden sm:inline">Da Ordinare</span>
+            </button>
+            
+            <button
+              onClick={() => toggleFilter('scadenza')}
+              data-testid="filter-scadenza"
+              className={cn(
+                'flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg transition-all flex-1 sm:flex-none justify-center',
+                filter === 'scadenza'
+                  ? 'bg-purple-500/20 text-purple-500 ring-1 ring-purple-500'
+                  : 'bg-card hover:bg-muted'
+              )}
+            >
+              <Calendar className="w-4 h-4" />
+              <span className="font-medium">{stats.scadenza_count}</span>
+              <span className="text-sm hidden sm:inline">In Scadenza</span>
+            </button>
           </div>
         </div>
-        
-        <button
-          onClick={() => toggleFilter('ordinare')}
-          data-testid="filter-ordinare"
-          className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-lg transition-all',
-            filter === 'ordinare'
-              ? 'bg-amber-500/20 text-amber-500 ring-1 ring-amber-500'
-              : 'bg-card hover:bg-muted'
-          )}
-        >
-          <AlertTriangle className="w-4 h-4" />
-          <span className="font-medium">{stats.ordinare_count}</span>
-          <span className="text-sm">Da Ordinare</span>
-        </button>
-        
-        <button
-          onClick={() => toggleFilter('scadenza')}
-          data-testid="filter-scadenza"
-          className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-lg transition-all',
-            filter === 'scadenza'
-              ? 'bg-purple-500/20 text-purple-500 ring-1 ring-purple-500'
-              : 'bg-card hover:bg-muted'
-          )}
-        >
-          <Calendar className="w-4 h-4" />
-          <span className="font-medium">{stats.scadenza_count}</span>
-          <span className="text-sm">In Scadenza</span>
-        </button>
       </div>
 
-      {/* Data Table */}
-      <div className="bg-card border border-border/50 rounded-lg overflow-hidden">
+      {/* Mobile Card View */}
+      <div className="sm:hidden space-y-3">
+        {prodotti.map((p, index) => {
+          const isEditing = editingId === p.id;
+          const qty = Math.max(0, p.quantita || 0);
+          
+          return (
+            <motion.div
+              key={p.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.02 }}
+              className={cn(
+                "p-4 rounded-xl border bg-card/50",
+                p.stato === 'ordinare' ? 'border-amber-500/30 bg-amber-500/5' :
+                p.stato === 'non_disponibile' ? 'border-red-500/30 bg-red-500/5' :
+                'border-border/50'
+              )}
+              data-testid={`mobile-row-${p.id}`}
+            >
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <StatusIcon stato={p.stato} />
+                  <span className="font-medium text-sm truncate">{p.nome}</span>
+                </div>
+                <div className="flex gap-1">
+                  {isEditing ? (
+                    <>
+                      <button onClick={handleSave} className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500" data-testid="mobile-save-btn">
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button onClick={handleCancel} className="p-2 rounded-lg bg-red-500/10 text-red-500" data-testid="mobile-cancel-btn">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={() => handleEdit(p)} className="p-2 rounded-lg bg-white/5 text-slate-400" data-testid="mobile-edit-btn">
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider">Quantità</span>
+                  {isEditing ? (
+                    <Input
+                      type="number"
+                      min="0"
+                      value={editData.quantita}
+                      onChange={(e) => setEditData({ ...editData, quantita: Math.max(0, parseFloat(e.target.value) || 0) })}
+                      className="h-9 text-sm"
+                      data-testid="mobile-edit-quantita"
+                    />
+                  ) : (
+                    <p className={cn("text-base font-semibold", qty === 0 && 'text-red-400')}>
+                      {qty.toLocaleString('it-IT')}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-amber-400/70 uppercase tracking-wider">Q.ta Min.</span>
+                  {isEditing ? (
+                    <Input
+                      type="number"
+                      min="0"
+                      value={editData.quantita_minima}
+                      onChange={(e) => setEditData({ ...editData, quantita_minima: parseFloat(e.target.value) || 0 })}
+                      className="h-9 text-sm"
+                      data-testid="mobile-edit-quantita-minima"
+                    />
+                  ) : (
+                    <p className={cn(
+                      "text-base font-semibold",
+                      p.quantita_minima > 0 && qty <= p.quantita_minima ? 'text-amber-400' : 'text-slate-400'
+                    )}>
+                      {(p.quantita_minima || 0).toLocaleString('it-IT')}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider">Prezzo</span>
+                  <p className="text-base font-semibold">{formatCurrency(p.prezzo_medio)}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider">Valore</span>
+                  <p className="text-base font-semibold text-emerald-400">{formatCurrency(qty * (p.prezzo_medio || 0))}</p>
+                </div>
+              </div>
+              
+              {(p.scadenza || isEditing) && (
+                <div className="mt-3 pt-3 border-t border-white/5">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider">Scadenza</span>
+                  {isEditing ? (
+                    <Input
+                      type="date"
+                      value={editData.scadenza || ''}
+                      onChange={(e) => setEditData({ ...editData, scadenza: e.target.value })}
+                      className="h-9 text-sm mt-1"
+                      data-testid="mobile-edit-scadenza"
+                    />
+                  ) : (
+                    <p className="text-sm text-slate-400">{p.scadenza}</p>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
+        
+        {prodotti.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-slate-500 text-sm">Nessun prodotto trovato</p>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Data Table */}
+      <div className="hidden sm:block bg-card border border-border/50 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="data-table" data-testid="magazzino-table">
             <thead>
