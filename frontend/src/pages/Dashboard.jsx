@@ -440,9 +440,21 @@ export default function Dashboard() {
                     className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] cursor-pointer hover:bg-white/[0.05] transition-colors">
                     <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
                     <span className="flex-1 text-sm text-slate-300 truncate">{t.prodotto}</span>
-                    <span className={cn("text-xs font-semibold px-2 py-1 rounded",
-                      t.trend === 'up' ? 'text-emerald-400 bg-emerald-500/10' : t.trend === 'down' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 bg-slate-500/10'
-                    )}>{t.variazione_qty_pct > 0 ? '+' : ''}{t.variazione_qty_pct}%</span>
+                    {/* Dynamic badge based on sort type */}
+                    {trendsOrdinaPer === 'richieste' ? (
+                      <span className="text-xs font-semibold px-2 py-1 rounded text-cyan-400 bg-cyan-500/10">{t.richieste} ord.</span>
+                    ) : trendsOrdinaPer === 'margine' ? (
+                      <span className={cn("text-xs font-semibold px-2 py-1 rounded",
+                        t.margine_pct > 15 ? 'text-emerald-400 bg-emerald-500/10' : 
+                        t.margine_pct > 0 ? 'text-amber-400 bg-amber-500/10' : 'text-red-400 bg-red-500/10'
+                      )}>{t.margine_pct > 0 ? '+' : ''}{t.margine_pct}%</span>
+                    ) : trendsOrdinaPer === 'revenue' ? (
+                      <span className="text-xs font-semibold px-2 py-1 rounded text-blue-400 bg-blue-500/10">{formatCurrency(t.fatturato_2w)}</span>
+                    ) : (
+                      <span className={cn("text-xs font-semibold px-2 py-1 rounded",
+                        t.trend === 'up' ? 'text-emerald-400 bg-emerald-500/10' : t.trend === 'down' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 bg-slate-500/10'
+                      )}>{t.variazione_qty_pct > 0 ? '+' : ''}{t.variazione_qty_pct}%</span>
+                    )}
                   </div>
                 ))}
               </div>
