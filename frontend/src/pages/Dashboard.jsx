@@ -339,9 +339,9 @@ export default function Dashboard() {
     { v: '1m', l: '1 Mese' },
   ];
   const ordinaPerOptions = [
-    { v: 'interest', l: 'Interesse' },
-    { v: 'qty', l: 'Quantità' },
+    { v: 'richieste', l: 'Richieste' },
     { v: 'revenue', l: 'Fatturato' },
+    { v: 'margine', l: 'Margine' },
   ];
 
   return (
