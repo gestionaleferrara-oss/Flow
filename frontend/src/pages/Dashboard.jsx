@@ -77,6 +77,17 @@ export default function Dashboard() {
   const [clienteAnalisi, setClienteAnalisi] = useState(null);
   const [loadingClienteAnalisi, setLoadingClienteAnalisi] = useState(false);
   const [clienteAnalisiPeriodo, setClienteAnalisiPeriodo] = useState('mese');
+  
+  // Search tabs state (Prodotti/Clienti)
+  const [searchTab, setSearchTab] = useState('prodotti');
+  const [clienteSearch, setClienteSearch] = useState('');
+  const [clienteSearchResults, setClienteSearchResults] = useState([]);
+  const [clienteSearchLoading, setClienteSearchLoading] = useState(false);
+  
+  // Cliente Quick View Modal state
+  const [showClienteQuickView, setShowClienteQuickView] = useState(false);
+  const [clienteQuickViewData, setClienteQuickViewData] = useState(null);
+  const [loadingClienteQuickView, setLoadingClienteQuickView] = useState(false);
 
   useEffect(() => {
     // Load all data in parallel - non-blocking
