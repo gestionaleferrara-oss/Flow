@@ -163,7 +163,14 @@ async def _flush_and_update(cache):
         await db.ordini.insert_many(cache['ordini_batch'])
     for nome_prodotto, prod_data in cache['prodotti'].items():
         if isinstance(prod_data, dict):
+            quantita = max(0, prod_data.get('quantita', 0))  # No negative quantities
+            prezzo_medio = prod_data.get('prezzo_medio', 0)
+            valore_scorte = quantita * prezzo_medio if prezzo_medio > 0 else 0
             await db.prodotti.update_one(
                 {"nome": nome_prodotto},
-                {"$set": {"quantita": prod_data.get('quantita', 0), "prezzo_medio": prod_data.get('prezzo_medio', 0)}}
+                {"$set": {
+                    "quantita": quantita, 
+                    "prezzo_medio": prezzo_medio,
+                    "valore_scorte": valore_scorte
+                }}
             )
