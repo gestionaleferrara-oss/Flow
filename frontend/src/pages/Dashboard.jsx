@@ -622,10 +622,10 @@ export default function Dashboard() {
         } 
       }}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Cerca</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Cerca Prodotto o Cliente</DialogTitle></DialogHeader>
           <Input 
-            placeholder="Cerca prodotto o cliente..." 
-            value={searchTab === 'prodotti' ? prodottoSearch : clienteSearch} 
+            placeholder="Inizia a digitare..." 
+            value={prodottoSearch} 
             onChange={(e) => {
               const val = e.target.value;
               setProdottoSearch(val);
@@ -635,84 +635,62 @@ export default function Dashboard() {
             data-testid="unified-search-input" 
           />
           
-          {/* Tab selector */}
-          <div className="flex gap-2 mt-2">
-            <button 
-              onClick={() => setSearchTab('prodotti')}
-              data-testid="search-tab-prodotti"
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                searchTab === 'prodotti' 
-                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
-                  : "bg-white/[0.03] text-slate-400 border border-white/[0.06] hover:bg-white/[0.06]"
-              )}
-            >
-              <Package className="w-4 h-4" />
-              Prodotti {searchResults.length > 0 && `(${searchResults.length})`}
-            </button>
-            <button 
-              onClick={() => setSearchTab('clienti')}
-              data-testid="search-tab-clienti"
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                searchTab === 'clienti' 
-                  ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" 
-                  : "bg-white/[0.03] text-slate-400 border border-white/[0.06] hover:bg-white/[0.06]"
-              )}
-            >
-              <Users className="w-4 h-4" />
-              Clienti {clienteSearchResults.length > 0 && `(${clienteSearchResults.length})`}
-            </button>
-          </div>
-          
-          {/* Results */}
-          <div className="max-h-64 overflow-auto space-y-1 mt-2">
-            {searchTab === 'prodotti' ? (
-              /* Prodotti Results */
-              prodottoSearch.trim().length === 0 ? (
-                <p className="text-center py-6 text-sm text-slate-500">Digita almeno un carattere per cercare</p>
-              ) : searchLoading ? (
-                <div className="flex items-center justify-center py-6">
-                  <RefreshCw className="w-4 h-4 animate-spin text-slate-500" />
-                </div>
-              ) : searchResults.length === 0 ? (
-                <p className="text-center py-6 text-sm text-slate-500">Nessun prodotto trovato</p>
-              ) : (
-                searchResults.map((p) => (
-                  <button key={p.codice || p.nome} onClick={() => viewProdottoAnalisi(p)}
-                    data-testid={`search-result-${p.nome}`}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors">
-                    <p className="text-sm font-medium text-slate-200 truncate">{p.nome}</p>
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <span>Qty: {p.quantita || 0}</span>
-                      {p.prezzo_vendita_medio > 0 && <span className="text-emerald-400">Pv. medio: {p.prezzo_vendita_medio.toFixed(2)} €</span>}
-                    </div>
-                  </button>
-                ))
-              )
+          {/* Results - Both Prodotti and Clienti */}
+          <div className="max-h-80 overflow-auto space-y-2 mt-2">
+            {prodottoSearch.trim().length === 0 ? (
+              <p className="text-center py-6 text-sm text-slate-500">Digita almeno un carattere per cercare</p>
+            ) : (searchLoading || clienteSearchLoading) ? (
+              <div className="flex items-center justify-center py-6">
+                <RefreshCw className="w-4 h-4 animate-spin text-slate-500" />
+              </div>
+            ) : (searchResults.length === 0 && clienteSearchResults.length === 0) ? (
+              <p className="text-center py-6 text-sm text-slate-500">Nessun risultato trovato</p>
             ) : (
-              /* Clienti Results */
-              clienteSearch.trim().length === 0 ? (
-                <p className="text-center py-6 text-sm text-slate-500">Digita almeno un carattere per cercare</p>
-              ) : clienteSearchLoading ? (
-                <div className="flex items-center justify-center py-6">
-                  <RefreshCw className="w-4 h-4 animate-spin text-slate-500" />
-                </div>
-              ) : clienteSearchResults.length === 0 ? (
-                <p className="text-center py-6 text-sm text-slate-500">Nessun cliente trovato</p>
-              ) : (
-                clienteSearchResults.map((c) => (
-                  <button key={c.id || c.nome} onClick={() => openClienteQuickView(c.nome)}
-                    data-testid={`search-cliente-${c.nome}`}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors">
-                    <p className="text-sm font-medium text-slate-200 truncate">{c.nome}</p>
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      {c.fatturato_totale > 0 && <span className="text-cyan-400">Fatt: {formatCurrency(c.fatturato_totale)}</span>}
-                      {c.num_ordini > 0 && <span>{c.num_ordini} ordini</span>}
+              <>
+                {/* Prodotti Section */}
+                {searchResults.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <Package className="w-3 h-3" /> Prodotti ({searchResults.length})
+                    </p>
+                    <div className="space-y-1">
+                      {searchResults.slice(0, 8).map((p) => (
+                        <button key={p.codice || p.nome} onClick={() => viewProdottoAnalisi(p)}
+                          data-testid={`search-result-${p.nome}`}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-500/10 transition-colors border border-transparent hover:border-blue-500/20">
+                          <p className="text-sm font-medium text-slate-200 truncate">{p.nome}</p>
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <span>Qty: {p.quantita || 0}</span>
+                            {p.prezzo_vendita_medio > 0 && <span className="text-emerald-400">Pv. medio: {p.prezzo_vendita_medio.toFixed(2)} €</span>}
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                  </button>
-                ))
-              )
+                  </div>
+                )}
+                
+                {/* Clienti Section */}
+                {clienteSearchResults.length > 0 && (
+                  <div className={searchResults.length > 0 ? "mt-3 pt-3 border-t border-white/[0.06]" : ""}>
+                    <p className="text-[10px] font-semibold text-cyan-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <Users className="w-3 h-3" /> Clienti ({clienteSearchResults.length})
+                    </p>
+                    <div className="space-y-1">
+                      {clienteSearchResults.slice(0, 8).map((c) => (
+                        <button key={c.id || c.nome} onClick={() => openClienteQuickView(c.nome)}
+                          data-testid={`search-cliente-${c.nome}`}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-cyan-500/10 transition-colors border border-transparent hover:border-cyan-500/20">
+                          <p className="text-sm font-medium text-slate-200 truncate">{c.nome}</p>
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            {c.fatturato_totale > 0 && <span className="text-cyan-400">Fatt: {formatCurrency(c.fatturato_totale)}</span>}
+                            {c.num_ordini > 0 && <span>{c.num_ordini} ordini</span>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </DialogContent>
