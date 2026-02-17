@@ -1010,3 +1010,185 @@ async def export_report_pdf(data: dict):
     except Exception as e:
         logger.error(f"Error exporting report PDF: {e}")
         raise HTTPException(status_code=500, detail=f"Errore export PDF: {str(e)}")
+
+
+
+@router.post("/ai-chat")
+async def ai_chat(data: dict):
+    """
+    AI Chat with full access to all platform data.
+    Can answer questions about products, customers, suppliers, orders, stock, etc.
+    """
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    from pydantic import BaseModel
+    
+    message = data.get('message', '')
+    if not message:
+        raise HTTPException(status_code=400, detail="Messaggio richiesto")
+    
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    now = datetime.now()
+    
+    # Gather comprehensive data for AI context
+    try:
+        # Get reference date from latest sale
+        latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
+        if latest_sale and latest_sale.get('data'):
+            try:
+                reference_date = datetime.strptime(latest_sale['data'], "%Y-%m-%d")
+            except:
+                reference_date = now
+        else:
+            reference_date = now
+        
+        current_month_start = reference_date.replace(day=1).strftime("%Y-%m-%d")
+        ninety_days_ago = (reference_date - timedelta(days=90)).strftime("%Y-%m-%d")
+        
+        # 1. Products - with stock levels and prices
+        prodotti = await db.prodotti.find({}, {"_id": 0}).to_list(5000)
+        prodotti_list = []
+        low_stock_products = []
+        for p in prodotti:
+            qty = p.get('quantita', 0)
+            min_qty = p.get('quantita_minima', 0)
+            prezzo = p.get('prezzo_medio', 0)
+            prodotti_list.append({
+                'nome': p.get('nome', ''),
+                'quantita': qty,
+                'quantita_minima': min_qty,
+                'prezzo_medio': prezzo,
+                'valore_scorte': qty * prezzo if prezzo > 0 else 0
+            })
+            if min_qty > 0 and qty <= min_qty:
+                low_stock_products.append(p.get('nome', ''))
+        
+        # 2. Top selling products (last 90 days)
+        vendite_pipeline = [
+            {"$match": {"data": {"$gte": ninety_days_ago}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+            {"$group": {
+                "_id": "$prodotto_nome",
+                "fatturato": {"$sum": {"$abs": "$totale"}},
+                "quantita": {"$sum": {"$abs": "$quantita"}},
+                "ordini": {"$sum": 1}
+            }},
+            {"$sort": {"fatturato": -1}},
+            {"$limit": 30}
+        ]
+        top_vendite = await db.vendite.aggregate(vendite_pipeline).to_list(30)
+        
+        # 3. Top customers
+        clienti_pipeline = [
+            {"$match": {"data": {"$gte": ninety_days_ago}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+            {"$group": {
+                "_id": "$cliente_nome",
+                "fatturato": {"$sum": {"$abs": "$totale"}},
+                "ordini": {"$sum": 1}
+            }},
+            {"$sort": {"fatturato": -1}},
+            {"$limit": 20}
+        ]
+        top_clienti = await db.vendite.aggregate(clienti_pipeline).to_list(20)
+        
+        # 4. Suppliers with their top products
+        fornitori = await db.fornitori.find({}, {"_id": 0, "id": 1, "nome": 1}).to_list(500)
+        fornitori_ordini = []
+        for f in fornitori[:20]:  # Limit to top 20 suppliers
+            ordini_pipeline = [
+                {"$match": {"fornitore_nome": f.get('nome', '')}},
+                {"$group": {
+                    "_id": "$prodotto_nome",
+                    "totale_acquistato": {"$sum": {"$abs": "$totale"}},
+                    "quantita": {"$sum": {"$abs": "$quantita"}}
+                }},
+                {"$sort": {"totale_acquistato": -1}},
+                {"$limit": 5}
+            ]
+            fornitore_top = await db.ordini.aggregate(ordini_pipeline).to_list(5)
+            if fornitore_top:
+                fornitori_ordini.append({
+                    'fornitore': f.get('nome', ''),
+                    'top_prodotti': [{'nome': o['_id'], 'totale': o['totale_acquistato'], 'qty': o['quantita']} for o in fornitore_top]
+                })
+        
+        # 5. Monthly revenue summary
+        fatturato_mese = sum(t['fatturato'] for t in top_vendite)
+        
+        # 6. Current stock value
+        valore_totale_magazzino = sum(p['valore_scorte'] for p in prodotti_list)
+        
+        # Build comprehensive context
+        context = f"""
+DATI AZIENDA ORTOFRUTTICOLA - Aggiornati al {reference_date.strftime("%Y-%m-%d")}
+
+=== RIEPILOGO GENERALE ===
+- Fatturato ultimi 90 giorni: €{fatturato_mese:,.2f}
+- Valore totale magazzino: €{valore_totale_magazzino:,.2f}
+- Prodotti a catalogo: {len(prodotti_list)}
+- Prodotti sotto scorta: {len(low_stock_products)}
+- Fornitori attivi: {len(fornitori)}
+- Clienti attivi (90gg): {len(top_clienti)}
+
+=== TOP 15 PRODOTTI PIU' VENDUTI (90gg) ===
+{chr(10).join([f"- {p['_id']}: €{p['fatturato']:,.2f} | {p['quantita']:.0f} unità | {p['ordini']} ordini" for p in top_vendite[:15]])}
+
+=== TOP 10 CLIENTI (90gg) ===
+{chr(10).join([f"- {c['_id']}: €{c['fatturato']:,.2f} | {c['ordini']} ordini" for c in top_clienti[:10]])}
+
+=== PRODOTTI SOTTO SCORTA (da riordinare) ===
+{chr(10).join([f"- {nome}" for nome in low_stock_products[:15]]) if low_stock_products else "Nessun prodotto sotto scorta"}
+
+=== GIACENZA MAGAZZINO (primi 30 per valore) ===
+{chr(10).join([f"- {p['nome']}: {p['quantita']:.0f} unità | €{p['prezzo_medio']:.2f}/u | Valore: €{p['valore_scorte']:.2f}" for p in sorted(prodotti_list, key=lambda x: -x['valore_scorte'])[:30] if p['quantita'] > 0])}
+
+=== FORNITORI E LORO PRODOTTI PRINCIPALI ===
+{chr(10).join([f"- {fo['fornitore']}: {', '.join([p['nome'] + f' (€{p[\"totale\"]:,.0f})' for p in fo['top_prodotti'][:3]])}" for fo in fornitori_ordini[:15]])}
+"""
+
+        # Call AI
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            raise HTTPException(status_code=500, detail="API key LLM non configurata")
+        
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"chat-{uuid.uuid4()}",
+            system_message="""Sei un assistente business AI esperto nel settore ortofrutticolo italiano.
+Hai accesso completo a tutti i dati dell'azienda: vendite, clienti, fornitori, magazzino, ordini.
+
+IMPORTANTE:
+- Rispondi SEMPRE in italiano
+- Sii preciso e basati sui dati forniti
+- Quando ti viene chiesto di formulare ordini, usa i dati reali di vendita e giacenza
+- Per suggerire ordini: considera i prodotti che vendono di più, la giacenza attuale, e il fornitore appropriato
+- Fornisci quantità concrete basate sulle vendite medie
+- Se non hai abbastanza dati, dillo chiaramente
+
+Puoi aiutare con:
+- Formulare ordini per fornitori specifici
+- Analizzare vendite e trend
+- Suggerire prodotti da riordinare
+- Analizzare clienti e loro preferenze
+- Calcolare statistiche e previsioni
+- Qualsiasi domanda sui dati aziendali"""
+        ).with_model("openai", "gpt-4o")
+        
+        prompt = f"""CONTESTO DATI:
+{context}
+
+DOMANDA DELL'UTENTE:
+{message}
+
+Rispondi in modo utile e concreto basandoti sui dati sopra."""
+
+        user_message = UserMessage(text=prompt)
+        response = await chat.send_message(user_message)
+        
+        return {
+            "success": True,
+            "response": response,
+            "timestamp": now.isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in AI chat: {e}")
+        raise HTTPException(status_code=500, detail=f"Errore chat AI: {str(e)}")
