@@ -414,7 +414,7 @@ async def export_forecast_pdf(data: dict):
         return Response(
             content=bytes(pdf_bytes),
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=forecast.pdf"}
+            headers={"Content-Disposition": "attachment; filename=forecast.pdf"}
         )
         
     except Exception as e:
