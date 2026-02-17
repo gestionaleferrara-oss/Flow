@@ -185,6 +185,23 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Server-side search for clients
+  const searchClienti = useCallback(async (query) => {
+    if (!query || query.trim().length === 0) {
+      setClienteSearchResults([]);
+      return;
+    }
+    setClienteSearchLoading(true);
+    try {
+      const response = await axios.get(`${API}/clienti`, { params: { search: query, limit: 20 } });
+      setClienteSearchResults(response.data?.clienti || response.data || []);
+    } catch (e) {
+      setClienteSearchResults([]);
+    } finally {
+      setClienteSearchLoading(false);
+    }
+  }, []);
+
   // Debounced search - both products and clients together
   useEffect(() => {
     const timer = setTimeout(() => {
