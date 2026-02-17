@@ -14,7 +14,7 @@ import {
   ChevronRight,
   Download,
   Trash2,
-  BarChart3,
+  LayoutDashboard,
   Target,
   Lightbulb,
   RotateCcw
