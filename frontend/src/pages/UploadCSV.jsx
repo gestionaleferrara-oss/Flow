@@ -26,6 +26,7 @@ export default function UploadCSV() {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [uploadMode, setUploadMode] = useState('incremental'); // 'incremental' or 'full'
 
   const onDrop = useCallback((acceptedFiles) => {
     if (acceptedFiles.length > 0) {
