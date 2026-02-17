@@ -58,10 +58,13 @@ export default function UploadCSV() {
 
     const formData = new FormData();
     
+    // Determine endpoint based on mode
+    const endpoint = uploadMode === 'incremental' ? 'upload-incremental' : 'upload-csv';
+    
     if (files.length === 1) {
       formData.append('file', files[0]);
       try {
-        const response = await axios.post(`${API}/upload-csv`, formData, {
+        const response = await axios.post(`${API}/${endpoint}`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         setResult(response.data);
@@ -70,9 +73,11 @@ export default function UploadCSV() {
         setError(err.response?.data?.detail || 'Errore durante il caricamento');
       }
     } else {
+      // For multiple files, use upload-multiple with mode
       files.forEach(file => {
         formData.append('files', file);
       });
+      formData.append('mode', uploadMode);
       try {
         const response = await axios.post(`${API}/upload-multiple`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
