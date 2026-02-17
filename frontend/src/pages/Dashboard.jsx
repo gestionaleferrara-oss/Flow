@@ -162,16 +162,20 @@ export default function Dashboard() {
     setProdottoSearch('');
     setAnalisiView('vendite');
     setAnalisiPeriodo(periodo);
+    setProdottoStoricoClienti(null);
     try {
-      const [venditeRes, acquistiRes] = await Promise.all([
+      const [venditeRes, acquistiRes, storicoRes] = await Promise.all([
         axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi`, { params: { periodo } }),
-        axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi-acquisti`, { params: { periodo } })
+        axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/analisi-acquisti`, { params: { periodo } }),
+        axios.get(`${API}/prodotti/${encodeURIComponent(prodotto.nome)}/storico-clienti`)
       ]);
       setProdottoAnalisi(venditeRes.data);
       setProdottoAnalisiAcquisti(acquistiRes.data);
+      setProdottoStoricoClienti(storicoRes.data);
     } catch (e) {
       setProdottoAnalisi(null);
       setProdottoAnalisiAcquisti(null);
+      setProdottoStoricoClienti(null);
     } finally { setLoadingAnalisi(false); }
   };
 
