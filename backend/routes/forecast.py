@@ -244,50 +244,61 @@ Dati storici per {target_month_name} ({metric_label}):
     if not api_key:
         raise HTTPException(status_code=500, detail="API key LLM non configurata")
     
+    # Calculate additional context for better predictions
+    total_storico_value = sum(s.get(metric_key, 0) for s in storico)
+    months_with_data = len(storico)
+    
+    # Trend analysis
+    if len(storico) >= 3:
+        recent_3 = sum(s.get(metric_key, 0) for s in storico[-3:]) / 3
+        older_3 = sum(s.get(metric_key, 0) for s in storico[:3]) / 3 if len(storico) >= 6 else recent_3
+        overall_trend = ((recent_3 - older_3) / older_3 * 100) if older_3 > 0 else 0
+    else:
+        overall_trend = 0
+    
+    trend_description = "in crescita" if overall_trend > 10 else "in calo" if overall_trend < -10 else "stabile"
+    
     try:
         chat = LlmChat(
             api_key=api_key, 
             session_id=f"forecast-{uuid.uuid4()}", 
-            system_message=f"""Sei un analista business senior nel settore ortofrutticolo italiano.
-Genera analisi dettagliate e previsioni concrete basate sui dati forniti.
-IMPORTANTE: Stai analizzando la metrica "{metric_label}" ({metric_unit if metrica == 'fatturato' else 'numero di ordini/richieste'}).
-Rispondi SEMPRE in italiano. Sii professionale ma accessibile."""
+            system_message=f"""Sei un analista business esperto nel settore ortofrutticolo italiano.
+REGOLE FONDAMENTALI:
+1. USA SOLO I NUMERI FORNITI - non inventare mai cifre
+2. Le previsioni devono essere REALISTICHE e basate sui dati storici
+3. Rispondi in italiano, in modo conciso e professionale
+4. Se i dati sono insufficienti, dillo chiaramente
+5. Non ripetere gli stessi numeri - varia le previsioni mese per mese in base ai trend"""
         ).with_model("openai", "gpt-4o")
         
         prompt = f"""ANALISI PREVISIONALE: {entity_type.upper()} "{entity_name}"
-METRICA: {metric_label.upper()}
-Periodo: {previsioni_mesi[0]['mese_nome']} - {previsioni_mesi[-1]['mese_nome']}
 
-STORICO RECENTE (ultimi 6 mesi disponibili - {metric_label}):
+DATI STORICI ({months_with_data} mesi disponibili):
 {storico_str}
 
-DATI STORICI MESE TARGET ({target_month_name}):
-{same_month_context if same_month_context else "Nessun dato storico disponibile per questo mese"}
+STATISTICHE CHIAVE:
+- Media mensile: €{media_mensile:,.2f}
+- Trend generale: {trend_description} ({overall_trend:+.1f}%)
+- Dati per {target_month_name}: {len(same_month_data)} anni disponibili
+{f'- Media storica {target_month_name}: €{same_month_avg:,.2f}' if same_month_data else '- Nessun dato storico per questo mese'}
 
-PREVISIONI CALCOLATE:
+PREVISIONI CALCOLATE (algoritmo):
 {previsioni_str}
 
 {extra_context}
 
-Genera un'analisi completa che includa:
+Genera un'analisi CONCISA che includa:
 
-## SINTESI PREVISIONE
-Riassumi le previsioni per i 3 mesi in modo chiaro, indicando il valore atteso e il range.
-{"Indica il fatturato atteso in euro." if metrica == "fatturato" else "Indica il numero di ordini/richieste attesi."}
+## PREVISIONE {previsioni_mesi[0]['mese_nome'].upper()}
+Indica la previsione di fatturato e spiega brevemente il ragionamento (max 2 righe).
 
-## FATTORI CHIAVE
-Elenca i 3-4 fattori principali che influenzano queste previsioni (stagionalità, trend mercato, eventi, etc.)
+## TREND ATTESO
+Descrivi l'andamento previsto nei prossimi 3 mesi (in crescita/stabile/calo e perché).
 
-## OPPORTUNITÀ
-Identifica 2-3 opportunità concrete per massimizzare i risultati in questo periodo.
+## AZIONI CONSIGLIATE
+2-3 suggerimenti pratici e specifici per questo {entity_type}.
 
-## RISCHI
-Indica 1-2 potenziali rischi da monitorare.
-
-## RACCOMANDAZIONI
-3 azioni operative immediate da intraprendere.
-
-Sii specifico e basati sui dati forniti. La metrica è {metric_label}."""
+IMPORTANTE: Non inventare numeri, usa solo i dati forniti."""
 
         user_message = UserMessage(text=prompt)
         ai_response = await chat.send_message(user_message)
@@ -307,7 +318,8 @@ Sii specifico e basati sui dati forniti. La metrica è {metric_label}."""
                 "stesso_mese_avg": round(same_month_avg, 2),
                 "stesso_mese_max": round(same_month_max, 2),
                 "stesso_mese_min": round(same_month_min, 2),
-                "anni_dati_mese": len(same_month_data)
+                "anni_dati_mese": len(same_month_data),
+                "trend_generale": round(overall_trend, 1)
             },
             "previsione_ai": ai_response,
             "generated_at": datetime.now().isoformat()
