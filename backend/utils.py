@@ -112,7 +112,7 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
         return
 
     movimento_upper = movimento.upper()
-    is_vendita = movimento_upper == 'SCARICO' and ('VEN' in causale or causale == 'VENDITA')
+    is_vendita = movimento_upper == 'SCARICO' and ('VEN' in causale or causale == 'VENDITA' or 'CORRISP' in causale)
     is_acquisto = movimento_upper == 'CARICO' and ('ACQ' in causale or 'C/ACQUISTO' in causale)
     is_rettifica = 'RETTIFIC' in causale
     is_cessione = 'CESSIONE' in causale or 'OMAGGIO' in causale or 'CAMPIONE' in causale
