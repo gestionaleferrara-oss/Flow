@@ -173,7 +173,7 @@ export default function Magazzino() {
       </div>
 
       {/* Mobile Card View */}
-      <div className="sm:hidden space-y-3">
+      <div className="sm:hidden space-y-3 overflow-x-hidden">
         {prodotti.map((p, index) => {
           const isEditing = editingId === p.id;
           const qty = Math.max(0, p.quantita || 0);
