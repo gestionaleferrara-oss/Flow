@@ -418,13 +418,19 @@ export default function Forecast() {
             <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4">
               <div className="flex items-center gap-2 mb-4">
                 <Target className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm font-medium text-white">Previsione Vendite</span>
+                <span className="text-sm font-medium text-white">
+                  Previsione {forecast.metrica_label || 'Vendite'}
+                </span>
                 <span className="ml-auto text-[10px] text-slate-500">Prossimi 3 mesi</span>
               </div>
               
               {/* Forecast Bars */}
               <div className="space-y-3">
-                {(forecast.previsioni || []).map((prev, idx) => (
+                {(forecast.previsioni || []).map((prev, idx) => {
+                  const isFatturato = forecast.metrica !== 'richieste';
+                  const formatValue = (v) => isFatturato ? formatCurrency(v) : `${Math.round(v)} ord.`;
+                  
+                  return (
                   <div key={prev.mese} className="relative">
                     <div className="flex items-center justify-between mb-1">
                       <span className={cn(
@@ -433,7 +439,7 @@ export default function Forecast() {
                       )}>
                         {prev.mese_nome}
                       </span>
-                      <span className="text-sm font-bold text-white">{formatCurrency(prev.previsione)}</span>
+                      <span className="text-sm font-bold text-white">{formatValue(prev.previsione)}</span>
                     </div>
                     
                     {/* Bar with range */}
@@ -458,8 +464,8 @@ export default function Forecast() {
                       />
                       {/* Labels inside bar */}
                       <div className="absolute inset-0 flex items-center justify-between px-2">
-                        <span className="text-[9px] text-white/70">Min {formatCurrency(prev.minimo)}</span>
-                        <span className="text-[9px] text-white/70">Max {formatCurrency(prev.massimo)}</span>
+                        <span className="text-[9px] text-white/70">Min {formatValue(prev.minimo)}</span>
+                        <span className="text-[9px] text-white/70">Max {formatValue(prev.massimo)}</span>
                       </div>
                     </div>
                     
@@ -478,7 +484,7 @@ export default function Forecast() {
                       </div>
                     )}
                   </div>
-                ))}
+                )})}
               </div>
               
               {/* Summary Cards */}
