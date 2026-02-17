@@ -88,6 +88,8 @@ export default function Dashboard() {
   const [showClienteQuickView, setShowClienteQuickView] = useState(false);
   const [clienteQuickViewData, setClienteQuickViewData] = useState(null);
   const [loadingClienteQuickView, setLoadingClienteQuickView] = useState(false);
+  const [clienteQuickViewPeriodo, setClienteQuickViewPeriodo] = useState('3m');
+  const [clienteQuickViewNome, setClienteQuickViewNome] = useState('');
   
   // AI Chat state
   const [aiChatOpen, setAiChatOpen] = useState(false);
