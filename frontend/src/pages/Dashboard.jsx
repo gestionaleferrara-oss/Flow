@@ -193,17 +193,6 @@ export default function Dashboard() {
     }, 150);
     return () => clearTimeout(timer);
   }, [prodottoSearch, searchProdotti, searchClienti]);
-  }, []);
-
-  // Debounced cliente search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchTab === 'clienti') {
-        searchClienti(clienteSearch);
-      }
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [clienteSearch, searchTab, searchClienti]);
 
   // Open cliente quick view modal
   const openClienteQuickView = async (clienteNome) => {
