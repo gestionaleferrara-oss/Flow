@@ -147,38 +147,78 @@ async def import_giacenze_excel(file: UploadFile):
     """
     import pandas as pd
     from io import BytesIO
+    import re
+    
+    def normalize_name(name):
+        """Normalize product name for matching"""
+        if not name:
+            return ""
+        # Remove leading/trailing whitespace and parentheses
+        name = str(name).strip()
+        name = re.sub(r'^[\(\)\[\]]+', '', name)  # Remove leading brackets
+        name = re.sub(r'[\(\)\[\]]+$', '', name)  # Remove trailing brackets
+        name = re.sub(r'\s+', ' ', name)  # Normalize spaces
+        return name.upper()
     
     try:
         contents = await file.read()
         df = pd.read_excel(BytesIO(contents), header=1)
         
-        # Expected column names
-        cols = df.columns.tolist()
+        # Get all products from database for matching
+        all_products = await db.prodotti.find({}, {"_id": 1, "nome": 1, "codice": 1}).to_list(10000)
+        
+        # Create lookup dictionaries
+        products_by_name = {}
+        products_by_code = {}
+        for p in all_products:
+            norm_name = normalize_name(p.get('nome', ''))
+            if norm_name:
+                products_by_name[norm_name] = p
+            code = str(p.get('codice', '')).strip().upper() if p.get('codice') else ''
+            if code:
+                products_by_code[code] = p
         
         updated = 0
         created = 0
+        not_found = []
         errors = []
         
         for _, row in df.iterrows():
             try:
-                # Get product info - try different column name variants
-                codice = str(row.get('Codice', row.get(cols[2], ''))).strip() if pd.notna(row.get('Codice', row.get(cols[2], ''))) else ''
-                descrizione = str(row.get('Descrizione', row.get(cols[3], ''))).strip() if pd.notna(row.get('Descrizione', row.get(cols[3], ''))) else ''
+                # Get product info
+                codice = str(row.get('Codice', '')).strip() if pd.notna(row.get('Codice', '')) else ''
+                descrizione = str(row.get('Descrizione', '')).strip() if pd.notna(row.get('Descrizione', '')) else ''
                 
                 if not descrizione:
                     continue
                 
                 # Get stock data
-                giacenza = float(row.get('Giacenza Prodotto', row.get(cols[25], 0)) or 0)
-                scorta_minima = float(row.get('Scorta minima', row.get(cols[24], 0)) or 0)
+                giacenza = float(row.get('Giacenza Prodotto', 0) or 0)
+                scorta_minima = float(row.get('Scorta minima', 0) or 0)
                 
-                # Try to find existing product by name
-                existing = await db.prodotti.find_one({"nome": {"$regex": f"^{descrizione[:20]}", "$options": "i"}})
+                # Try to find existing product
+                norm_desc = normalize_name(descrizione)
+                existing = None
+                
+                # First try by code
+                if codice:
+                    existing = products_by_code.get(codice.upper())
+                
+                # Then try by exact name
+                if not existing:
+                    existing = products_by_name.get(norm_desc)
+                
+                # Try partial match (first 25 chars)
+                if not existing and len(norm_desc) > 25:
+                    for pname, p in products_by_name.items():
+                        if pname.startswith(norm_desc[:25]) or norm_desc.startswith(pname[:25]):
+                            existing = p
+                            break
                 
                 if existing:
                     # Update existing product
                     update_data = {
-                        "quantita": max(0, giacenza),  # Don't allow negative
+                        "quantita": max(0, giacenza),
                         "quantita_minima": scorta_minima
                     }
                     if codice:
@@ -190,32 +230,19 @@ async def import_giacenze_excel(file: UploadFile):
                     )
                     updated += 1
                 else:
-                    # Create new product
-                    from models import Prodotto
-                    from utils import serialize_doc
-                    import uuid
-                    
-                    prodotto = {
-                        "id": str(uuid.uuid4()),
-                        "nome": descrizione,
-                        "codice": codice,
-                        "quantita": max(0, giacenza),
-                        "quantita_minima": scorta_minima,
-                        "prezzo_medio": 0,
-                        "valore_scorte": 0
-                    }
-                    await db.prodotti.insert_one(prodotto)
-                    created += 1
+                    not_found.append(descrizione[:50])
                     
             except Exception as e:
-                errors.append(f"{descrizione}: {str(e)}")
+                errors.append(f"{descrizione[:30]}: {str(e)}")
         
         return {
             "success": True,
             "updated": updated,
             "created": created,
-            "errors": errors[:10],  # First 10 errors
-            "message": f"Aggiornati {updated} prodotti, creati {created} nuovi"
+            "not_found": len(not_found),
+            "not_found_samples": not_found[:20],
+            "errors": errors[:10],
+            "message": f"Aggiornati {updated} prodotti. {len(not_found)} non trovati."
         }
     except Exception as e:
         logger.error(f"Error importing giacenze: {e}")
