@@ -490,7 +490,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Popup Modal - Full Trends with Filters */}
+          {/* Popup Modal - Top 20 Products */}
           <AnimatePresence>
             {showTrendsPopup && (
               <motion.div
@@ -503,26 +503,18 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-emerald-400" />
                     <span className="text-xs font-semibold text-white">Top 20 Prodotti</span>
+                    {trendsOrdinaPer !== 'interest' && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300">
+                        {ordinaPerOptions.find(o => o.v === trendsOrdinaPer)?.l}
+                      </span>
+                    )}
                   </div>
                   <button onClick={() => setShowTrendsPopup(false)} className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
                 
-                {/* Filters in popup */}
-                <div className="px-3 py-2 border-b border-white/[0.06] flex flex-wrap gap-2">
-                  <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5">
-                    <Filter className="w-3 h-3 text-slate-500 ml-1" />
-                    {ordinaPerOptions.map(o => (
-                      <button key={o.v} onClick={() => { setTrendsOrdinaPer(o.v); loadTrendsVendite(trendsPeriodo, o.v, 20); }}
-                        className={cn("px-2 py-1 rounded-md text-[10px] font-medium transition-all",
-                          trendsOrdinaPer === o.v ? "bg-cyan-500/20 text-cyan-300 shadow-sm" : "text-slate-500 hover:text-slate-300"
-                        )}>{o.l}</button>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="p-2 max-h-[240px] overflow-y-auto">
+                <div className="p-2 max-h-[280px] overflow-y-auto">
                   {trendsVendite?.top_prodotti?.map((t, idx) => (
                     <div key={t.prodotto}
                       onClick={() => { setShowTrendsPopup(false); viewProdottoAnalisi({ nome: t.prodotto }); }}
