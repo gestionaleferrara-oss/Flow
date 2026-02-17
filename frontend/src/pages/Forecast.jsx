@@ -127,7 +127,7 @@ export default function Forecast() {
           tipo,
           nome: selectedEntity.nome,
           mese_target: meseTarget,
-          metrica
+          metrica: 'fatturato' // Always use fatturato for clearer predictions
         }
       });
       
