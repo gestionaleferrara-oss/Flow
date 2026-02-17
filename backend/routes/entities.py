@@ -164,6 +164,194 @@ async def get_cliente_analisi(cliente_id: str, periodo: str = "mese"):
     }
 
 
+@router.get("/clienti-search")
+async def search_clienti_quick(search: str, limit: int = 10):
+    """
+    Quick search for clients with summary data for search modal.
+    Returns basic info + total revenue + last order date.
+    """
+    if not search or len(search) < 1:
+        return []
+    
+    query = {"nome": {"$regex": search, "$options": "i"}}
+    clienti = await db.clienti.find(query, {"_id": 0}).sort("nome", 1).limit(limit).to_list(limit)
+    
+    results = []
+    for cliente in clienti:
+        nome = cliente.get('nome', '')
+        
+        # Get total revenue
+        pipeline = [
+            {"$match": {"cliente_nome": nome}},
+            {"$group": {"_id": None, "totale": {"$sum": {"$abs": "$totale"}}, "count": {"$sum": 1}}}
+        ]
+        agg_result = await db.vendite.aggregate(pipeline).to_list(1)
+        fatturato = agg_result[0]['totale'] if agg_result else 0
+        num_ordini = agg_result[0]['count'] if agg_result else 0
+        
+        # Get last order date
+        ultima_vendita = await db.vendite.find_one(
+            {"cliente_nome": nome},
+            {"_id": 0, "data": 1}
+        , sort=[("data", -1)])
+        
+        results.append({
+            "id": cliente.get('id'),
+            "nome": nome,
+            "codice": cliente.get('codice', ''),
+            "fatturato_totale": round(fatturato, 2),
+            "num_ordini": num_ordini,
+            "ultimo_ordine": ultima_vendita.get('data') if ultima_vendita else None
+        })
+    
+    return results
+
+
+@router.get("/clienti/{cliente_id}/quick-view")
+async def get_cliente_quick_view(cliente_id: str):
+    """
+    Get quick view data for a client: last sales and top 3 products.
+    Used in search modal.
+    """
+    cliente = await db.clienti.find_one({"id": cliente_id}, {"_id": 0})
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente non trovato")
+    
+    nome = cliente.get('nome', '')
+    
+    # Get last 5 sales
+    ultime_vendite = await db.vendite.find(
+        {"cliente_nome": nome},
+        {"_id": 0, "data": 1, "prodotto_nome": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1}
+    ).sort("data", -1).limit(5).to_list(5)
+    
+    # Get all sales for top products
+    all_vendite = await db.vendite.find(
+        {"cliente_nome": nome},
+        {"_id": 0, "prodotto_nome": 1, "totale": 1, "quantita": 1}
+    ).to_list(10000)
+    
+    # Calculate top products by revenue
+    prodotti_stats = {}
+    for v in all_vendite:
+        prod = v.get('prodotto_nome', '')
+        if prod:
+            if prod not in prodotti_stats:
+                prodotti_stats[prod] = {'totale': 0, 'quantita': 0, 'ordini': 0}
+            prodotti_stats[prod]['totale'] += abs(v.get('totale', 0))
+            prodotti_stats[prod]['quantita'] += abs(v.get('quantita', 0))
+            prodotti_stats[prod]['ordini'] += 1
+    
+    top_prodotti = sorted(
+        [{'nome': k, **v} for k, v in prodotti_stats.items()],
+        key=lambda x: x['totale'],
+        reverse=True
+    )[:3]
+    
+    # Total stats
+    fatturato_totale = sum(abs(v.get('totale', 0)) for v in all_vendite)
+    num_ordini = len(set(v.get('data', '') for v in all_vendite))
+    
+    return {
+        "cliente": cliente,
+        "fatturato_totale": round(fatturato_totale, 2),
+        "num_ordini": num_ordini,
+        "ultime_vendite": [
+            {
+                "data": v.get('data', ''),
+                "prodotto": v.get('prodotto_nome', ''),
+                "quantita": abs(v.get('quantita', 0)),
+                "prezzo_unitario": v.get('prezzo_unitario', 0),
+                "totale": abs(v.get('totale', 0))
+            }
+            for v in ultime_vendite
+        ],
+        "top_prodotti": [
+            {
+                "nome": p['nome'],
+                "totale": round(p['totale'], 2),
+                "quantita": round(p['quantita'], 2),
+                "ordini": p['ordini']
+            }
+            for p in top_prodotti
+        ]
+    }
+
+
+@router.get("/clienti-by-name/{cliente_nome}/quick-view")
+async def get_cliente_quick_view_by_name(cliente_nome: str):
+    """
+    Get quick view data for a client by name.
+    """
+    from urllib.parse import unquote
+    cliente_nome = unquote(cliente_nome)
+    
+    cliente = await db.clienti.find_one({"nome": cliente_nome}, {"_id": 0})
+    if not cliente:
+        # Create a minimal cliente object for clients not in the database
+        cliente = {"nome": cliente_nome, "id": None}
+    
+    nome = cliente_nome
+    
+    # Get last 5 sales
+    ultime_vendite = await db.vendite.find(
+        {"cliente_nome": nome},
+        {"_id": 0, "data": 1, "prodotto_nome": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1}
+    ).sort("data", -1).limit(5).to_list(5)
+    
+    # Get all sales for top products
+    all_vendite = await db.vendite.find(
+        {"cliente_nome": nome},
+        {"_id": 0, "prodotto_nome": 1, "totale": 1, "quantita": 1}
+    ).to_list(10000)
+    
+    # Calculate top products by revenue
+    prodotti_stats = {}
+    for v in all_vendite:
+        prod = v.get('prodotto_nome', '')
+        if prod:
+            if prod not in prodotti_stats:
+                prodotti_stats[prod] = {'totale': 0, 'quantita': 0, 'ordini': 0}
+            prodotti_stats[prod]['totale'] += abs(v.get('totale', 0))
+            prodotti_stats[prod]['quantita'] += abs(v.get('quantita', 0))
+            prodotti_stats[prod]['ordini'] += 1
+    
+    top_prodotti = sorted(
+        [{'nome': k, **v} for k, v in prodotti_stats.items()],
+        key=lambda x: x['totale'],
+        reverse=True
+    )[:3]
+    
+    # Total stats
+    fatturato_totale = sum(abs(v.get('totale', 0)) for v in all_vendite)
+    num_ordini = len(set(v.get('data', '') for v in all_vendite))
+    
+    return {
+        "cliente": cliente,
+        "fatturato_totale": round(fatturato_totale, 2),
+        "num_ordini": num_ordini,
+        "ultime_vendite": [
+            {
+                "data": v.get('data', ''),
+                "prodotto": v.get('prodotto_nome', ''),
+                "quantita": abs(v.get('quantita', 0)),
+                "prezzo_unitario": v.get('prezzo_unitario', 0),
+                "totale": abs(v.get('totale', 0))
+            }
+            for v in ultime_vendite
+        ],
+        "top_prodotti": [
+            {
+                "nome": p['nome'],
+                "totale": round(p['totale'], 2),
+                "quantita": round(p['quantita'], 2),
+                "ordini": p['ordini']
+            }
+            for p in top_prodotti
+        ]
+    }
+
+
 # ===== Fornitori =====
 
 @router.get("/fornitori", response_model=List[Fornitore])
