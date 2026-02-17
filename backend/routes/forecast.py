@@ -122,7 +122,11 @@ async def generate_forecast(
         
         entity_name = nome
         entity_type = "cliente"
-        extra_context = f"Prodotti preferiti: {', '.join([f\"{p['_id']} ({p['ordini']} ord.)\" for p in top_prodotti])}" if top_prodotti else ""
+        if top_prodotti:
+            prodotti_strs = [p['_id'] + ' (' + str(p['ordini']) + ' ord.)' for p in top_prodotti]
+            extra_context = 'Prodotti preferiti: ' + ', '.join(prodotti_strs)
+        else:
+            extra_context = ""
     
     if not storico:
         return {
