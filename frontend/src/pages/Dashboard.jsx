@@ -185,29 +185,14 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Debounced search
+  // Debounced search - both products and clients together
   useEffect(() => {
     const timer = setTimeout(() => {
       searchProdotti(prodottoSearch);
+      searchClienti(prodottoSearch);
     }, 150);
     return () => clearTimeout(timer);
-  }, [prodottoSearch, searchProdotti]);
-
-  // Search clienti function
-  const searchClienti = useCallback(async (query) => {
-    if (!query || query.trim().length === 0) {
-      setClienteSearchResults([]);
-      return;
-    }
-    setClienteSearchLoading(true);
-    try {
-      const response = await axios.get(`${API}/clienti`, { params: { search: query, limit: 30 } });
-      setClienteSearchResults(response.data?.clienti || response.data || []);
-    } catch (e) {
-      setClienteSearchResults([]);
-    } finally {
-      setClienteSearchLoading(false);
-    }
+  }, [prodottoSearch, searchProdotti, searchClienti]);
   }, []);
 
   // Debounced cliente search
