@@ -135,19 +135,31 @@ async def get_prodotto_analisi(prodotto_nome: str, periodo: str = "all"):
     from datetime import datetime, timedelta
     
     prodotto_nome = unquote(prodotto_nome)
+    now = datetime.now()
     
     # Calculate date filter based on periodo
-    date_filter = None
-    if periodo == "1m":
-        date_filter = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    date_filter_start = None
+    date_filter_end = None
+    
+    if periodo == "prev_month":
+        first_of_this_month = now.replace(day=1)
+        last_day_prev_month = first_of_this_month - timedelta(days=1)
+        first_of_prev_month = last_day_prev_month.replace(day=1)
+        date_filter_start = first_of_prev_month.strftime("%Y-%m-%d")
+        date_filter_end = last_day_prev_month.strftime("%Y-%m-%d")
+    elif periodo == "1m":
+        date_filter_start = (now - timedelta(days=30)).strftime("%Y-%m-%d")
     elif periodo == "3m":
-        date_filter = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
+        date_filter_start = (now - timedelta(days=90)).strftime("%Y-%m-%d")
     elif periodo == "6m":
-        date_filter = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
+        date_filter_start = (now - timedelta(days=180)).strftime("%Y-%m-%d")
     
     query = {"prodotto_nome": prodotto_nome}
-    if date_filter:
-        query["data"] = {"$gte": date_filter}
+    if date_filter_start:
+        if date_filter_end:
+            query["data"] = {"$gte": date_filter_start, "$lte": date_filter_end}
+        else:
+            query["data"] = {"$gte": date_filter_start}
     
     vendite = await db.vendite.find(query, {"_id": 0}).to_list(10000)
     if not vendite:
