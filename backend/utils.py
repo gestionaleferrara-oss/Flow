@@ -124,6 +124,16 @@ async def process_csv_row(row: dict, stats: dict, col_mapping: dict, cache: dict
     quantita = abs(quantita)
     importo_totale = abs(importo_totale)
     importo_unitario = abs(importo_unitario)
+    
+    # Fix: If unit price seems wrong (much larger than total), recalculate it
+    if quantita > 0 and importo_totale > 0:
+        calculated_unit = importo_totale / quantita
+        # If importo_unitario is way off (more than 10x the calculated value), use calculated
+        if importo_unitario > calculated_unit * 10 or importo_unitario < calculated_unit / 10:
+            importo_unitario = calculated_unit
+    elif quantita > 0 and importo_unitario > 0 and importo_totale == 0:
+        importo_totale = quantita * importo_unitario
+    
     qty_change = quantita if movimento_upper == 'CARICO' else -quantita
     if is_reso and 'ACQUISTI' in causale:
         qty_change = -quantita
