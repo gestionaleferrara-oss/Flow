@@ -246,3 +246,31 @@ async def _flush_and_update(cache):
                     "valore_scorte": valore_scorte
                 }}
             )
+
+
+async def _flush_and_update_incremental(cache):
+    """Update DB with incremental changes"""
+    if cache['vendite_batch']:
+        await db.vendite.insert_many(cache['vendite_batch'])
+    if cache['ordini_batch']:
+        await db.ordini.insert_many(cache['ordini_batch'])
+    
+    for nome_prodotto, prod_data in cache['prodotti'].items():
+        if isinstance(prod_data, dict):
+            # Add qty_change to existing quantity
+            existing_qty = prod_data.get('quantita', 0)
+            qty_change = prod_data.get('qty_change', 0)
+            new_qty = max(0, existing_qty + qty_change)
+            prezzo_medio = prod_data.get('prezzo_medio', 0)
+            valore_scorte = new_qty * prezzo_medio if prezzo_medio > 0 else 0
+            
+            if qty_change != 0:  # Only update if there was a change
+                await db.prodotti.update_one(
+                    {"nome": nome_prodotto},
+                    {"$set": {
+                        "quantita": new_qty,
+                        "prezzo_medio": prezzo_medio,
+                        "valore_scorte": valore_scorte
+                    }}
+                )
+
