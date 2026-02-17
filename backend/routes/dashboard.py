@@ -1088,26 +1088,52 @@ async def ai_chat(data: dict):
         ]
         top_clienti = await db.vendite.aggregate(clienti_pipeline).to_list(20)
         
-        # 4. Suppliers with their top products
+        # 4. Suppliers with their top products AND recent orders
         fornitori = await db.fornitori.find({}, {"_id": 0, "id": 1, "nome": 1}).to_list(500)
         fornitori_ordini = []
-        for f in fornitori[:20]:  # Limit to top 20 suppliers
-            ordini_pipeline = [
-                {"$match": {"fornitore_nome": f.get('nome', '')}},
-                {"$group": {
-                    "_id": "$prodotto_nome",
-                    "totale_acquistato": {"$sum": {"$abs": "$totale"}},
-                    "quantita": {"$sum": {"$abs": "$quantita"}}
-                }},
-                {"$sort": {"totale_acquistato": -1}},
-                {"$limit": 5}
-            ]
-            fornitore_top = await db.ordini.aggregate(ordini_pipeline).to_list(5)
-            if fornitore_top:
-                fornitori_ordini.append({
-                    'fornitore': f.get('nome', ''),
-                    'top_prodotti': [{'nome': o['_id'], 'totale': o['totale_acquistato'], 'qty': o['quantita']} for o in fornitore_top]
+        
+        # Get recent orders from suppliers (last 30 days)
+        thirty_days_ago = (reference_date - timedelta(days=30)).strftime("%Y-%m-%d")
+        recent_ordini = await db.ordini.find(
+            {"data": {"$gte": thirty_days_ago}},
+            {"_id": 0, "data": 1, "fornitore_nome": 1, "prodotto_nome": 1, "quantita": 1, "totale": 1}
+        ).sort("data", -1).to_list(1000)
+        
+        # Group orders by supplier
+        ordini_per_fornitore = {}
+        for o in recent_ordini:
+            fornitore = o.get('fornitore_nome', '')
+            if fornitore:
+                if fornitore not in ordini_per_fornitore:
+                    ordini_per_fornitore[fornitore] = []
+                ordini_per_fornitore[fornitore].append({
+                    'data': o.get('data', ''),
+                    'prodotto': o.get('prodotto_nome', ''),
+                    'qty': abs(o.get('quantita', 0)),
+                    'totale': abs(o.get('totale', 0))
                 })
+        
+        # Build detailed supplier orders context
+        fornitori_dettaglio = []
+        for fornitore, ordini in sorted(ordini_per_fornitore.items(), key=lambda x: sum(o['totale'] for o in x[1]), reverse=True)[:25]:
+            prodotti_fornitore = {}
+            for o in ordini:
+                prod = o['prodotto']
+                if prod not in prodotti_fornitore:
+                    prodotti_fornitore[prod] = {'qty': 0, 'totale': 0}
+                prodotti_fornitore[prod]['qty'] += o['qty']
+                prodotti_fornitore[prod]['totale'] += o['totale']
+            
+            top_prods = sorted(prodotti_fornitore.items(), key=lambda x: x[1]['totale'], reverse=True)[:5]
+            prods_str = ', '.join([f"{p[0]} ({p[1]['qty']:.0f}u €{p[1]['totale']:.0f})" for p in top_prods])
+            totale_fornitore = sum(p[1]['totale'] for p in top_prods)
+            fornitori_dettaglio.append(f"- {fornitore} (€{totale_fornitore:,.0f}): {prods_str}")
+            
+            # Also add to fornitori_ordini for backward compatibility
+            fornitori_ordini.append({
+                'fornitore': fornitore,
+                'top_prodotti': [{'nome': p[0], 'totale': p[1]['totale'], 'qty': p[1]['qty']} for p in top_prods]
+            })
         
         # 5. RECENT SALES - Last 14 days with full details (for specific queries)
         fourteen_days_ago = (reference_date - timedelta(days=14)).strftime("%Y-%m-%d")
@@ -1132,7 +1158,7 @@ async def ai_chat(data: dict):
         
         # Build detailed recent sales context
         recent_sales_context = []
-        for cliente, vendite in sorted(vendite_per_cliente.items(), key=lambda x: sum(v['totale'] for v in x[1]), reverse=True)[:20]:
+        for cliente, vendite in sorted(vendite_per_cliente.items(), key=lambda x: sum(v['totale'] for v in x[1]), reverse=True)[:25]:
             prodotti_cliente = {}
             for v in vendite:
                 prod = v['prodotto']
@@ -1143,12 +1169,17 @@ async def ai_chat(data: dict):
             
             top_prods = sorted(prodotti_cliente.items(), key=lambda x: x[1]['totale'], reverse=True)[:5]
             prods_str = ', '.join([f"{p[0]} ({p[1]['qty']:.0f}u €{p[1]['totale']:.0f})" for p in top_prods])
-            recent_sales_context.append(f"- {cliente}: {prods_str}")
+            totale_cliente = sum(p[1]['totale'] for p in top_prods)
+            recent_sales_context.append(f"- {cliente} (€{totale_cliente:,.0f}): {prods_str}")
         
-        # 6. Monthly revenue summary
+        # 6. Get ALL clients for fuzzy matching
+        all_clienti_db = await db.clienti.find({}, {"_id": 0, "nome": 1}).to_list(1000)
+        all_clienti_nomi = [c.get('nome', '') for c in all_clienti_db if c.get('nome')]
+        
+        # 7. Monthly revenue summary
         fatturato_mese = sum(t['fatturato'] for t in top_vendite)
         
-        # 7. Current stock value
+        # 8. Current stock value
         valore_totale_magazzino = sum(p['valore_scorte'] for p in prodotti_list)
         
         # Helper function for building fornitore line
