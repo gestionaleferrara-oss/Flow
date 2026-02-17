@@ -120,6 +120,27 @@ export default function Dashboard() {
     } catch (e) {} finally { setLoadingAi(false); }
   };
 
+  // AI Chat function
+  const sendAiChat = async () => {
+    if (!aiChatMessage.trim() || aiChatLoading) return;
+    
+    const userMessage = aiChatMessage.trim();
+    setAiChatMessage('');
+    setAiChatLoading(true);
+    setAiChatHistory(prev => [...prev, { role: 'user', content: userMessage }]);
+    
+    try {
+      const response = await axios.post(`${API}/ai-chat`, { message: userMessage });
+      if (response.data.success) {
+        setAiChatHistory(prev => [...prev, { role: 'assistant', content: response.data.response }]);
+      }
+    } catch (e) {
+      setAiChatHistory(prev => [...prev, { role: 'assistant', content: 'Errore nella risposta AI. Riprova.' }]);
+    } finally {
+      setAiChatLoading(false);
+    }
+  };
+
   const loadTrendsVendite = useCallback(async (periodo, ordinaPer, limit = 20) => {
     try {
       const response = await axios.get(`${API}/trends-vendite`, {
