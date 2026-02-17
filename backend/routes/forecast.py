@@ -49,9 +49,10 @@ async def get_forecast_clienti(search: str = ""):
 async def generate_forecast(
     tipo: str = Query("prodotto", enum=["prodotto", "cliente"]),
     nome: str = Query(...),
-    mese_target: str = Query(...)  # Format: YYYY-MM
+    mese_target: str = Query(...),  # Format: YYYY-MM
+    metrica: str = Query("fatturato", enum=["fatturato", "richieste"])  # Which metric to forecast
 ):
-    """Generate AI-powered sales forecast"""
+    """Generate AI-powered sales forecast for revenue or order count"""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     
     EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
@@ -60,7 +61,7 @@ async def generate_forecast(
     try:
         target_year, target_month = map(int, mese_target.split("-"))
         target_date = datetime(target_year, target_month, 1)
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Formato mese non valido. Usa YYYY-MM")
     
     # Get ALL historical data (no date limit)
@@ -73,7 +74,7 @@ async def generate_forecast(
                 "_id": "$mese",
                 "fatturato": {"$sum": {"$abs": "$totale"}},
                 "quantita": {"$sum": {"$abs": "$quantita"}},
-                "num_ordini": {"$sum": 1}
+                "richieste": {"$sum": 1}
             }},
             {"$sort": {"_id": 1}}
         ]
@@ -82,7 +83,7 @@ async def generate_forecast(
         # Get top clients for this product - ALL TIME
         top_clienti_pipeline = [
             {"$match": {"prodotto_nome": nome, "cliente_nome": {"$nin": EXCLUDED}}},
-            {"$group": {"_id": "$cliente_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
+            {"$group": {"_id": "$cliente_nome", "totale": {"$sum": {"$abs": "$totale"}}, "ordini": {"$sum": 1}}},
             {"$sort": {"totale": -1}},
             {"$limit": 5}
         ]
@@ -90,7 +91,7 @@ async def generate_forecast(
         
         entity_name = nome
         entity_type = "prodotto"
-        extra_context = f"Top clienti: {', '.join([c['_id'] for c in top_clienti])}" if top_clienti else ""
+        extra_context = f"Top clienti: {', '.join([f\"{c['_id']} ({c['ordini']} ord.)\" for c in top_clienti])}" if top_clienti else ""
         
     else:  # cliente
         # Get monthly purchases for this client - ALL TIME
@@ -100,7 +101,7 @@ async def generate_forecast(
             {"$group": {
                 "_id": "$mese",
                 "fatturato": {"$sum": {"$abs": "$totale"}},
-                "num_ordini": {"$sum": 1}
+                "richieste": {"$sum": 1}
             }},
             {"$sort": {"_id": 1}}
         ]
@@ -109,7 +110,7 @@ async def generate_forecast(
         # Get top products for this client - ALL TIME
         top_prod_pipeline = [
             {"$match": {"cliente_nome": nome}},
-            {"$group": {"_id": "$prodotto_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
+            {"$group": {"_id": "$prodotto_nome", "totale": {"$sum": {"$abs": "$totale"}}, "ordini": {"$sum": 1}}},
             {"$sort": {"totale": -1}},
             {"$limit": 5}
         ]
@@ -117,7 +118,7 @@ async def generate_forecast(
         
         entity_name = nome
         entity_type = "cliente"
-        extra_context = f"Prodotti preferiti: {', '.join([p['_id'] for p in top_prodotti])}" if top_prodotti else ""
+        extra_context = f"Prodotti preferiti: {', '.join([f\"{p['_id']} ({p['ordini']} ord.)\" for p in top_prodotti])}" if top_prodotti else ""
     
     if not storico:
         return {
@@ -129,33 +130,42 @@ async def generate_forecast(
                'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
     target_month_name = mesi_it[target_month - 1]
     
-    # Calculate statistics
-    media_mensile = sum(s['fatturato'] for s in storico) / len(storico) if storico else 0
+    # Use selected metric for calculations
+    metric_key = metrica  # 'fatturato' or 'richieste'
+    metric_label = "Fatturato" if metrica == "fatturato" else "Richieste"
+    metric_unit = "€" if metrica == "fatturato" else ""
+    metric_suffix = "" if metrica == "fatturato" else " ordini"
+    
+    # Calculate statistics using selected metric
+    values = [s.get(metric_key, 0) for s in storico]
+    media_mensile = sum(values) / len(values) if values else 0
     ultimo_mese = storico[-1] if storico else None
-    ultimo_mese_str = f"{ultimo_mese['_id']}: €{ultimo_mese['fatturato']:,.2f}" if ultimo_mese else "N/A"
+    ultimo_mese_val = ultimo_mese.get(metric_key, 0) if ultimo_mese else 0
+    ultimo_mese_str = f"{ultimo_mese['_id']}: {metric_unit}{ultimo_mese_val:,.2f}{metric_suffix}" if ultimo_mese else "N/A"
     
     # Data for the SAME month in previous years (key for forecast)
     same_month_data = [s for s in storico if s['_id'].endswith(f"-{target_month:02d}")]
-    same_month_avg = sum(s['fatturato'] for s in same_month_data) / len(same_month_data) if same_month_data else 0
-    same_month_max = max(s['fatturato'] for s in same_month_data) if same_month_data else 0
-    same_month_min = min(s['fatturato'] for s in same_month_data) if same_month_data else 0
+    same_month_values = [s.get(metric_key, 0) for s in same_month_data]
+    same_month_avg = sum(same_month_values) / len(same_month_values) if same_month_values else 0
+    same_month_max = max(same_month_values) if same_month_values else 0
+    same_month_min = min(same_month_values) if same_month_values else 0
     
     # Year over year comparison for same month
     same_month_trend = ""
     if len(same_month_data) >= 2:
         sorted_same = sorted(same_month_data, key=lambda x: x['_id'])
-        last_year = sorted_same[-1]['fatturato']
-        prev_year = sorted_same[-2]['fatturato']
+        last_year = sorted_same[-1].get(metric_key, 0)
+        prev_year = sorted_same[-2].get(metric_key, 0)
         yoy_change = ((last_year - prev_year) / prev_year * 100) if prev_year > 0 else 0
         same_month_trend = f"Trend anno su anno: {yoy_change:+.1f}%"
     
     same_month_context = ""
     if same_month_data:
         same_month_context = f"""
-Dati storici per {target_month_name}:
-- Media: €{same_month_avg:,.2f}
-- Massimo: €{same_month_max:,.2f}
-- Minimo: €{same_month_min:,.2f}
+Dati storici per {target_month_name} ({metric_label}):
+- Media: {metric_unit}{same_month_avg:,.2f}{metric_suffix}
+- Massimo: {metric_unit}{same_month_max:,.2f}{metric_suffix}
+- Minimo: {metric_unit}{same_month_min:,.2f}{metric_suffix}
 {same_month_trend}"""
     
     # Calculate forecasts for 3 months (target + next 2)
@@ -172,17 +182,18 @@ Dati storici per {target_month_name}:
         
         # Get historical data for this specific month
         month_historical = [s for s in storico if s['_id'].endswith(f"-{forecast_month:02d}")]
+        month_values = [s.get(metric_key, 0) for s in month_historical]
         
-        if month_historical:
-            hist_avg = sum(s['fatturato'] for s in month_historical) / len(month_historical)
-            hist_max = max(s['fatturato'] for s in month_historical)
-            hist_min = min(s['fatturato'] for s in month_historical)
+        if month_values:
+            hist_avg = sum(month_values) / len(month_values)
+            hist_max = max(month_values)
+            hist_min = min(month_values)
             
             # Calculate trend
             if len(month_historical) >= 2:
                 sorted_hist = sorted(month_historical, key=lambda x: x['_id'])
-                recent = sorted_hist[-1]['fatturato']
-                older = sorted_hist[0]['fatturato']
+                recent = sorted_hist[-1].get(metric_key, 0)
+                older = sorted_hist[0].get(metric_key, 0)
                 trend_pct = ((recent - older) / older * 100) if older > 0 else 0
             else:
                 trend_pct = 0
@@ -198,24 +209,25 @@ Dati storici per {target_month_name}:
             forecast_min = media_mensile * 0.7
             forecast_max = media_mensile * 1.3
             trend_pct = 0
+            hist_avg = 0
         
         previsioni_mesi.append({
             "mese": month_key,
             "mese_nome": f"{month_name} {forecast_year}",
-            "previsione": round(forecast_value, 2),
-            "minimo": round(forecast_min, 2),
-            "massimo": round(forecast_max, 2),
-            "storico_avg": round(hist_avg if month_historical else 0, 2),
+            "previsione": round(forecast_value, 2) if metrica == "fatturato" else round(forecast_value),
+            "minimo": round(forecast_min, 2) if metrica == "fatturato" else round(forecast_min),
+            "massimo": round(forecast_max, 2) if metrica == "fatturato" else round(forecast_max),
+            "storico_avg": round(hist_avg, 2) if metrica == "fatturato" else round(hist_avg),
             "trend": round(trend_pct, 1),
             "anni_dati": len(month_historical)
         })
     
     # Build context for AI
     storico_recente = storico[-6:] if len(storico) > 6 else storico
-    storico_str = "\n".join([f"- {s['_id']}: €{s['fatturato']:,.2f}" for s in storico_recente])
+    storico_str = "\n".join([f"- {s['_id']}: {metric_unit}{s.get(metric_key, 0):,.2f}{metric_suffix}" for s in storico_recente])
     
     previsioni_str = "\n".join([
-        f"- {p['mese_nome']}: €{p['previsione']:,.2f} (range €{p['minimo']:,.2f} - €{p['massimo']:,.2f})"
+        f"- {p['mese_nome']}: {metric_unit}{p['previsione']:,.2f}{metric_suffix} (range {metric_unit}{p['minimo']:,.2f} - {metric_unit}{p['massimo']:,.2f}{metric_suffix})"
         for p in previsioni_mesi
     ])
     
@@ -228,15 +240,17 @@ Dati storici per {target_month_name}:
         chat = LlmChat(
             api_key=api_key, 
             session_id=f"forecast-{uuid.uuid4()}", 
-            system_message="""Sei un analista business senior nel settore ortofrutticolo italiano.
+            system_message=f"""Sei un analista business senior nel settore ortofrutticolo italiano.
 Genera analisi dettagliate e previsioni concrete basate sui dati forniti.
+IMPORTANTE: Stai analizzando la metrica "{metric_label}" ({metric_unit if metrica == 'fatturato' else 'numero di ordini/richieste'}).
 Rispondi SEMPRE in italiano. Sii professionale ma accessibile."""
         ).with_model("openai", "gpt-4o")
         
         prompt = f"""ANALISI PREVISIONALE: {entity_type.upper()} "{entity_name}"
+METRICA: {metric_label.upper()}
 Periodo: {previsioni_mesi[0]['mese_nome']} - {previsioni_mesi[-1]['mese_nome']}
 
-STORICO RECENTE (ultimi 6 mesi disponibili):
+STORICO RECENTE (ultimi 6 mesi disponibili - {metric_label}):
 {storico_str}
 
 DATI STORICI MESE TARGET ({target_month_name}):
@@ -251,6 +265,7 @@ Genera un'analisi completa che includa:
 
 ## SINTESI PREVISIONE
 Riassumi le previsioni per i 3 mesi in modo chiaro, indicando il valore atteso e il range.
+{"Indica il fatturato atteso in euro." if metrica == "fatturato" else "Indica il numero di ordini/richieste attesi."}
 
 ## FATTORI CHIAVE
 Elenca i 3-4 fattori principali che influenzano queste previsioni (stagionalità, trend mercato, eventi, etc.)
@@ -264,7 +279,7 @@ Indica 1-2 potenziali rischi da monitorare.
 ## RACCOMANDAZIONI
 3 azioni operative immediate da intraprendere.
 
-Sii specifico e basati sui dati forniti."""
+Sii specifico e basati sui dati forniti. La metrica è {metric_label}."""
 
         user_message = UserMessage(text=prompt)
         ai_response = await chat.send_message(user_message)
@@ -273,10 +288,12 @@ Sii specifico e basati sui dati forniti."""
             "success": True,
             "tipo": entity_type,
             "nome": entity_name,
+            "metrica": metrica,
+            "metrica_label": metric_label,
             "mese_target": mese_target,
             "mese_target_nome": f"{target_month_name} {target_year}",
             "previsioni": previsioni_mesi,
-            "storico": [{"mese": s["_id"], "fatturato": round(s["fatturato"], 2)} for s in storico[-12:]],
+            "storico": [{"mese": s["_id"], "valore": round(s.get(metric_key, 0), 2)} for s in storico[-12:]],
             "statistiche": {
                 "media_mensile": round(media_mensile, 2),
                 "stesso_mese_avg": round(same_month_avg, 2),
