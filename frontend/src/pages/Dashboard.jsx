@@ -786,11 +786,14 @@ export default function Dashboard() {
                             <Tooltip 
                               contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8 }}
                               labelStyle={{ color: '#94a3b8' }}
-                              formatter={(v, name) => [formatCurrency(v), name === 'prezzo_medio' ? 'Media' : name === 'prezzo_min' ? 'Min' : 'Max']}
+                              formatter={(v, name) => {
+                                const label = name === 'prezzo_medio' ? 'Media' : name === 'prezzo_min' ? 'Min' : name === 'prezzo_max' ? 'Max' : name;
+                                return [formatCurrency(v), label];
+                              }}
                             />
-                            <Line type="monotone" dataKey="prezzo_medio" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', r: 3 }} name="Media" />
-                            <Line type="monotone" dataKey="prezzo_min" stroke="#6b7280" strokeWidth={1} strokeDasharray="3 3" dot={false} name="Min" />
-                            <Line type="monotone" dataKey="prezzo_max" stroke="#6b7280" strokeWidth={1} strokeDasharray="3 3" dot={false} name="Max" />
+                            <Line type="monotone" dataKey="prezzo_medio" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', r: 3 }} name="prezzo_medio" />
+                            <Line type="monotone" dataKey="prezzo_min" stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" dot={false} name="prezzo_min" />
+                            <Line type="monotone" dataKey="prezzo_max" stroke="#f59e0b" strokeWidth={1} strokeDasharray="3 3" dot={false} name="prezzo_max" />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
