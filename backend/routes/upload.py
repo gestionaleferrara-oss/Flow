@@ -58,7 +58,7 @@ async def upload_csv(file: UploadFile = File(...)):
 
 
 @router.post("/upload-multiple")
-async def upload_multiple_files(files: List[UploadFile] = File(...)):
+async def upload_multiple_files(files: List[UploadFile] = File(...), mode: str = "incremental"):
     total_stats = {
         'new_clienti': 0, 'existing_clienti': 0, 'new_fornitori': 0, 'existing_fornitori': 0,
         'new_prodotti': 0, 'existing_prodotti': 0, 'vendite_created': 0, 'ordini_created': 0,
@@ -66,11 +66,15 @@ async def upload_multiple_files(files: List[UploadFile] = File(...)):
         'rows_processed': 0, 'files_processed': 0, 'errors': []
     }
 
-    await db.vendite.delete_many({})
-    await db.ordini.delete_many({})
-    await db.prodotti.update_many({}, {"$set": {"quantita": 0}})
-
-    cache = await _build_cache()
+    # Only delete if mode is 'full'
+    if mode == 'full':
+        await db.vendite.delete_many({})
+        await db.ordini.delete_many({})
+        await db.prodotti.update_many({}, {"$set": {"quantita": 0}})
+        cache = await _build_cache()
+    else:
+        cache = await _build_cache_with_quantities()
+    
     BATCH_SIZE = 500
 
     for file in files:
