@@ -91,7 +91,11 @@ async def generate_forecast(
         
         entity_name = nome
         entity_type = "prodotto"
-        extra_context = f"Top clienti: {', '.join([f\"{c['_id']} ({c['ordini']} ord.)\" for c in top_clienti])}" if top_clienti else ""
+        if top_clienti:
+            clienti_strs = [c['_id'] + ' (' + str(c['ordini']) + ' ord.)' for c in top_clienti]
+            extra_context = 'Top clienti: ' + ', '.join(clienti_strs)
+        else:
+            extra_context = ""
         
     else:  # cliente
         # Get monthly purchases for this client - ALL TIME
