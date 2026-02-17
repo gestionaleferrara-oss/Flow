@@ -5,7 +5,6 @@ import {
   Search,
   AlertTriangle,
   Calendar,
-  Plus,
   Edit2,
   Check,
   X,
@@ -13,8 +12,7 @@ import {
   ChevronRight,
   CircleCheck,
   CircleAlert,
-  CircleX,
-  Package
+  CircleX
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
