@@ -1184,6 +1184,90 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* Cliente Quick View Modal - From Search */}
+      <Dialog open={showClienteQuickView} onOpenChange={setShowClienteQuickView}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-auto" data-testid="cliente-quick-view-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-cyan-400" />
+              {clienteQuickViewData?.cliente?.nome || 'Cliente'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingClienteQuickView ? (
+            <div className="py-8 flex justify-center"><LoadingSpinner /></div>
+          ) : clienteQuickViewData ? (
+            <div className="space-y-4">
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                  <p className="text-[10px] text-cyan-400/70 mb-0.5">Fatturato Totale</p>
+                  <p className="text-lg font-bold text-cyan-400">{formatCurrency(clienteQuickViewData.fatturato_totale)}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-white/5 border border-white/[0.06]">
+                  <p className="text-[10px] text-slate-500 mb-0.5">N. Visite</p>
+                  <p className="text-lg font-bold text-white">{clienteQuickViewData.num_ordini}</p>
+                </div>
+              </div>
+              
+              {/* Last Sales */}
+              {clienteQuickViewData.ultime_vendite?.length > 0 && (
+                <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                  <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-cyan-400" /> Ultime Vendite
+                  </h4>
+                  <div className="space-y-2">
+                    {clienteQuickViewData.ultime_vendite.map((v, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm bg-white/[0.02] px-3 py-2 rounded-lg">
+                        <span className="text-slate-500 text-xs">{formatDate(v.data)}</span>
+                        <span className="text-slate-300 text-xs truncate max-w-[150px]">{v.prodotto}</span>
+                        <span className="text-slate-400 text-xs">x{v.quantita}</span>
+                        <span className="text-cyan-400 font-medium text-xs">{formatCurrency(v.totale)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Top 3 Products */}
+              {clienteQuickViewData.top_prodotti?.length > 0 && (
+                <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-3">
+                  <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-2">
+                    <Package className="w-3.5 h-3.5 text-emerald-400" /> Top 3 Prodotti Acquistati
+                  </h4>
+                  <div className="space-y-2">
+                    {clienteQuickViewData.top_prodotti.map((p, i) => (
+                      <div key={p.nome} className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                        <span className="flex-1 text-sm text-slate-300 truncate">{p.nome}</span>
+                        <span className="text-xs text-slate-500">{p.ordini} ord.</span>
+                        <span className="text-emerald-400 font-medium text-xs">{formatCurrency(p.totale)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Action Button - View All Products */}
+              <Button 
+                variant="outline" 
+                className="w-full gap-2"
+                onClick={() => {
+                  setShowClienteQuickView(false);
+                  viewClienteProdotti(null, clienteQuickViewData.cliente?.nome);
+                }}
+                data-testid="view-all-products-btn"
+              >
+                <Search className="w-4 h-4" />
+                Vedi tutti i prodotti acquistati
+              </Button>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-slate-500 text-sm">Nessun dato disponibile</div>
+          )}
+        </DialogContent>
+      </Dialog>
+
 
       {/* Card Detail Modal */}
       <Dialog open={!!cardDetailType} onOpenChange={(open) => { if (!open) { setCardDetailType(null); setCardDetail(null); } }}>
