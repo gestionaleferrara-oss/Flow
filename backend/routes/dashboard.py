@@ -1148,6 +1148,18 @@ DATI AZIENDA ORTOFRUTTICOLA - Aggiornati al {reference_date.strftime("%Y-%m-%d")
 {chr(10).join([build_fornitore_line(fo) for fo in fornitori_ordini[:15]])}
 """
 
+        # Add list of all entity names for fuzzy matching
+        all_prodotti_names = [p['nome'] for p in prodotti_list]
+        all_clienti_names = [c['_id'] for c in top_clienti]
+        all_fornitori_names = [f.get('nome', '') for f in fornitori]
+        
+        entity_lists = f"""
+=== LISTA COMPLETA NOMI (per riferimento) ===
+PRODOTTI: {', '.join(all_prodotti_names[:50])}...
+CLIENTI ATTIVI: {', '.join(all_clienti_names[:30])}
+FORNITORI: {', '.join(all_fornitori_names[:30])}
+"""
+
         # Call AI
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
@@ -1159,30 +1171,35 @@ DATI AZIENDA ORTOFRUTTICOLA - Aggiornati al {reference_date.strftime("%Y-%m-%d")
             system_message="""Sei un assistente business AI esperto nel settore ortofrutticolo italiano.
 Hai accesso completo a tutti i dati dell'azienda: vendite, clienti, fornitori, magazzino, ordini.
 
-IMPORTANTE:
-- Rispondi SEMPRE in italiano
-- Sii preciso e basati sui dati forniti
-- Quando ti viene chiesto di formulare ordini, usa i dati reali di vendita e giacenza
-- Per suggerire ordini: considera i prodotti che vendono di più, la giacenza attuale, e il fornitore appropriato
-- Fornisci quantità concrete basate sulle vendite medie
-- Se non hai abbastanza dati, dillo chiaramente
+REGOLE FONDAMENTALI:
+1. Rispondi SEMPRE in italiano
+2. USA SOLO I NUMERI DAI DATI FORNITI - non inventare mai cifre
+3. Se l'utente scrive un nome in modo impreciso (es. "ortofrutta" invece di "ORTOFRUTTA SRL"), cerca di trovare il match più simile nella lista entità
+4. Quando formuli ordini, basa le quantità sulle vendite reali (es. se un prodotto vende 100 unità al mese, suggerisci quantità proporzionate)
+5. Includi sempre i riferimenti ai dati concreti quando fai affermazioni
+6. Se non trovi un fornitore/cliente/prodotto, elenca quelli disponibili più simili
 
-Puoi aiutare con:
-- Formulare ordini per fornitori specifici
-- Analizzare vendite e trend
-- Suggerire prodotti da riordinare
-- Analizzare clienti e loro preferenze
-- Calcolare statistiche e previsioni
-- Qualsiasi domanda sui dati aziendali"""
+COME FORMULARE ORDINI:
+- Identifica il fornitore (cerca corrispondenza anche parziale del nome)
+- Guarda quali prodotti quel fornitore fornisce
+- Basa le quantità sulle vendite medie degli ultimi 90 giorni
+- Considera la giacenza attuale
+
+FORMATO RISPOSTE:
+- Sii conciso ma completo
+- Usa elenchi puntati
+- Includi sempre numeri reali dai dati"""
         ).with_model("openai", "gpt-4o")
         
-        prompt = f"""CONTESTO DATI:
+        prompt = f"""CONTESTO DATI AZIENDALI:
 {context}
 
-DOMANDA DELL'UTENTE:
+{entity_lists}
+
+DOMANDA UTENTE:
 {message}
 
-Rispondi in modo utile e concreto basandoti sui dati sopra."""
+ISTRUZIONI: Rispondi basandoti ESCLUSIVAMENTE sui dati sopra. Se l'utente cerca un nome non esatto, trova il match più vicino dalla lista entità. Se chiede ordini, usa le quantità reali di vendita per suggerire quantità sensate."""
 
         user_message = UserMessage(text=prompt)
         response = await chat.send_message(user_message)
