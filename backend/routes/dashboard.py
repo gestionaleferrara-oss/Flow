@@ -1224,13 +1224,14 @@ DATI AZIENDA ORTOFRUTTICOLA - Aggiornati al {reference_date.strftime("%Y-%m-%d")
         # Add list of all entity names for fuzzy matching
         all_prodotti_names = [p['nome'] for p in prodotti_list]
         all_clienti_names = list(set(all_clienti_nomi + [c['_id'] for c in top_clienti] + list(vendite_per_cliente.keys())))
-        all_fornitori_names = list(set([f.get('nome', '') for f in fornitori] + list(ordini_per_fornitore.keys())))
+        # Include ALL suppliers from DB, not just those with recent orders
+        all_fornitori_names = list(set([f.get('nome', '') for f in fornitori if f.get('nome')] + list(ordini_per_fornitore.keys())))
         
         entity_lists = f"""
 === LISTA COMPLETA NOMI (per ricerca) ===
 PRODOTTI (primi 60): {', '.join(all_prodotti_names[:60])}
-TUTTI I CLIENTI: {', '.join(sorted(all_clienti_names)[:50])}
-TUTTI I FORNITORI: {', '.join(sorted(all_fornitori_names)[:40])}
+TUTTI I CLIENTI (primi 50): {', '.join(sorted(all_clienti_names)[:50])}
+TUTTI I FORNITORI: {', '.join(sorted(all_fornitori_names))}
 """
 
         # Call AI
