@@ -408,10 +408,18 @@ async def get_trends_vendite(periodo: str = "2w", ordina_per: str = "interest", 
         rev_share = (curr_totale / total_fatturato * 100) if total_fatturato > 0 else 0
         interest_score = rev_share * (1 + min(abs(qty_change), 200) / 100)
         
-        # Calculate margin percentage
+        # Calculate margin percentage - more accurate calculation
         prezzo_acquisto = prezzi_acquisto.get(prod, 0)
         prezzo_vendita_medio = curr_data['prezzo_vendita_sum'] / curr_data['prezzo_vendita_count'] if curr_data['prezzo_vendita_count'] > 0 else 0
-        margine_pct = ((prezzo_vendita_medio - prezzo_acquisto) / prezzo_acquisto * 100) if prezzo_acquisto > 0 and prezzo_vendita_medio > 0 else 0
+        
+        # Margin = (selling price - purchase price) / selling price * 100
+        # This gives a more realistic margin that won't exceed 100%
+        if prezzo_vendita_medio > 0 and prezzo_acquisto > 0:
+            margine_pct = ((prezzo_vendita_medio - prezzo_acquisto) / prezzo_vendita_medio * 100)
+            # Cap margin at reasonable values (-100 to 100)
+            margine_pct = max(-100, min(100, margine_pct))
+        else:
+            margine_pct = 0
         
         trends.append({
             "prodotto": prod, "quantita_2w": round(curr_qty, 1), "quantita_prev": round(prev_qty, 1),
