@@ -1141,7 +1141,7 @@ DATI AZIENDA ORTOFRUTTICOLA - Aggiornati al {reference_date.strftime("%Y-%m-%d")
 {chr(10).join([f"- {p['nome']}: {p['quantita']:.0f} unità | €{p['prezzo_medio']:.2f}/u | Valore: €{p['valore_scorte']:.2f}" for p in sorted(prodotti_list, key=lambda x: -x['valore_scorte'])[:30] if p['quantita'] > 0])}
 
 === FORNITORI E LORO PRODOTTI PRINCIPALI ===
-{chr(10).join([f"- {fo['fornitore']}: {', '.join([p['nome'] + f' (€{p[\"totale\"]:,.0f})' for p in fo['top_prodotti'][:3]])}" for fo in fornitori_ordini[:15]])}
+{chr(10).join([build_fornitore_line(fo) for fo in fornitori_ordini[:15]])}
 """
 
         # Call AI
