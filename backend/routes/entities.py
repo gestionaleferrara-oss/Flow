@@ -298,19 +298,33 @@ async def get_cliente_quick_view_by_name(cliente_nome: str, periodo: str = "3m")
     
     # Calculate date filter based on period
     now = datetime.now()
-    if periodo == "1m":
-        date_filter = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    if periodo == "prev_month":
+        # Previous month: from 1st of last month to last day of last month
+        first_of_this_month = now.replace(day=1)
+        last_day_prev_month = first_of_this_month - timedelta(days=1)
+        first_of_prev_month = last_day_prev_month.replace(day=1)
+        date_filter_start = first_of_prev_month.strftime("%Y-%m-%d")
+        date_filter_end = last_day_prev_month.strftime("%Y-%m-%d")
+    elif periodo == "1m":
+        date_filter_start = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+        date_filter_end = None
     elif periodo == "3m":
-        date_filter = (now - timedelta(days=90)).strftime("%Y-%m-%d")
+        date_filter_start = (now - timedelta(days=90)).strftime("%Y-%m-%d")
+        date_filter_end = None
     elif periodo == "6m":
-        date_filter = (now - timedelta(days=180)).strftime("%Y-%m-%d")
+        date_filter_start = (now - timedelta(days=180)).strftime("%Y-%m-%d")
+        date_filter_end = None
     else:
-        date_filter = None  # all time
+        date_filter_start = None  # all time
+        date_filter_end = None
     
     # Build query with optional date filter
     base_query = {"cliente_nome": nome}
-    if date_filter:
-        base_query["data"] = {"$gte": date_filter}
+    if date_filter_start:
+        if date_filter_end:
+            base_query["data"] = {"$gte": date_filter_start, "$lte": date_filter_end}
+        else:
+            base_query["data"] = {"$gte": date_filter_start}
     
     # Get last 5 sales (always most recent)
     ultime_vendite = await db.vendite.find(
