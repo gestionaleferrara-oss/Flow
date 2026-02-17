@@ -17,6 +17,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function Forecast() {
   const [tipo, setTipo] = useState('prodotto'); // 'prodotto' or 'cliente'
+  const [metrica, setMetrica] = useState('fatturato'); // 'fatturato' or 'richieste'
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
