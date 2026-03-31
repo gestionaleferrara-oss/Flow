@@ -165,7 +165,7 @@ export default function Forecast() {
       />
 
       {/* Selection Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div className={cn("grid grid-cols-1 gap-4 mb-6", tipo === 'globale' ? "lg:grid-cols-2" : "lg:grid-cols-3")}>
         {/* Step 1: Select Type */}
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
@@ -219,7 +219,8 @@ export default function Forecast() {
           </div>
         </motion.div>
 
-        {/* Step 2: Search & Select */}
+        {/* Step 2: Search & Select — hidden when Globale */}
+        {tipo !== 'globale' && (
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -229,16 +230,11 @@ export default function Forecast() {
           <div className="flex items-center gap-2 mb-3">
             <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold flex items-center justify-center">2</div>
             <span className="text-sm font-medium text-white">
-              {tipo === 'globale' ? 'Analisi Globale' : selectedEntity ? `Selezionato: ${selectedEntity.nome}` : `Cerca ${tipo === 'prodotto' ? 'Prodotto' : 'Cliente'}`}
+              {selectedEntity ? `Selezionato: ${selectedEntity.nome}` : `Cerca ${tipo === 'prodotto' ? 'Prodotto' : 'Cliente'}`}
             </span>
           </div>
           
-          {tipo === 'globale' ? (
-            <div className="px-3 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-sm flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 shrink-0" />
-              <span>Tutte le vendite aggregate — nessuna selezione necessaria</span>
-            </div>
-          ) : selectedEntity ? (
+          {selectedEntity ? (
             <div className="flex items-center gap-2">
               <div className={cn(
                 "flex-1 px-3 py-2 rounded-lg text-sm",
@@ -289,6 +285,7 @@ export default function Forecast() {
             </div>
           )}
         </motion.div>
+        )}
 
         {/* Step 3: Select Month & Generate */}
         <motion.div 
@@ -298,7 +295,7 @@ export default function Forecast() {
           className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4"
         >
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">3</div>
+            <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">{tipo === 'globale' ? '2' : '3'}</div>
             <span className="text-sm font-medium text-white">Mese Target</span>
           </div>
           <div className="flex gap-2">

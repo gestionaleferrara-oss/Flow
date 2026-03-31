@@ -191,7 +191,14 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
                   : 'text-slate-500 hover:text-slate-200'
               )}
             >
-              {/* AI active state - color only, no background box */}
+              {/* AI active state indicator */}
+              {(location.pathname === '/forecast' || location.pathname === '/report-ai') && !showAiMenu && (
+                <motion.div
+                  layoutId="nav-ai-active"
+                  className="absolute inset-0 rounded-xl bg-purple-500/10 border border-purple-500/20"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
               <div className="relative z-10">
                 <Sparkles size={22} />
               </div>

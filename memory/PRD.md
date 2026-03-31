@@ -78,11 +78,11 @@
 - (P2) Margine widget Trend: chiarire se assoluto o variazione
 - (P3) Image scraper ilcorriereortofrutticolo non funziona
 
-### 2026-03-31 (sessione 2)
-- NUOVO: Forecast Globale — opzione per previsioni su tutte le vendite senza selezionare prodotto/cliente
-- FIX: Rimosso quadrato azzurro dall'icona AI nella sidebar (stato attivo /forecast e /report-ai)
-- FIX: Trend forecast ora usa YoY più recente (ultimi 2 anni, non primo vs ultimo)
-- FIX: Forecasting tipo=globale aggreg tutte le vendite per mese
+### 2026-03-31 (sessione 3)
+- FIX: Ripristinato quadrato viola sidebar AI icon (/forecast, /report-ai) con layoutId separato
+- FIX UI: Grid 2 colonne quando Globale selezionato — step 2 nascosta completamente
+- FIX: Algoritmo forecast migliorato: anchor anno più recente + trend YoY cappato ±25% + momentum recente
+- FIX: AI prompt arricchito con storico completo + tabella YoY anno su anno + analisi trimestrale
 
 ## Changelog
 

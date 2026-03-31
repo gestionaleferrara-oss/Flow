@@ -232,6 +232,7 @@ Dati storici per {target_month_name} ({metric_label}):
         confidence = "alta" if len(month_historical) >= 3 else "media" if len(month_historical) >= 2 else "bassa"
         
         if month_values:
+            sorted_hist = sorted(month_historical, key=lambda x: x['_id'])
             hist_avg = sum(month_values) / len(month_values)
             hist_max = max(month_values)
             hist_min = min(month_values)
@@ -240,26 +241,38 @@ Dati storici per {target_month_name} ({metric_label}):
             if len(month_values) > 1:
                 variance = sum((v - hist_avg) ** 2 for v in month_values) / len(month_values)
                 std_dev = variance ** 0.5
-                cv = (std_dev / hist_avg * 100) if hist_avg > 0 else 0  # Coefficient of variation
+                cv = (std_dev / hist_avg * 100) if hist_avg > 0 else 0
             else:
-                cv = 50  # High uncertainty with single data point
+                cv = 50
             
-            # Calculate trend using most recent year-over-year (last 2 same-month years)
+            # Anchor to the most recent year's same-month value
+            most_recent = sorted_hist[-1].get(metric_key, 0)
+            
+            # YoY trend capped at ±25% to avoid extreme projections
             if len(month_historical) >= 2:
-                sorted_hist = sorted(month_historical, key=lambda x: x['_id'])
-                recent = sorted_hist[-1].get(metric_key, 0)
-                prev = sorted_hist[-2].get(metric_key, 0)  # Year before most recent
-                trend_pct = ((recent - prev) / prev * 100) if prev > 0 else 0
+                prev_year = sorted_hist[-2].get(metric_key, 0)
+                trend_pct = ((most_recent - prev_year) / prev_year * 100) if prev_year > 0 else 0
+                trend_pct_capped = max(-25.0, min(25.0, trend_pct))
             else:
                 trend_pct = 0
+                trend_pct_capped = 0
             
-            # Apply trend to calculate forecast (weighted by confidence)
-            trend_weight = 0.4 if confidence == "alta" else 0.25 if confidence == "media" else 0.1
-            trend_factor = 1 + (trend_pct / 100) * trend_weight
-            forecast_value = hist_avg * trend_factor
+            # Primary projection: most recent year + capped YoY growth
+            primary = most_recent * (1 + trend_pct_capped / 100)
+            
+            # Recent momentum: last 3 months vs overall average
+            recent_months = storico[-3:] if len(storico) >= 3 else storico
+            recent_avg = sum(s.get(metric_key, 0) for s in recent_months) / len(recent_months) if recent_months else media_mensile
+            momentum = (recent_avg - media_mensile) / media_mensile if media_mensile > 0 else 0
+            momentum_adj = max(-0.08, min(0.08, momentum * 0.12))  # gentle nudge max ±8%
+            
+            # Blend primary with historical average (regression to mean based on confidence)
+            blend_primary = 0.65 if confidence == "alta" else 0.55 if confidence == "media" else 0.40
+            blend_hist = 1 - blend_primary
+            forecast_value = (primary * blend_primary + hist_avg * blend_hist) * (1 + momentum_adj)
             
             # Range calculation based on variance
-            range_factor = max(0.15, min(0.35, cv / 100))  # 15%-35% range
+            range_factor = max(0.12, min(0.30, cv / 100))
             forecast_min = forecast_value * (1 - range_factor)
             forecast_max = forecast_value * (1 + range_factor)
         else:
@@ -285,12 +298,37 @@ Dati storici per {target_month_name} ({metric_label}):
             "variabilita": round(cv, 1)
         })
     
-    # Build context for AI
-    storico_recente = storico[-6:] if len(storico) > 6 else storico
-    storico_str = "\n".join([f"- {s['_id']}: {metric_unit}{s.get(metric_key, 0):,.2f}{metric_suffix}" for s in storico_recente])
+    # Build rich context for AI
+    # Full historical data (not just last 6)
+    storico_str = "\n".join([f"- {s['_id']}: {metric_unit}{s.get(metric_key, 0):,.2f}{metric_suffix}" for s in storico])
+    
+    # Year-over-year comparison table
+    from collections import defaultdict
+    by_year = defaultdict(dict)
+    for s in storico:
+        year = s['_id'][:4]
+        month_num = s['_id'][5:7]
+        by_year[year][month_num] = s.get(metric_key, 0)
+    
+    years_available = sorted(by_year.keys())
+    yoy_table = ""
+    if len(years_available) >= 2:
+        yoy_table = f"\nCONFRONTO ANNO SU ANNO ({' vs '.join(years_available)}):\n"
+        mesi_brevi = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic']
+        for m_num in [f"{i:02d}" for i in range(1, 13)]:
+            vals = [by_year[y].get(m_num, 0) for y in years_available]
+            if any(v > 0 for v in vals):
+                vals_str = " | ".join([f"{y}: {metric_unit}{v:>10,.0f}" for y, v in zip(years_available, vals)])
+                # Calculate YoY change
+                if len(vals) >= 2 and vals[-2] > 0:
+                    yoy = (vals[-1] - vals[-2]) / vals[-2] * 100
+                    yoy_str = f" ({yoy:+.1f}%)"
+                else:
+                    yoy_str = ""
+                yoy_table += f"- {mesi_brevi[int(m_num)-1]}: {vals_str}{yoy_str}\n"
     
     previsioni_str = "\n".join([
-        f"- {p['mese_nome']}: {metric_unit}{p['previsione']:,.2f}{metric_suffix} (range {metric_unit}{p['minimo']:,.2f} - {metric_unit}{p['massimo']:,.2f}{metric_suffix}) [Confidenza: {p['confidenza']}, {p['anni_dati']} anni dati]"
+        f"- {p['mese_nome']}: {metric_unit}{p['previsione']:,.2f}{metric_suffix} (range {metric_unit}{p['minimo']:,.2f} - {metric_unit}{p['massimo']:,.2f}{metric_suffix}) [Confidenza: {p['confidenza']}, {p['anni_dati']} anni dati, trend YoY: {p['trend']:+.1f}%]"
         for p in previsioni_mesi
     ])
     
@@ -300,10 +338,9 @@ Dati storici per {target_month_name} ({metric_label}):
         raise HTTPException(status_code=500, detail="API key LLM non configurata")
     
     # Calculate additional context for better predictions
-    total_storico_value = sum(s.get(metric_key, 0) for s in storico)
     months_with_data = len(storico)
     
-    # Trend analysis
+    # Trend analysis (last 3 months vs previous 3)
     if len(storico) >= 3:
         recent_3 = sum(s.get(metric_key, 0) for s in storico[-3:]) / 3
         older_3 = sum(s.get(metric_key, 0) for s in storico[:3]) / 3 if len(storico) >= 6 else recent_3
@@ -317,47 +354,52 @@ Dati storici per {target_month_name} ({metric_label}):
         chat = LlmChat(
             api_key=api_key, 
             session_id=f"forecast-{uuid.uuid4()}", 
-            system_message=f"""Sei un analista business esperto nel settore ortofrutticolo italiano.
+            system_message=f"""Sei un analista business senior specializzato nel settore ortofrutticolo italiano.
+Il tuo compito è analizzare dati reali e fornire previsioni di vendita accurate e consigli pratici.
 REGOLE FONDAMENTALI:
 1. USA SOLO I NUMERI FORNITI - non inventare mai cifre
-2. Le previsioni devono essere REALISTICHE e basate sui dati storici
-3. Rispondi in italiano, in modo conciso e professionale
-4. Se i dati sono insufficienti, dillo chiaramente
-5. Non ripetere gli stessi numeri - varia le previsioni mese per mese in base ai trend"""
+2. Analizza la stagionalità in base al confronto anno su anno fornito
+3. Rispondi in italiano, professionale e conciso
+4. Commenta i trend mese per mese usando i dati storici concreti
+5. Le raccomandazioni devono essere specifiche al settore ortofrutticolo"""
         ).with_model("openai", "gpt-4o")
         
-        prompt = f"""ANALISI PREVISIONALE: {entity_type.upper()} "{entity_name}"
+        prompt = f"""ANALISI PREVISIONALE COMPLETA: {entity_type.upper()} "{entity_name}"
 
-DATI STORICI ({months_with_data} mesi disponibili):
+═══ DATI STORICI COMPLETI ({months_with_data} mesi) ═══
 {storico_str}
 
-STATISTICHE CHIAVE:
-- Media mensile: {metric_unit}{media_mensile:,.2f}{metric_suffix}
-- Trend generale: {trend_description} ({overall_trend:+.1f}%)
-- Dati storici per {target_month_name}: {len(same_month_data)} anni disponibili
-{f'- Media storica {target_month_name}: {metric_unit}{same_month_avg:,.2f}{metric_suffix}' if same_month_data else '- Nessun dato storico per questo mese'}
+{yoy_table}
+═══ STATISTICHE ═══
+- Media mensile storica: {metric_unit}{media_mensile:,.2f}{metric_suffix}
+- Trend recente (ultimi 3 mesi vs precedenti): {trend_description} ({overall_trend:+.1f}%)
+- Dati disponibili per {target_month_name}: {len(same_month_data)} anni
+{f'- Storico {target_month_name} → media: {metric_unit}{same_month_avg:,.2f} | min: {metric_unit}{same_month_min:,.2f} | max: {metric_unit}{same_month_max:,.2f}' if same_month_data else '- Nessun dato storico per questo mese specifico'}
+{same_month_trend}
 
-PREVISIONI CALCOLATE (algoritmo statistico con trend YoY):
+═══ PREVISIONI CALCOLATE (algoritmo statistico) ═══
 {previsioni_str}
 
 {extra_context}
 
-Genera un'analisi CONCISA e SPECIFICA basata SOLO sui dati forniti:
+═══ ANALISI RICHIESTA ═══
 
 ## PREVISIONE {previsioni_mesi[0]['mese_nome'].upper()}
-Indica il valore previsto ({metric_unit}{previsioni_mesi[0]['previsione']:,.2f}{metric_suffix}) e spiega il ragionamento basato sui dati (max 2-3 righe).
-Indica il livello di affidabilità: {previsioni_mesi[0]['confidenza']} (basato su {previsioni_mesi[0]['anni_dati']} anni di dati).
+Analizza il valore previsto di **{metric_unit}{previsioni_mesi[0]['previsione']:,.2f}**{metric_suffix}.
+- Confronta con lo stesso mese dell'anno precedente (usa i dati forniti)
+- Spiega se la previsione è ottimistica, conservativa o in linea con la stagionalità
+- Affidabilità: {previsioni_mesi[0]['confidenza']} ({previsioni_mesi[0]['anni_dati']} anni di dati disponibili)
 
-## TREND ATTESO TRIMESTRE
-Per i prossimi 3 mesi, descrivi:
-- Andamento previsto (crescita/stabile/calo)  
-- Range di variazione atteso
-- Fattori stagionali se rilevanti
+## ANALISI TRIMESTRALE ({previsioni_mesi[0]['mese_nome']} - {previsioni_mesi[-1]['mese_nome']})
+Per ciascuno dei 3 mesi previsti:
+- Commenta il trend YoY specifico di quel mese
+- Indica se ci sono pattern stagionali evidenti dai dati storici
+- Totale trimestre previsto: {metric_unit}{sum(p['previsione'] for p in previsioni_mesi):,.2f}
 
 ## AZIONI CONSIGLIATE
-2-3 suggerimenti PRATICI e SPECIFICI per questo {entity_type}, basati sui pattern osservati.
+3 azioni pratiche e specifiche per ottimizzare le vendite nel trimestre, basate sui pattern osservati nei dati. Sii concreto (es: "nel mese X storicamente si vendono bene Y e Z, considera di aumentare lo stock").
 
-REGOLE: Usa SOLO i numeri forniti. Non inventare cifre. Sii specifico e concreto."""
+IMPORTANTE: Usa SOLO i numeri dei dati forniti. Sii specifico e operativo."""
 
         user_message = UserMessage(text=prompt)
         ai_response = await chat.send_message(user_message)
