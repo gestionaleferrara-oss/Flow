@@ -631,39 +631,40 @@ export default function Dashboard() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
           className="lg:col-span-4 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden"
           data-testid="prodotti-calo-widget">
-          <div className="px-3 py-2 border-b border-white/[0.06] flex items-center gap-2">
-            <div className="p-1.5 rounded-md bg-red-500/15">
-              <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+            <div className="p-2 rounded-md bg-red-500/15">
+              <TrendingDown className="w-4 h-4 text-red-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-xs font-semibold text-white">Prodotti in Calo</h3>
-              <p className="text-[10px] text-slate-500 truncate">
+              <h3 className="text-sm font-semibold text-white">Prodotti in Calo</h3>
+              <p className="text-xs text-slate-500 truncate">
                 {prodottiCaloTopClienti?.mese_precedente && prodottiCaloTopClienti?.mese_corrente 
                   ? `${prodottiCaloTopClienti.mese_precedente} → ${prodottiCaloTopClienti.mese_corrente} • Top ${prodottiCaloTopClienti.clienti_analizzati || 10} clienti` 
                   : 'Caricamento...'}
               </p>
             </div>
           </div>
-          <div className="p-1.5">
+          <div className="p-3">
             {!prodottiCaloTopClienti ? (
-              <div className="flex items-center justify-center h-20"><RefreshCw className="w-4 h-4 text-slate-600 animate-spin" /></div>
+              <div className="flex items-center justify-center h-32"><RefreshCw className="w-4 h-4 text-slate-600 animate-spin" /></div>
             ) : prodottiCaloTopClienti.prodotti_calo?.length > 0 ? (
-              <div className="space-y-0.5">
+              <div className="space-y-1.5">
                 {prodottiCaloTopClienti.prodotti_calo.slice(0, 10).map((p, idx) => (
                   <div key={p.prodotto} 
                     onClick={() => viewProdottoAnalisi({ nome: p.prodotto })}
-                    className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-white/[0.02] cursor-pointer hover:bg-white/[0.05] transition-colors">
-                    <span className="w-3.5 h-3.5 rounded-full bg-red-500/20 text-red-400 text-[8px] font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
-                    <span className="flex-1 text-[10px] text-slate-300 truncate min-w-0">{p.prodotto}</span>
-                    <span className="text-[8px] text-slate-500 shrink-0">{p.qty_mese_prec}→{p.qty_mese_curr}</span>
-                    <span className="text-[9px] font-semibold text-red-400 shrink-0 w-10 text-right">{p.variazione_pct}%</span>
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/[0.02] cursor-pointer hover:bg-white/[0.05] transition-colors">
+                    <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
+                    <span className="flex-1 text-xs text-slate-300 truncate min-w-0">{p.prodotto}</span>
+                    <span className="text-[10px] text-slate-500 shrink-0">{p.qty_mese_prec}→{p.qty_mese_curr}</span>
+                    <span className="text-xs font-semibold text-red-400 shrink-0 w-14 text-right">{p.variazione_pct}%</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-3">
-                <TrendingUp className="w-5 h-5 text-emerald-500/50 mx-auto mb-1" />
-                <p className="text-[10px] text-emerald-400">Nessun calo</p>
+              <div className="text-center py-8">
+                <TrendingUp className="w-8 h-8 text-emerald-500/50 mx-auto mb-2" />
+                <p className="text-sm text-emerald-400">Nessun calo significativo</p>
+                <p className="text-xs text-slate-500 mt-1">I tuoi clienti top mantengono gli ordini</p>
               </div>
             )}
           </div>

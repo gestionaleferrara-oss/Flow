@@ -384,26 +384,35 @@ export default function Statistiche() {
               <select
                 value={compare1Month}
                 onChange={(e) => setCompare1Month(e.target.value)}
-                className="h-8 px-2 rounded-md bg-slate-800 border border-slate-600 text-xs text-white cursor-pointer appearance-auto"
+                className="h-8 w-20 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
                 data-testid="compare-month-1"
-                style={{ colorScheme: 'dark' }}
               >
-                <option value="" className="bg-slate-800 text-white">Mese</option>
-                {monthOptions.map(m => (
-                  <option key={m.value} value={m.value} className="bg-slate-800 text-white">{m.label}</option>
-                ))}
+                <option value="">Mese</option>
+                <option value="01">Gennaio</option>
+                <option value="02">Febbraio</option>
+                <option value="03">Marzo</option>
+                <option value="04">Aprile</option>
+                <option value="05">Maggio</option>
+                <option value="06">Giugno</option>
+                <option value="07">Luglio</option>
+                <option value="08">Agosto</option>
+                <option value="09">Settembre</option>
+                <option value="10">Ottobre</option>
+                <option value="11">Novembre</option>
+                <option value="12">Dicembre</option>
               </select>
               <select
                 value={compare1Year}
                 onChange={(e) => setCompare1Year(e.target.value)}
-                className="h-8 px-2 rounded-md bg-slate-800 border border-slate-600 text-xs text-white cursor-pointer appearance-auto"
+                className="h-8 w-20 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
                 data-testid="compare-year-1"
-                style={{ colorScheme: 'dark' }}
               >
-                <option value="" className="bg-slate-800 text-white">Anno</option>
-                {yearOptions.map(y => (
-                  <option key={y} value={y} className="bg-slate-800 text-white">{y}</option>
-                ))}
+                <option value="">Anno</option>
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+                <option value="2023">2023</option>
+                <option value="2022">2022</option>
               </select>
             </div>
 
@@ -415,26 +424,35 @@ export default function Statistiche() {
               <select
                 value={compare2Month}
                 onChange={(e) => setCompare2Month(e.target.value)}
-                className="h-8 px-2 rounded-md bg-slate-800 border border-slate-600 text-xs text-white cursor-pointer appearance-auto"
+                className="h-8 w-20 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
                 data-testid="compare-month-2"
-                style={{ colorScheme: 'dark' }}
               >
-                <option value="" className="bg-slate-800 text-white">Mese</option>
-                {monthOptions.map(m => (
-                  <option key={m.value} value={m.value} className="bg-slate-800 text-white">{m.label}</option>
-                ))}
+                <option value="">Mese</option>
+                <option value="01">Gennaio</option>
+                <option value="02">Febbraio</option>
+                <option value="03">Marzo</option>
+                <option value="04">Aprile</option>
+                <option value="05">Maggio</option>
+                <option value="06">Giugno</option>
+                <option value="07">Luglio</option>
+                <option value="08">Agosto</option>
+                <option value="09">Settembre</option>
+                <option value="10">Ottobre</option>
+                <option value="11">Novembre</option>
+                <option value="12">Dicembre</option>
               </select>
               <select
                 value={compare2Year}
                 onChange={(e) => setCompare2Year(e.target.value)}
-                className="h-8 px-2 rounded-md bg-slate-800 border border-slate-600 text-xs text-white cursor-pointer appearance-auto"
+                className="h-8 w-20 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
                 data-testid="compare-year-2"
-                style={{ colorScheme: 'dark' }}
               >
-                <option value="" className="bg-slate-800 text-white">Anno</option>
-                {yearOptions.map(y => (
-                  <option key={y} value={y} className="bg-slate-800 text-white">{y}</option>
-                ))}
+                <option value="">Anno</option>
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+                <option value="2023">2023</option>
+                <option value="2022">2022</option>
               </select>
             </div>
 
