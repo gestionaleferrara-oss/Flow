@@ -837,7 +837,11 @@ async def confronta_periodi(
 ):
     """
     Compare two periods and return detailed product-level differences.
+    Diff is calculated as: periodo1 - periodo2 (positive means periodo1 has more)
     """
+    # Determine which period is more recent for proper labeling
+    is_period1_newer = start1 > start2
+    
     # Get sales for period 1
     vendite1 = await db.vendite.find(
         {"data": {"$gte": start1, "$lte": end1}},
@@ -873,6 +877,11 @@ async def confronta_periodi(
     # Combine all products
     all_products = set(prod1.keys()) | set(prod2.keys())
     
+    # Determine which period is more recent (for correct diff calculation)
+    # diff should show: periodo1 compared to periodo2 (periodo1 - periodo2)
+    # If user selected periodo1=Feb2026, periodo2=Jan2026 -> diff shows how Feb changed vs Jan
+    # Positive diff means periodo1 has MORE than periodo2
+    
     confronto = []
     for nome in all_products:
         p1 = prod1.get(nome, {'qty': 0, 'totale': 0})
@@ -887,11 +896,12 @@ async def confronta_periodi(
         prezzo1 = tot1 / qty1 if qty1 > 0 else 0
         prezzo2 = tot2 / qty2 if qty2 > 0 else 0
         
+        # Diff: periodo1 - periodo2 (how much more/less in periodo1 vs periodo2)
         diff_qty = qty1 - qty2
         diff_prezzo = prezzo1 - prezzo2
         diff_totale = tot1 - tot2
         
-        # Calculate percentage changes
+        # Calculate percentage changes (base is periodo2)
         pct_qty = ((qty1 - qty2) / qty2 * 100) if qty2 > 0 else (100 if qty1 > 0 else 0)
         pct_prezzo = ((prezzo1 - prezzo2) / prezzo2 * 100) if prezzo2 > 0 else (100 if prezzo1 > 0 else 0)
         
