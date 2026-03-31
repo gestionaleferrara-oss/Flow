@@ -26,11 +26,11 @@ async def search_prodotti(q: str = "", limit: int = 30):
     if prodotti:
         nomi = [p.get('nome', '') for p in prodotti if p.get('nome')]
         pipeline = [
-            {"$match": {"prodotto_nome": {"$in": nomi}, "prezzo_unitario": {"$gt": 0}}},
-            {"$group": {"_id": "$prodotto_nome", "prezzo_medio": {"$avg": "$prezzo_unitario"}}}
+            {"$match": {"prodotto_nome": {"$in": nomi}, "quantita": {"$gt": 0}, "totale": {"$gt": 0}}},
+            {"$group": {"_id": "$prodotto_nome", "totale_sum": {"$sum": "$totale"}, "qty_sum": {"$sum": "$quantita"}}}
         ]
         prezzi = await db.vendite.aggregate(pipeline).to_list(len(nomi))
-        prezzi_map = {p['_id']: round(p['prezzo_medio'], 2) for p in prezzi}
+        prezzi_map = {p['_id']: round(p['totale_sum'] / p['qty_sum'], 2) if p['qty_sum'] > 0 else 0 for p in prezzi}
         for p in prodotti:
             p['prezzo_vendita_medio'] = prezzi_map.get(p.get('nome', ''), 0)
 
@@ -253,8 +253,9 @@ async def get_prodotto_analisi_acquisti(prodotto_nome: str, periodo: str = "all"
     variazione_prezzi = []
     for m in mesi_sorted:
         ordini_mese = [o for o in ordini if o.get('data', '').startswith(m)]
-        prezzi_mese = [o.get('prezzo_unitario', 0) for o in ordini_mese if o.get('prezzo_unitario', 0) > 0]
-        pm = sum(prezzi_mese) / len(prezzi_mese) if prezzi_mese else 0
+        tot_m = sum(abs(o.get('totale', 0)) for o in ordini_mese)
+        qty_m = sum(abs(o.get('quantita', 0)) for o in ordini_mese)
+        pm = tot_m / qty_m if qty_m > 0 else 0
         if pm > 0:
             variazione_prezzi.append({"mese": m, "prezzo_medio": round(pm, 4)})
     return {
@@ -292,16 +293,17 @@ async def get_prodotto_storico_clienti(prodotto_nome: str):
     if not vendite:
         return {"clienti": [], "storicoPrezzi": [], "prezzoMedioVendita": 0, "costoMedioAcquisto": 0}
     
-    # Get purchase cost for margin calculation
+    # Get purchase cost for margin calculation (weighted average: totale/qty)
     ordini = await db.ordini.find(
-        {"prodotto_nome": prodotto_nome, "prezzo_unitario": {"$gt": 0}},
-        {"_id": 0, "prezzo_unitario": 1}
+        {"prodotto_nome": prodotto_nome, "quantita": {"$gt": 0}, "totale": {"$gt": 0}},
+        {"_id": 0, "quantita": 1, "totale": 1}
     ).to_list(1000)
     
     costo_medio = 0
     if ordini:
-        prezzi_acquisto = [o.get('prezzo_unitario', 0) for o in ordini if o.get('prezzo_unitario', 0) > 0]
-        costo_medio = sum(prezzi_acquisto) / len(prezzi_acquisto) if prezzi_acquisto else 0
+        tot_sum = sum(abs(o.get('totale', 0)) for o in ordini)
+        qty_sum = sum(abs(o.get('quantita', 0)) for o in ordini)
+        costo_medio = tot_sum / qty_sum if qty_sum > 0 else 0
     
     # Group sales by customer
     clienti_vendite = {}
@@ -349,29 +351,36 @@ async def get_prodotto_storico_clienti(prodotto_nome: str):
     # Sort by total sold
     clienti_result.sort(key=lambda x: x['totale_venduto'], reverse=True)
     
-    # Price history by month
+    # Price history by month (weighted average: totale/qty)
     prezzi_mensili = {}
     for v in vendite:
         mese = v.get('data', '')[:7]
         prezzo = v.get('prezzo_unitario', 0)
-        if mese and prezzo > 0:
+        totale_v = abs(v.get('totale', 0))
+        qty_v = abs(v.get('quantita', 0))
+        if mese and qty_v > 0 and totale_v > 0:
             if mese not in prezzi_mensili:
-                prezzi_mensili[mese] = []
-            prezzi_mensili[mese].append(prezzo)
+                prezzi_mensili[mese] = {'totale': 0, 'qty': 0, 'prezzi': []}
+            prezzi_mensili[mese]['totale'] += totale_v
+            prezzi_mensili[mese]['qty'] += qty_v
+            if prezzo > 0:
+                prezzi_mensili[mese]['prezzi'].append(prezzo)
     
     storico_prezzi = []
     for mese in sorted(prezzi_mensili.keys()):
-        prezzi = prezzi_mensili[mese]
+        d = prezzi_mensili[mese]
+        pm = d['totale'] / d['qty'] if d['qty'] > 0 else 0
         storico_prezzi.append({
             "mese": mese,
-            "prezzo_medio": round(sum(prezzi) / len(prezzi), 4),
-            "prezzo_min": round(min(prezzi), 4),
-            "prezzo_max": round(max(prezzi), 4)
+            "prezzo_medio": round(pm, 4),
+            "prezzo_min": round(min(d['prezzi']), 4) if d['prezzi'] else 0,
+            "prezzo_max": round(max(d['prezzi']), 4) if d['prezzi'] else 0
         })
     
-    # Overall average selling price
-    tutti_prezzi = [v.get('prezzo_unitario', 0) for v in vendite if v.get('prezzo_unitario', 0) > 0]
-    prezzo_medio_vendita = sum(tutti_prezzi) / len(tutti_prezzi) if tutti_prezzi else 0
+    # Overall average selling price (weighted: totale/qty)
+    tot_vendita_sum = sum(abs(v.get('totale', 0)) for v in vendite)
+    qty_vendita_sum = sum(abs(v.get('quantita', 0)) for v in vendite)
+    prezzo_medio_vendita = tot_vendita_sum / qty_vendita_sum if qty_vendita_sum > 0 else 0
     
     return {
         "clienti": clienti_result[:20],  # Top 20 customers

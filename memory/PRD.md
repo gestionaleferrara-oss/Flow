@@ -78,6 +78,16 @@
 - (P2) Margine widget Trend: chiarire se assoluto o variazione
 - (P3) Image scraper ilcorriereortofrutticolo non funziona
 
+## Changelog
+
+### 2026-03-31
+- FIX (P1): Calcolo prezzi medi ora usa media ponderata (totale/qty) in tutti gli endpoint di prodotti.py
+  - search_prodotti: rimosso `$avg: prezzo_unitario` → aggregazione `totale_sum/qty_sum`
+  - storico-clienti: costo_medio acquisto ora ponderato su totale/qty ordini
+  - storico-clienti: prezzoMedioVendita ora ponderato su totale/qty vendite
+  - storico-clienti: storico prezzi mensile ora usa media ponderata
+  - analisi-acquisti: variazione_prezzi mensile ora usa media ponderata
+
 ## Backlog
 - Fatturazione/DDT
 - Gestione Pagamenti
