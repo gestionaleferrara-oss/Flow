@@ -627,7 +627,7 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Prodotti in Calo - Top Clienti */}
+        {/* Prodotti in Calo - Clienti Frequenti */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
           className="lg:col-span-4 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden"
           data-testid="prodotti-calo-widget">
@@ -636,39 +636,34 @@ export default function Dashboard() {
               <TrendingDown className="w-4 h-4 text-red-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-white">Calo Clienti Top</h3>
+              <h3 className="text-sm font-semibold text-white">Prodotti in Calo</h3>
               <p className="text-xs text-slate-500 truncate">
-                {prodottiCaloTopClienti?.mese_corrente && prodottiCaloTopClienti?.mese_precedente 
-                  ? `${prodottiCaloTopClienti.mese_precedente} vs ${prodottiCaloTopClienti.mese_corrente}` 
-                  : 'Ultimi 2 mesi'}
+                {prodottiCaloTopClienti?.clienti_analizzati 
+                  ? `Top ${prodottiCaloTopClienti.clienti_analizzati} clienti frequenti` 
+                  : 'Clienti frequenti'}
               </p>
             </div>
           </div>
-          <div className="p-3 max-h-[220px] overflow-y-auto">
+          <div className="p-2">
             {!prodottiCaloTopClienti ? (
               <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 text-slate-600 animate-spin" /></div>
             ) : prodottiCaloTopClienti.prodotti_calo?.length > 0 ? (
-              <div className="space-y-1.5">
-                {prodottiCaloTopClienti.prodotti_calo.slice(0, 6).map((p, idx) => (
+              <div className="space-y-1">
+                {prodottiCaloTopClienti.prodotti_calo.slice(0, 8).map((p, idx) => (
                   <div key={p.prodotto} 
                     onClick={() => viewProdottoAnalisi({ nome: p.prodotto })}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] cursor-pointer hover:bg-white/[0.05] transition-colors">
-                    <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold flex items-center justify-center">{idx + 1}</span>
-                    <span className="flex-1 text-xs text-slate-300 truncate">{p.prodotto}</span>
-                    <div className="text-right">
-                      <span className="text-[10px] text-slate-500">{p.qty_mese_prec}→{p.qty_mese_curr}</span>
-                      <span className="ml-1 text-xs font-semibold text-red-400">{p.variazione_pct}%</span>
-                    </div>
+                    className="flex items-center gap-2 px-2 py-1 rounded-md bg-white/[0.02] cursor-pointer hover:bg-white/[0.05] transition-colors">
+                    <span className="w-4 h-4 rounded-full bg-red-500/20 text-red-400 text-[9px] font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
+                    <span className="flex-1 text-[11px] text-slate-300 truncate min-w-0">{p.prodotto}</span>
+                    <span className="text-[9px] text-slate-500 shrink-0">{p.qty_mese_prec}→{p.qty_mese_curr}</span>
+                    <span className="text-[10px] font-semibold text-red-400 shrink-0 w-12 text-right">{p.variazione_pct}%</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-6">
-                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-2">
-                  <TrendingUp className="w-5 h-5 text-emerald-500/50" />
-                </div>
-                <p className="text-xs text-emerald-400">Nessun calo significativo</p>
-                <p className="text-[10px] text-slate-600 mt-1">I tuoi clienti top mantengono gli ordini</p>
+              <div className="text-center py-4">
+                <TrendingUp className="w-6 h-6 text-emerald-500/50 mx-auto mb-1" />
+                <p className="text-xs text-emerald-400">Nessun calo</p>
               </div>
             )}
           </div>
