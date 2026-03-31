@@ -629,7 +629,7 @@ export default function Dashboard() {
 
         {/* Prodotti in Calo - Top Clienti */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
-          className="lg:col-span-3 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden"
+          className="lg:col-span-4 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden"
           data-testid="prodotti-calo-widget">
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
             <div className="p-2 rounded-md bg-red-500/15">
@@ -672,14 +672,6 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        </motion.div>
-
-        {/* Quick Links - Far Right */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-          className="lg:col-span-2 flex flex-row lg:flex-col gap-2" data-testid="quick-links">
-          <QuickLink href="/upload" icon={Upload} label="Importa" color="blue" />
-          <QuickLink href="/statistiche" icon={BarChart3} label="Statistiche" color="purple" />
-          <QuickLink href="/magazzino" icon={Package} label="Magazzino" color="emerald" />
         </motion.div>
       </div>
 
