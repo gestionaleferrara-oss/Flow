@@ -79,6 +79,7 @@ export default function Statistiche() {
   const [compare2Month, setCompare2Month] = useState('');
   const [compare2Year, setCompare2Year] = useState('');
   const [loadingCompare, setLoadingCompare] = useState(false);
+  const [compareSortBy, setCompareSortBy] = useState('totale'); // 'totale', 'qty', 'prezzo'
 
   const hasActiveFilters = filters.prodotto || filters.cliente || filters.fornitore || filters.startDate || filters.endDate;
 
@@ -576,7 +577,24 @@ export default function Statistiche() {
             {compareData.articoli && compareData.articoli.length > 0 && (
               <div className="mt-4 p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-white">Confronto Articoli</h4>
+                  <div className="flex items-center gap-3">
+                    <h4 className="text-sm font-semibold text-white">Confronto Articoli</h4>
+                    <div className="flex items-center gap-1 text-[10px]">
+                      <span className="text-slate-500">Ordina:</span>
+                      <button
+                        onClick={() => setCompareSortBy('totale')}
+                        className={cn("px-2 py-0.5 rounded", compareSortBy === 'totale' ? "bg-violet-500/20 text-violet-400" : "text-slate-400 hover:text-slate-300")}
+                      >€ Tot</button>
+                      <button
+                        onClick={() => setCompareSortBy('qty')}
+                        className={cn("px-2 py-0.5 rounded", compareSortBy === 'qty' ? "bg-violet-500/20 text-violet-400" : "text-slate-400 hover:text-slate-300")}
+                      >Qty</button>
+                      <button
+                        onClick={() => setCompareSortBy('prezzo')}
+                        className={cn("px-2 py-0.5 rounded", compareSortBy === 'prezzo' ? "bg-violet-500/20 text-violet-400" : "text-slate-400 hover:text-slate-300")}
+                      >€/u</button>
+                    </div>
+                  </div>
                   <span className="text-xs text-slate-500">{compareData.totaleArticoli} prodotti</span>
                 </div>
                 <div className="overflow-x-auto">
@@ -593,7 +611,13 @@ export default function Statistiche() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(showAllProducts ? compareData.articoli : compareData.articoli.slice(0, 10)).map((art, idx) => (
+                      {(() => {
+                        const sorted = [...compareData.articoli].sort((a, b) => {
+                          if (compareSortBy === 'qty') return Math.abs(b.diff_qty) - Math.abs(a.diff_qty);
+                          if (compareSortBy === 'prezzo') return Math.abs(b.diff_prezzo) - Math.abs(a.diff_prezzo);
+                          return Math.abs(b.diff_totale) - Math.abs(a.diff_totale);
+                        });
+                        return (showAllProducts ? sorted : sorted.slice(0, 10)).map((art, idx) => (
                         <tr key={art.prodotto} className="border-b border-slate-700/50 hover:bg-slate-700/20">
                           <td className="py-1.5 pr-4 text-slate-300 truncate max-w-[200px]">{art.prodotto}</td>
                           <td className="py-1.5 px-2 text-right text-slate-300">{art.qty1}</td>
@@ -607,7 +631,8 @@ export default function Statistiche() {
                             {art.diff_prezzo > 0 ? '+' : ''}€{art.diff_prezzo.toFixed(2)}
                           </td>
                         </tr>
-                      ))}
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -634,8 +659,8 @@ export default function Statistiche() {
         </div>
       )}
 
-      {/* KPI Cards - solo con filtri attivi */}
-      {hasActiveFilters && (
+      {/* KPI Cards - solo quando filtri attivi E confronto NON attivo */}
+      {hasActiveFilters && !(showCompare && compareData) && (
         viewMode === 'vendite' ? (
           <div className="space-y-3 mb-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6" data-testid="kpi-cards-vendite">
@@ -666,7 +691,8 @@ export default function Statistiche() {
         )
       )}
 
-      {/* Charts */}
+      {/* Charts - solo quando confronto NON attivo */}
+      {!(showCompare && compareData) && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {viewMode === 'vendite' ? (
           <>
@@ -694,6 +720,7 @@ export default function Statistiche() {
           </>
         )}
       </div>
+      )}
     </PageWrapper>
   );
 }
