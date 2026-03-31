@@ -299,17 +299,41 @@ export default function Forecast() {
             <span className="text-sm font-medium text-white">Mese Target</span>
           </div>
           <div className="flex gap-2">
-            <input
-              type="month"
-              value={meseTarget}
-              onChange={(e) => setMeseTarget(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-white text-sm focus:outline-none focus:border-emerald-500/50"
-              data-testid="mese-target"
-            />
+            {/* Custom month + year selectors */}
+            <div className="flex gap-1.5 flex-1">
+              <select
+                value={meseTarget ? meseTarget.split('-')[1] : ''}
+                onChange={(e) => {
+                  const yr = meseTarget ? meseTarget.split('-')[0] : new Date().getFullYear() + 1;
+                  if (e.target.value) setMeseTarget(`${yr}-${e.target.value}`);
+                }}
+                data-testid="mese-select"
+                className="flex-1 px-2 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-white text-sm focus:outline-none focus:border-emerald-500/50 appearance-none cursor-pointer"
+              >
+                <option value="" className="bg-slate-900">Mese</option>
+                {['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'].map((m, i) => (
+                  <option key={i} value={String(i+1).padStart(2,'0')} className="bg-slate-900">{m}</option>
+                ))}
+              </select>
+              <select
+                value={meseTarget ? meseTarget.split('-')[0] : ''}
+                onChange={(e) => {
+                  const mn = meseTarget ? meseTarget.split('-')[1] : '01';
+                  if (e.target.value) setMeseTarget(`${e.target.value}-${mn}`);
+                }}
+                data-testid="anno-select"
+                className="w-24 px-2 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-white text-sm focus:outline-none focus:border-emerald-500/50 appearance-none cursor-pointer"
+              >
+                <option value="" className="bg-slate-900">Anno</option>
+                {[2024,2025,2026,2027,2028].map(y => (
+                  <option key={y} value={y} className="bg-slate-900">{y}</option>
+                ))}
+              </select>
+            </div>
             <Button 
               onClick={generateForecast}
               disabled={(tipo !== 'globale' && !selectedEntity) || !meseTarget || loading}
-              className="gap-2"
+              className="gap-2 shrink-0"
               data-testid="generate-forecast"
             >
               {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}

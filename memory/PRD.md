@@ -78,11 +78,14 @@
 - (P2) Margine widget Trend: chiarire se assoluto o variazione
 - (P3) Image scraper ilcorriereortofrutticolo non funziona
 
-### 2026-03-31 (sessione 4)
-- FIX Upload: deduplication cambiata da insert+check a upsert (bulk_write) su data+cliente+prodotto — le correzioni ora sostituiscono il vecchio record
-- FIX UI: Sidebar AI icon usa layoutId="nav-active" originale → animazione di transizione ripristinata
-- FIX UI: Step 2 nascosto quando Globale, grid 2 colonne
-- FIX Forecast: barre ora usano globalMax condiviso → proporzioni corrette tra i 3 mesi
+### 2026-03-31 (sessione 5)
+- FIX Sidebar: icona AI ora solo colorata (nessun box/sfondo viola) - rimozione definitiva motion.div
+- FIX UI Forecast: selettori mese+anno distinti (select nativo) al posto di input type=month
+- NUOVO: pdf_helper.py — classe FlowPDF condivisa per tutti i report (header/footer brand, KPI box, tabelle stilizzate, grafico a barre, testo AI formattato)
+- MIGLIORATO: PDF Vendite (KPI, trend mensile, top15 prodotti con margine, top15 clienti)
+- MIGLIORATO: PDF Acquisti (KPI, top15 fornitori, trend mensile, top15 prodotti acquistati)
+- MIGLIORATO: PDF Report AI (KPI metriche, contenuto AI formattato con sezioni)
+- MIGLIORATO: PDF Forecast (KPI, tabella previsioni 3 mesi, storico grafico, analisi AI)
 
 ## Changelog
 

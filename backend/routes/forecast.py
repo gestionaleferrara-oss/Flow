@@ -434,102 +434,72 @@ IMPORTANTE: Usa SOLO i numeri dei dati forniti. Sii specifico e operativo."""
 @router.post("/forecast/export-pdf")
 async def export_forecast_pdf(data: dict):
     """Export forecast to PDF"""
-    from fpdf import FPDF
     from fastapi.responses import Response
-    import re
-    
+    from routes.pdf_helper import FlowPDF, clean_text, C_BLUE, C_EMERALD, C_VIOLET, C_AMBER, C_RED, C_SLATE, C_NAVY
+
     try:
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        
-        # Header
-        pdf.set_font('Helvetica', 'B', 18)
-        pdf.set_text_color(30, 64, 175)
-        pdf.cell(0, 12, 'FORECAST AI', ln=True, align='C')
-        
-        pdf.set_font('Helvetica', '', 11)
-        pdf.set_text_color(100, 100, 100)
-        mese_target = str(data.get('mese_target_nome', '')).encode('ascii', errors='replace').decode('ascii')
-        pdf.cell(0, 8, f"Previsione per {mese_target}", ln=True, align='C')
-        pdf.ln(5)
-        
-        # Entity info
-        pdf.set_font('Helvetica', 'B', 12)
-        pdf.set_text_color(0, 0, 0)
-        tipo_label = "PRODOTTO" if data.get('tipo') == 'prodotto' else "CLIENTE"
-        nome = str(data.get('nome', '')).encode('ascii', errors='replace').decode('ascii')
-        pdf.cell(0, 8, f"{tipo_label}: {nome}", ln=True)
-        pdf.ln(3)
-        
-        # Statistics
+        nome = clean_text(str(data.get('nome', 'N/D')))
+        tipo = str(data.get('tipo', 'prodotto'))
+        tipo_label = {'prodotto': 'Prodotto', 'cliente': 'Cliente', 'globale': 'Vendite Globali'}.get(tipo, tipo.capitalize())
+        mese_target_nome = clean_text(str(data.get('mese_target_nome', '')))
         stats = data.get('statistiche', {})
-        pdf.set_font('Helvetica', 'B', 10)
-        pdf.set_fill_color(240, 240, 240)
-        pdf.cell(0, 7, 'STATISTICHE STORICHE', ln=True, fill=True)
-        pdf.set_font('Helvetica', '', 10)
-        pdf.cell(0, 6, f"Media mensile: EUR {stats.get('media_mensile', 0):.2f}", ln=True)
-        pdf.cell(0, 6, f"Totale periodo analizzato: EUR {stats.get('totale_periodo', 0):.2f}", ln=True)
-        pdf.cell(0, 6, f"Mesi con dati: {stats.get('num_mesi_dati', 0)}", ln=True)
-        pdf.ln(5)
-        
-        # AI Forecast
-        pdf.set_font('Helvetica', 'B', 10)
-        pdf.cell(0, 7, 'PREVISIONE AI', ln=True, fill=True)
-        pdf.set_font('Helvetica', '', 9)
-        
-        # Clean and format AI response
+        previsioni = data.get('previsioni', [])
+        storico = data.get('storico', [])
+
+        subtitle = f"{tipo_label}: {nome}  |  Previsione da {mese_target_nome}"
+        pdf = FlowPDF("FORECAST AI - PREVISIONI VENDITE", subtitle)
+        pdf.add_page()
+
+        # KPI summary
+        media_mensile = stats.get('media_mensile', 0)
+        totale_prev = sum(p.get('previsione', 0) for p in previsioni)
+        media_prev = totale_prev / len(previsioni) if previsioni else 0
+        variazione = ((media_prev - media_mensile) / media_mensile * 100) if media_mensile > 0 else 0
+
+        pdf.kpi_row_4([
+            ("MEDIA MENSILE STORICA", f"EUR {media_mensile:,.2f}", C_BLUE, f"{stats.get('num_mesi_dati', 0)} mesi"),
+            ("PREVISIONE TRIMESTRALE", f"EUR {totale_prev:,.2f}", C_EMERALD, "prossimi 3 mesi"),
+            ("MEDIA MENSILE PREVISTA", f"EUR {media_prev:,.2f}", C_VIOLET, None),
+            ("VARIAZ. VS STORICO", f"{variazione:+.1f}%", C_EMERALD if variazione >= 0 else C_RED, None),
+        ])
+
+        # Forecast per month
+        pdf.section_title("PREVISIONI PER MESE", C_EMERALD)
+        cols = ["Mese", "Previsione EUR", "Min EUR", "Max EUR", "Trend YoY", "Confidenza", "Anni Dati"]
+        widths = [32, 32, 30, 30, 22, 28, 16]
+        pdf.table_header(cols, widths)
+        for i, p in enumerate(previsioni):
+            trend_str = f"{p.get('trend', 0):+.1f}%"
+            pdf.table_row(
+                [clean_text(p.get('mese_nome', '')), f"{p.get('previsione', 0):,.2f}",
+                 f"{p.get('minimo', 0):,.2f}", f"{p.get('massimo', 0):,.2f}",
+                 trend_str, p.get('confidenza', 'N/D'), str(p.get('anni_dati', 0))],
+                widths, ['L', 'R', 'R', 'R', 'R', 'C', 'C'], alt=i % 2 == 1
+            )
+        pdf.ln(4)
+
+        # Historical data
+        if storico:
+            pdf.section_title("STORICO MENSILE (ultimi 12 mesi)", C_BLUE)
+            pdf.mini_bar_chart(
+                [{'mese': s['mese'], 'valore': s['valore']} for s in storico],
+                'mese', 'valore', C_BLUE
+            )
+
+        # AI analysis
         ai_text = str(data.get('previsione_ai', ''))
-        ai_text = ai_text.replace('€', 'EUR ')
-        ai_text = re.sub(r'\*\*([^*]+)\*\*', r'\1', ai_text)
-        ai_text = re.sub(r'\*([^*]+)\*', r'\1', ai_text)
-        ai_text = re.sub(r'#{1,3}\s*', '', ai_text)
-        ai_text = ai_text.encode('ascii', errors='replace').decode('ascii')
-        
-        # Simple text output - each line
-        for line in ai_text.split('\n'):
-            line = line.strip()
-            if not line:
-                pdf.ln(2)
-                continue
-            # Check if it's a header
-            if line.isupper() or (len(line) < 40 and line.endswith(':')):
-                pdf.set_font('Helvetica', 'B', 10)
-                pdf.ln(2)
-                pdf.cell(0, 5, line, ln=True)
-            else:
-                pdf.set_font('Helvetica', '', 9)
-                # Wrap long lines manually
-                words = line.split()
-                current_line = ""
-                for word in words:
-                    test_line = current_line + " " + word if current_line else word
-                    if pdf.get_string_width(test_line) < 180:
-                        current_line = test_line
-                    else:
-                        if current_line:
-                            pdf.cell(0, 4, current_line, ln=True)
-                        current_line = word
-                if current_line:
-                    pdf.cell(0, 4, current_line, ln=True)
-        
-        pdf.ln(8)
-        
-        # Footer
-        pdf.set_font('Helvetica', 'I', 8)
-        pdf.set_text_color(150, 150, 150)
-        generated_at = str(data.get('generated_at', ''))[:10] if data.get('generated_at') else ''
-        pdf.cell(0, 6, f"Generato il {generated_at} - Flow Business Analytics", ln=True, align='C')
-        
-        # Output PDF
+        if ai_text.strip():
+            pdf.section_title("ANALISI AI", C_VIOLET)
+            pdf.ai_text_block(ai_text)
+
         pdf_bytes = pdf.output()
-        
+        safe_name = nome.replace(' ', '_')[:30]
         return Response(
             content=bytes(pdf_bytes),
             media_type="application/pdf",
-            headers={"Content-Disposition": "attachment; filename=forecast.pdf"}
+            headers={"Content-Disposition": f"attachment; filename=forecast_{safe_name}.pdf"}
         )
-        
+
     except Exception as e:
         logger.error(f"Error exporting PDF: {e}")
         raise HTTPException(status_code=500, detail=f"Errore esportazione PDF: {str(e)}")
