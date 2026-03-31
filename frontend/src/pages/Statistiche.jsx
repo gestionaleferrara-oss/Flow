@@ -180,12 +180,12 @@ export default function Statistiche() {
     }
   };
 
-  // Generate month options for comparison (last 12 months)
+  // Generate month options for comparison (last 3 years = 36 months)
   const getMonthOptions = () => {
     const months = [];
     const now = new Date();
     const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 36; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       months.push({
         value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
@@ -380,30 +380,32 @@ export default function Statistiche() {
       {showCompare && (
         <div className="mb-6 p-4 bg-violet-500/5 rounded-xl border border-violet-500/20">
           <div className="flex flex-wrap items-end gap-4 mb-4">
-            <div className="flex-1 min-w-[140px]">
+            <div className="flex-1 min-w-[160px]">
               <label className="block text-xs text-slate-400 mb-1.5">Mese 1</label>
               <select
                 value={compareMese1}
                 onChange={(e) => setCompareMese1(e.target.value)}
-                className="w-full h-9 px-3 rounded-lg bg-slate-800 border border-slate-700 text-sm text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                className="w-full h-9 px-3 rounded-lg bg-slate-800 border border-slate-700 text-sm text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500 cursor-pointer"
                 data-testid="compare-month-1"
+                style={{ WebkitAppearance: 'menulist', appearance: 'menulist' }}
               >
-                <option value="">Seleziona mese</option>
+                <option value="">Seleziona mese...</option>
                 {monthOptions.map(m => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
             </div>
             <div className="text-slate-500 text-sm font-medium pb-2">vs</div>
-            <div className="flex-1 min-w-[140px]">
+            <div className="flex-1 min-w-[160px]">
               <label className="block text-xs text-slate-400 mb-1.5">Mese 2</label>
               <select
                 value={compareMese2}
                 onChange={(e) => setCompareMese2(e.target.value)}
-                className="w-full h-9 px-3 rounded-lg bg-slate-800 border border-slate-700 text-sm text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                className="w-full h-9 px-3 rounded-lg bg-slate-800 border border-slate-700 text-sm text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500 cursor-pointer"
                 data-testid="compare-month-2"
+                style={{ WebkitAppearance: 'menulist', appearance: 'menulist' }}
               >
-                <option value="">Seleziona mese</option>
+                <option value="">Seleziona mese...</option>
                 {monthOptions.map(m => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
