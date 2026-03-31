@@ -1119,53 +1119,45 @@ Formatta il report in markdown."""
 
 @router.post("/ai-reports/export-pdf")
 async def export_report_pdf(data: dict):
-    """Export AI report to PDF"""
     from fastapi.responses import Response
-    from routes.pdf_helper import FlowPDF, clean_text, C_BLUE, C_EMERALD, C_VIOLET, C_AMBER, C_SLATE, C_RED
-
+    from routes.pdf_helper import FlowPDF, clean_text, C_BLUE, C_EMERALD, C_VIOLET, C_AMBER, C_RED, C_SLATE
     try:
-        tipo = str(data.get('tipo', 'Report')).upper()
-        periodo_inizio = str(data.get('periodo_inizio', ''))
-        periodo_fine = str(data.get('periodo_fine', ''))
-        metriche = data.get('metriche', {})
-        created_at = str(data.get('created_at', ''))[:10]
+        tipo       = str(data.get('tipo','Report')).upper()
+        p_inizio   = str(data.get('periodo_inizio',''))
+        p_fine     = str(data.get('periodo_fine',''))
+        metriche   = data.get('metriche', {})
+        created_at = str(data.get('created_at',''))[:10]
+        contenuto  = str(data.get('contenuto',''))
 
-        subtitle = f"Periodo: {periodo_inizio}  -  {periodo_fine}"
-        pdf = FlowPDF(f"REPORT AI - {tipo}", subtitle)
+        fatturato   = metriche.get('fatturato', 0)
+        num_vendite = metriche.get('num_vendite', 0)
+        c_inattivi  = metriche.get('clienti_inattivi', 0)
+        variazione  = float(metriche.get('variazione_percentuale', 0) or 0)
+
+        pdf = FlowPDF(f"REPORT AI — {tipo}", f"Periodo: {p_inizio}  —  {p_fine}")
         pdf.add_page()
 
-        # KPI boxes
-        fatturato = metriche.get('fatturato', 0)
-        num_vendite = metriche.get('num_vendite', 0)
-        clienti_inattivi = metriche.get('clienti_inattivi', 0)
-        variazione = metriche.get('variazione_percentuale', 0) or 0
-
         kpis = [
-            ("FATTURATO PERIODO", f"EUR {fatturato:,.2f}", C_BLUE, periodo_inizio + " / " + periodo_fine),
-            ("TRANSAZIONI", f"{num_vendite:,}", C_EMERALD, None),
-            ("CLIENTI INATTIVI", f"{clienti_inattivi}", C_AMBER if clienti_inattivi > 0 else C_EMERALD, "da seguire"),
+            ("FATTURATO PERIODO",  f"EUR {fatturato:,.2f}", C_BLUE,   f"{p_inizio} / {p_fine}"),
+            ("TRANSAZIONI",        f"{num_vendite:,}",       C_EMERALD, None),
+            ("CLIENTI INATTIVI",   f"{c_inattivi}",
+             C_AMBER if c_inattivi > 0 else C_EMERALD, "da ricontattare"),
         ]
         if variazione:
-            kpis.append(("VARIAZIONE", f"{variazione:+.1f}%", C_EMERALD if variazione >= 0 else C_RED, "vs periodo prec."))
-        pdf.kpi_row_4(kpis)
+            kpis.append(("VARIAZIONE", f"{variazione:+.1f}%",
+                          C_EMERALD if variazione >= 0 else C_RED, "vs periodo prec."))
+        pdf.kpi_row(kpis)
 
-        # AI Analysis content
-        pdf.section_title("ANALISI AI - CONTENUTO COMPLETO", C_VIOLET)
-        contenuto = str(data.get('contenuto', ''))
+        pdf.section_title("Analisi AI — Contenuto completo", C_VIOLET, top_gap=3)
         pdf.ai_text_block(contenuto)
 
         pdf.ln(6)
-        pdf.set_font('Helvetica', 'I', 7.5)
-        pdf.set_text_color(*C_SLATE)
-        pdf.cell(0, 5, f"Report generato il {created_at}  |  Flow Business Analytics  |  Confidenziale", align='C', new_x='LMARGIN', new_y='NEXT')
+        pdf.set_font('Helvetica','I',7.5); pdf.set_text_color(*C_SLATE)
+        pdf.cell(0,5,f"Report generato il {created_at}  |  Flow Business Analytics  |  Confidenziale",align='C')
 
         pdf_bytes = pdf.output()
-        return Response(
-            content=bytes(pdf_bytes),
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=report_{tipo.lower()}.pdf"}
-        )
-
+        return Response(bytes(pdf_bytes), media_type="application/pdf",
+                        headers={"Content-Disposition": f"attachment; filename=report_{tipo.lower()}.pdf"})
     except Exception as e:
         logger.error(f"Error exporting report PDF: {e}")
         raise HTTPException(status_code=500, detail=f"Errore export PDF: {str(e)}")

@@ -433,73 +433,71 @@ IMPORTANTE: Usa SOLO i numeri dei dati forniti. Sii specifico e operativo."""
 
 @router.post("/forecast/export-pdf")
 async def export_forecast_pdf(data: dict):
-    """Export forecast to PDF"""
     from fastapi.responses import Response
-    from routes.pdf_helper import FlowPDF, clean_text, C_BLUE, C_EMERALD, C_VIOLET, C_AMBER, C_RED, C_SLATE, C_NAVY
-
+    from routes.pdf_helper import FlowPDF, clean_text, C_BLUE, C_EMERALD, C_VIOLET, C_AMBER, C_RED, C_SLATE
     try:
-        nome = clean_text(str(data.get('nome', 'N/D')))
-        tipo = str(data.get('tipo', 'prodotto'))
-        tipo_label = {'prodotto': 'Prodotto', 'cliente': 'Cliente', 'globale': 'Vendite Globali'}.get(tipo, tipo.capitalize())
-        mese_target_nome = clean_text(str(data.get('mese_target_nome', '')))
-        stats = data.get('statistiche', {})
+        nome     = clean_text(str(data.get('nome','N/D')))
+        tipo     = str(data.get('tipo','prodotto'))
+        tipo_lbl = {'prodotto':'Prodotto','cliente':'Cliente','globale':'Vendite Globali'}.get(tipo, tipo.capitalize())
+        mese_lbl = clean_text(str(data.get('mese_target_nome','')))
+        stats    = data.get('statistiche', {})
         previsioni = data.get('previsioni', [])
-        storico = data.get('storico', [])
+        storico    = data.get('storico', [])
+        ai_text    = str(data.get('previsione_ai',''))
 
-        subtitle = f"{tipo_label}: {nome}  |  Previsione da {mese_target_nome}"
-        pdf = FlowPDF("FORECAST AI - PREVISIONI VENDITE", subtitle)
+        media_m   = stats.get('media_mensile', 0)
+        tot_prev  = sum(p.get('previsione',0) for p in previsioni)
+        media_prev = tot_prev / len(previsioni) if previsioni else 0
+        var = (media_prev - media_m) / media_m * 100 if media_m > 0 else 0
+
+        subtitle = f"{tipo_lbl}: {nome}  |  Previsione da {mese_lbl}"
+        pdf = FlowPDF("FORECAST AI — PREVISIONI VENDITE", subtitle)
         pdf.add_page()
 
-        # KPI summary
-        media_mensile = stats.get('media_mensile', 0)
-        totale_prev = sum(p.get('previsione', 0) for p in previsioni)
-        media_prev = totale_prev / len(previsioni) if previsioni else 0
-        variazione = ((media_prev - media_mensile) / media_mensile * 100) if media_mensile > 0 else 0
-
-        pdf.kpi_row_4([
-            ("MEDIA MENSILE STORICA", f"EUR {media_mensile:,.2f}", C_BLUE, f"{stats.get('num_mesi_dati', 0)} mesi"),
-            ("PREVISIONE TRIMESTRALE", f"EUR {totale_prev:,.2f}", C_EMERALD, "prossimi 3 mesi"),
-            ("MEDIA MENSILE PREVISTA", f"EUR {media_prev:,.2f}", C_VIOLET, None),
-            ("VARIAZ. VS STORICO", f"{variazione:+.1f}%", C_EMERALD if variazione >= 0 else C_RED, None),
+        pdf.kpi_row([
+            ("MEDIA MENSILE STORICA",  f"EUR {media_m:,.2f}",   C_BLUE,    f"{stats.get('num_mesi_dati',0)} mesi dati"),
+            ("PREVISIONE TRIMESTRALE", f"EUR {tot_prev:,.2f}",   C_EMERALD, "prossimi 3 mesi"),
+            ("MEDIA MENSILE PREVISTA", f"EUR {media_prev:,.2f}", C_VIOLET,  None),
+            ("VARIAZ. VS STORICO",     f"{var:+.1f}%",
+             C_EMERALD if var >= 0 else C_RED, None),
         ])
 
-        # Forecast per month
-        pdf.section_title("PREVISIONI PER MESE", C_EMERALD)
-        cols = ["Mese", "Previsione EUR", "Min EUR", "Max EUR", "Trend YoY", "Confidenza", "Anni Dati"]
-        widths = [32, 32, 30, 30, 22, 28, 16]
-        pdf.table_header(cols, widths)
-        for i, p in enumerate(previsioni):
-            trend_str = f"{p.get('trend', 0):+.1f}%"
-            pdf.table_row(
-                [clean_text(p.get('mese_nome', '')), f"{p.get('previsione', 0):,.2f}",
-                 f"{p.get('minimo', 0):,.2f}", f"{p.get('massimo', 0):,.2f}",
-                 trend_str, p.get('confidenza', 'N/D'), str(p.get('anni_dati', 0))],
-                widths, ['L', 'R', 'R', 'R', 'R', 'C', 'C'], alt=i % 2 == 1
-            )
-        pdf.ln(4)
+        # 3-month forecast table
+        pdf.section_title("Previsioni per mese", C_EMERALD, top_gap=3)
+        rows_p = []
+        for p in previsioni:
+            trend_str = f"{p.get('trend',0):+.1f}%"
+            rows_p.append([
+                clean_text(p.get('mese_nome','')),
+                f"{p.get('previsione',0):,.2f}",
+                f"{p.get('minimo',0):,.2f}",
+                f"{p.get('massimo',0):,.2f}",
+                trend_str,
+                p.get('confidenza','N/D'),
+                str(p.get('anni_dati',0))
+            ])
+        pdf.smart_table(
+            ["Mese","Previsione EUR","Min EUR","Max EUR","Trend YoY","Confidenza","Dati"],
+            [34, 34, 30, 30, 22, 28, 12],
+            rows_p,
+            ['L','R','R','R','R','C','C']
+        )
 
-        # Historical data
+        # Historical bar chart
         if storico:
-            pdf.section_title("STORICO MENSILE (ultimi 12 mesi)", C_BLUE)
-            pdf.mini_bar_chart(
-                [{'mese': s['mese'], 'valore': s['valore']} for s in storico],
-                'mese', 'valore', C_BLUE
-            )
+            pdf.section_title("Storico mensile — ultimi 12 mesi", C_BLUE, top_gap=3)
+            pairs = [(s['mese'], s['valore']) for s in storico]
+            pdf.monthly_chart(pairs, 'EUR ')
 
         # AI analysis
-        ai_text = str(data.get('previsione_ai', ''))
         if ai_text.strip():
-            pdf.section_title("ANALISI AI", C_VIOLET)
+            pdf.section_title("Analisi AI", C_VIOLET, top_gap=3)
             pdf.ai_text_block(ai_text)
 
         pdf_bytes = pdf.output()
-        safe_name = nome.replace(' ', '_')[:30]
-        return Response(
-            content=bytes(pdf_bytes),
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=forecast_{safe_name}.pdf"}
-        )
-
+        safe = nome.replace(' ','_')[:30]
+        return Response(bytes(pdf_bytes), media_type="application/pdf",
+                        headers={"Content-Disposition": f"attachment; filename=forecast_{safe}.pdf"})
     except Exception as e:
         logger.error(f"Error exporting PDF: {e}")
         raise HTTPException(status_code=500, detail=f"Errore esportazione PDF: {str(e)}")
