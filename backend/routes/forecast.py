@@ -47,8 +47,8 @@ async def get_forecast_clienti(search: str = ""):
 
 @router.get("/forecast/generate")
 async def generate_forecast(
-    tipo: str = Query("prodotto", enum=["prodotto", "cliente"]),
-    nome: str = Query(...),
+    tipo: str = Query("prodotto", enum=["prodotto", "cliente", "globale"]),
+    nome: Optional[str] = Query(None),
     mese_target: str = Query(...),  # Format: YYYY-MM
     metrica: str = Query("fatturato", enum=["fatturato", "richieste"])  # Which metric to forecast
 ):
@@ -65,7 +65,41 @@ async def generate_forecast(
         raise HTTPException(status_code=400, detail="Formato mese non valido. Usa YYYY-MM")
     
     # Get ALL historical data (no date limit)
-    if tipo == "prodotto":
+    if tipo == "globale":
+        # Aggregate ALL sales by month (excluding internal movements)
+        pipeline = [
+            {"$match": {"cliente_nome": {"$nin": EXCLUDED}, "totale": {"$gt": 0}}},
+            {"$addFields": {"mese": {"$substr": ["$data", 0, 7]}}},
+            {"$group": {
+                "_id": "$mese",
+                "fatturato": {"$sum": {"$abs": "$totale"}},
+                "quantita": {"$sum": {"$abs": "$quantita"}},
+                "richieste": {"$sum": 1}
+            }},
+            {"$sort": {"_id": 1}}
+        ]
+        storico = await db.vendite.aggregate(pipeline).to_list(200)
+        
+        # Top products globally
+        top_prod_pipeline = [
+            {"$match": {"cliente_nome": {"$nin": EXCLUDED}}},
+            {"$group": {"_id": "$prodotto_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
+            {"$sort": {"totale": -1}},
+            {"$limit": 5}
+        ]
+        top_prodotti = await db.vendite.aggregate(top_prod_pipeline).to_list(5)
+        
+        entity_name = "Vendite Globali"
+        entity_type = "globale"
+        if top_prodotti:
+            prodotti_strs = [f"{p['_id']} (€{p['totale']:,.0f})" for p in top_prodotti if p['_id']]
+            extra_context = 'Top prodotti per fatturato: ' + ', '.join(prodotti_strs)
+        else:
+            extra_context = ""
+
+    elif tipo == "prodotto":
+        if not nome:
+            raise HTTPException(status_code=400, detail="nome richiesto per tipo prodotto")
         # Get monthly sales for this product - ALL TIME
         pipeline = [
             {"$match": {"prodotto_nome": nome}},
@@ -98,6 +132,8 @@ async def generate_forecast(
             extra_context = ""
         
     else:  # cliente
+        if not nome:
+            raise HTTPException(status_code=400, detail="nome richiesto per tipo cliente")
         # Get monthly purchases for this client - ALL TIME
         pipeline = [
             {"$match": {"cliente_nome": nome}},
@@ -158,14 +194,14 @@ async def generate_forecast(
     same_month_max = max(same_month_values) if same_month_values else 0
     same_month_min = min(same_month_values) if same_month_values else 0
     
-    # Year over year comparison for same month
+    # Year over year comparison for same month (most recent YoY)
     same_month_trend = ""
     if len(same_month_data) >= 2:
         sorted_same = sorted(same_month_data, key=lambda x: x['_id'])
         last_year = sorted_same[-1].get(metric_key, 0)
         prev_year = sorted_same[-2].get(metric_key, 0)
         yoy_change = ((last_year - prev_year) / prev_year * 100) if prev_year > 0 else 0
-        same_month_trend = f"Trend anno su anno: {yoy_change:+.1f}%"
+        same_month_trend = f"Trend anno su anno (ultimo): {yoy_change:+.1f}%"
     
     same_month_context = ""
     if same_month_data:
@@ -208,12 +244,12 @@ Dati storici per {target_month_name} ({metric_label}):
             else:
                 cv = 50  # High uncertainty with single data point
             
-            # Calculate trend
+            # Calculate trend using most recent year-over-year (last 2 same-month years)
             if len(month_historical) >= 2:
                 sorted_hist = sorted(month_historical, key=lambda x: x['_id'])
                 recent = sorted_hist[-1].get(metric_key, 0)
-                older = sorted_hist[0].get(metric_key, 0)
-                trend_pct = ((recent - older) / older * 100) if older > 0 else 0
+                prev = sorted_hist[-2].get(metric_key, 0)  # Year before most recent
+                trend_pct = ((recent - prev) / prev * 100) if prev > 0 else 0
             else:
                 trend_pct = 0
             
@@ -301,7 +337,7 @@ STATISTICHE CHIAVE:
 - Dati storici per {target_month_name}: {len(same_month_data)} anni disponibili
 {f'- Media storica {target_month_name}: {metric_unit}{same_month_avg:,.2f}{metric_suffix}' if same_month_data else '- Nessun dato storico per questo mese'}
 
-PREVISIONI CALCOLATE (algoritmo statistico):
+PREVISIONI CALCOLATE (algoritmo statistico con trend YoY):
 {previsioni_str}
 
 {extra_context}

@@ -74,9 +74,15 @@
 - Fix encoding PDF
 
 ## Known Issues
-- (P1) AI Forecast: accuratezza da migliorare
+- (P1) AI Forecast: accuratezza da migliorare — MIGLIORATA (trend YoY più recente)
 - (P2) Margine widget Trend: chiarire se assoluto o variazione
 - (P3) Image scraper ilcorriereortofrutticolo non funziona
+
+### 2026-03-31 (sessione 2)
+- NUOVO: Forecast Globale — opzione per previsioni su tutte le vendite senza selezionare prodotto/cliente
+- FIX: Rimosso quadrato azzurro dall'icona AI nella sidebar (stato attivo /forecast e /report-ai)
+- FIX: Trend forecast ora usa YoY più recente (ultimi 2 anni, non primo vs ultimo)
+- FIX: Forecasting tipo=globale aggreg tutte le vendite per mese
 
 ## Changelog
 

@@ -16,11 +16,11 @@ import ReactMarkdown from 'react-markdown';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function Forecast() {
-  const [tipo, setTipo] = useState('prodotto'); // 'prodotto' or 'cliente'
+  const [tipo, setTipo] = useState('globale'); // 'prodotto', 'cliente', 'globale'
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [selectedEntity, setSelectedEntity] = useState(null);
+  const [selectedEntity, setSelectedEntity] = useState({ nome: 'Vendite Globali' });
   const [meseTarget, setMeseTarget] = useState('');
   const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -37,7 +37,8 @@ export default function Forecast() {
 
   // Reset everything
   const handleReset = () => {
-    setSelectedEntity(null);
+    setTipo('globale');
+    setSelectedEntity({ nome: 'Vendite Globali' });
     setForecast(null);
     setError(null);
     setSearch('');
@@ -101,9 +102,13 @@ export default function Forecast() {
   useEffect(() => {
     setSearch('');
     setSearchResults([]);
-    setSelectedEntity(null);
     setForecast(null);
     setError(null);
+    if (tipo === 'globale') {
+      setSelectedEntity({ nome: 'Vendite Globali' });
+    } else {
+      setSelectedEntity(null);
+    }
   }, [tipo]);
 
   const selectEntity = (entity) => {
@@ -115,21 +120,23 @@ export default function Forecast() {
   };
 
   const generateForecast = async () => {
-    if (!selectedEntity || !meseTarget) return;
+    if (tipo !== 'globale' && !selectedEntity) return;
+    if (!meseTarget) return;
     
     setLoading(true);
     setError(null);
     setForecast(null);
     
     try {
-      const response = await axios.get(`${API}/forecast/generate`, {
-        params: {
-          tipo,
-          nome: selectedEntity.nome,
-          mese_target: meseTarget,
-          metrica: 'fatturato' // Always use fatturato for clearer predictions
-        }
-      });
+      const params = {
+        tipo,
+        mese_target: meseTarget,
+        metrica: 'fatturato'
+      };
+      if (tipo !== 'globale') {
+        params.nome = selectedEntity.nome;
+      }
+      const response = await axios.get(`${API}/forecast/generate`, { params });
       
       if (response.data.success) {
         setForecast(response.data);
@@ -171,29 +178,42 @@ export default function Forecast() {
           </div>
           <div className="flex gap-2">
             <button
+              onClick={() => setTipo('globale')}
+              data-testid="tipo-globale"
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg text-xs font-medium transition-all",
+                tipo === 'globale' 
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                  : "bg-white/[0.03] text-slate-400 border border-white/[0.06] hover:bg-white/[0.06]"
+              )}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              Globale
+            </button>
+            <button
               onClick={() => setTipo('prodotto')}
               data-testid="tipo-prodotto"
               className={cn(
-                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                "flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg text-xs font-medium transition-all",
                 tipo === 'prodotto' 
                   ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
                   : "bg-white/[0.03] text-slate-400 border border-white/[0.06] hover:bg-white/[0.06]"
               )}
             >
-              <Package className="w-4 h-4" />
+              <Package className="w-3.5 h-3.5" />
               Prodotto
             </button>
             <button
               onClick={() => setTipo('cliente')}
               data-testid="tipo-cliente"
               className={cn(
-                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                "flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-lg text-xs font-medium transition-all",
                 tipo === 'cliente' 
                   ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" 
                   : "bg-white/[0.03] text-slate-400 border border-white/[0.06] hover:bg-white/[0.06]"
               )}
             >
-              <Users className="w-4 h-4" />
+              <Users className="w-3.5 h-3.5" />
               Cliente
             </button>
           </div>
@@ -209,11 +229,16 @@ export default function Forecast() {
           <div className="flex items-center gap-2 mb-3">
             <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold flex items-center justify-center">2</div>
             <span className="text-sm font-medium text-white">
-              {selectedEntity ? `Selezionato: ${selectedEntity.nome}` : `Cerca ${tipo === 'prodotto' ? 'Prodotto' : 'Cliente'}`}
+              {tipo === 'globale' ? 'Analisi Globale' : selectedEntity ? `Selezionato: ${selectedEntity.nome}` : `Cerca ${tipo === 'prodotto' ? 'Prodotto' : 'Cliente'}`}
             </span>
           </div>
           
-          {selectedEntity ? (
+          {tipo === 'globale' ? (
+            <div className="px-3 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-sm flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 shrink-0" />
+              <span>Tutte le vendite aggregate — nessuna selezione necessaria</span>
+            </div>
+          ) : selectedEntity ? (
             <div className="flex items-center gap-2">
               <div className={cn(
                 "flex-1 px-3 py-2 rounded-lg text-sm",
@@ -286,7 +311,7 @@ export default function Forecast() {
             />
             <Button 
               onClick={generateForecast}
-              disabled={!selectedEntity || !meseTarget || loading}
+              disabled={(tipo !== 'globale' && !selectedEntity) || !meseTarget || loading}
               className="gap-2"
               data-testid="generate-forecast"
             >
