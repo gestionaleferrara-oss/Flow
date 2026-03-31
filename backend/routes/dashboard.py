@@ -458,27 +458,30 @@ async def get_sales_insight():
         insights.append({"tipo": "new_client", "icona": "\U0001F195", "titolo": "Nuovo Cliente Acquisito", "valore": nome[:25] + ('...' if len(nome) > 25 else ''), "dettaglio": f"\u20ac{nc['totale_mese']:,.0f} dal {nc['prima_vendita']}", "colore": "blue"})
 
     # 6. Best margin (from prodotti with prezzo_medio + current month sales)
+    # Use fatturato/quantita for actual selling price in the period
     prodotti_con_prezzo = await db.prodotti.find({"prezzo_medio": {"$gt": 0}}, {"_id": 0, "nome": 1, "prezzo_medio": 1}).to_list(5000)
     prezzo_acquisto_map = {p['nome']: p['prezzo_medio'] for p in prodotti_con_prezzo}
 
     margine_pipeline = [
-        {"$match": {"data": {"$gte": current_month_start}, "prodotto_nome": {"$in": list(prezzo_acquisto_map.keys())}, "prezzo_unitario": {"$gt": 0}}},
-        {"$group": {"_id": "$prodotto_nome", "prezzo_medio_vendita": {"$avg": "$prezzo_unitario"}, "fatturato": {"$sum": {"$abs": "$totale"}}}}
+        {"$match": {"data": {"$gte": current_month_start}, "prodotto_nome": {"$in": list(prezzo_acquisto_map.keys())}}},
+        {"$group": {"_id": "$prodotto_nome", "fatturato": {"$sum": {"$abs": "$totale"}}, "quantita": {"$sum": {"$abs": "$quantita"}}}}
     ]
     margini_agg = await db.vendite.aggregate(margine_pipeline).to_list(5000)
     best_margin = None
     for m in margini_agg:
         nome = m['_id']
         pa = prezzo_acquisto_map.get(nome, 0)
-        pv = m['prezzo_medio_vendita']
         fatt = m['fatturato']
+        qty = m['quantita']
+        # Calculate actual selling price from period data
+        pv = fatt / qty if qty > 0 else 0
         if pa > 0 and pv > pa and fatt > 100:
             margine_pct = ((pv - pa) / pa) * 100
             score = margine_pct * min(fatt, 1000)
             if not best_margin or score > best_margin[5]:
                 best_margin = (nome, margine_pct, pv, pa, fatt, score)
     if best_margin:
-        insights.append({"tipo": "best_margin", "icona": "\U0001F4B0", "titolo": "Margine Migliore", "valore": best_margin[0][:20] + ('...' if len(best_margin[0]) > 20 else ''), "dettaglio": f"+{best_margin[1]:.0f}% (\u20ac{best_margin[2]:.2f} vs \u20ac{best_margin[3]:.2f})", "colore": "emerald"})
+        insights.append({"tipo": "best_margin", "icona": "\U0001F4B0", "titolo": "Margine Migliore", "valore": best_margin[0][:20] + ('...' if len(best_margin[0]) > 20 else ''), "dettaglio": f"+{best_margin[1]:.0f}% (€{best_margin[2]:.2f} vs €{best_margin[3]:.2f})", "colore": "emerald"})
 
     # 7. Fastest selling product (30 days)
     velocity_pipeline = [

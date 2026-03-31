@@ -629,7 +629,7 @@ export default function Dashboard() {
 
         {/* Prodotti in Calo - Clienti Frequenti */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
-          className="lg:col-span-4 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden"
+          className="lg:col-span-4 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden flex flex-col"
           data-testid="prodotti-calo-widget">
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
             <div className="p-2 rounded-md bg-red-500/15">
@@ -638,18 +638,18 @@ export default function Dashboard() {
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-semibold text-white">Prodotti in Calo</h3>
               <p className="text-xs text-slate-500 truncate">
-                {prodottiCaloTopClienti?.clienti_analizzati 
-                  ? `Top ${prodottiCaloTopClienti.clienti_analizzati} clienti frequenti` 
-                  : 'Clienti frequenti'}
+                {prodottiCaloTopClienti?.mese_precedente && prodottiCaloTopClienti?.mese_corrente 
+                  ? `${prodottiCaloTopClienti.mese_precedente} → ${prodottiCaloTopClienti.mese_corrente} • Top ${prodottiCaloTopClienti.clienti_analizzati || 10} clienti` 
+                  : 'Caricamento...'}
               </p>
             </div>
           </div>
-          <div className="p-2">
+          <div className="p-2 flex-1 overflow-y-auto max-h-[280px]">
             {!prodottiCaloTopClienti ? (
               <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 text-slate-600 animate-spin" /></div>
             ) : prodottiCaloTopClienti.prodotti_calo?.length > 0 ? (
               <div className="space-y-1">
-                {prodottiCaloTopClienti.prodotti_calo.slice(0, 8).map((p, idx) => (
+                {prodottiCaloTopClienti.prodotti_calo.map((p, idx) => (
                   <div key={p.prodotto} 
                     onClick={() => viewProdottoAnalisi({ nome: p.prodotto })}
                     className="flex items-center gap-2 px-2 py-1 rounded-md bg-white/[0.02] cursor-pointer hover:bg-white/[0.05] transition-colors">
@@ -663,7 +663,7 @@ export default function Dashboard() {
             ) : (
               <div className="text-center py-4">
                 <TrendingUp className="w-6 h-6 text-emerald-500/50 mx-auto mb-1" />
-                <p className="text-xs text-emerald-400">Nessun calo</p>
+                <p className="text-xs text-emerald-400">Nessun calo significativo</p>
               </div>
             )}
           </div>
