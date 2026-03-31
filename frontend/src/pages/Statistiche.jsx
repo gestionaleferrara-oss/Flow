@@ -192,6 +192,9 @@ export default function Statistiche() {
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i); // Last 5 years
 
+  // State for expanded product list
+  const [showAllProducts, setShowAllProducts] = useState(false);
+
   // Load comparison data
   const loadCompareData = async () => {
     if (!compare1Month || !compare1Year || !compare2Month || !compare2Year) {
@@ -199,6 +202,7 @@ export default function Statistiche() {
       return;
     }
     setLoadingCompare(true);
+    setShowAllProducts(false);
     try {
       const y1 = parseInt(compare1Year);
       const m1 = parseInt(compare1Month);
@@ -211,15 +215,18 @@ export default function Statistiche() {
       const end2 = new Date(y2, m2, 0).toISOString().split('T')[0];
 
       const endpoint = viewMode === 'vendite' ? 'statistiche' : 'statistiche/acquisti';
-      const [res1, res2] = await Promise.all([
+      const [res1, res2, resConfronto] = await Promise.all([
         axios.get(`${API}/${endpoint}?start_date=${start1}&end_date=${end1}`),
-        axios.get(`${API}/${endpoint}?start_date=${start2}&end_date=${end2}`)
+        axios.get(`${API}/${endpoint}?start_date=${start2}&end_date=${end2}`),
+        axios.get(`${API}/confronta-periodi?start1=${start1}&end1=${end1}&start2=${start2}&end2=${end2}`)
       ]);
 
       const monthLabels = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
       setCompareData({
         mese1: { label: `${monthLabels[m1 - 1]} ${y1}`, data: res1.data },
-        mese2: { label: `${monthLabels[m2 - 1]} ${y2}`, data: res2.data }
+        mese2: { label: `${monthLabels[m2 - 1]} ${y2}`, data: res2.data },
+        articoli: resConfronto.data.confronto || [],
+        totaleArticoli: resConfronto.data.totale_prodotti || 0
       });
     } catch (e) {
       console.error(e);
@@ -469,6 +476,7 @@ export default function Statistiche() {
           
           {/* Comparison results */}
           {compareData && (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Month 1 card */}
               <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
@@ -563,7 +571,66 @@ export default function Statistiche() {
                 </div>
               </div>
             </div>
-          )}
+            
+            {/* Detailed product comparison */}
+            {compareData.articoli && compareData.articoli.length > 0 && (
+              <div className="mt-4 p-4 bg-slate-800/30 rounded-lg border border-slate-700/50">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-white">Confronto Articoli</h4>
+                  <span className="text-xs text-slate-500">{compareData.totaleArticoli} prodotti</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-slate-400 border-b border-slate-700">
+                        <th className="text-left py-2 pr-4">Prodotto</th>
+                        <th className="text-right py-2 px-2">Qty {compareData.mese1?.label}</th>
+                        <th className="text-right py-2 px-2">Qty {compareData.mese2?.label}</th>
+                        <th className="text-right py-2 px-2">Diff Qty</th>
+                        <th className="text-right py-2 px-2">€/u {compareData.mese1?.label}</th>
+                        <th className="text-right py-2 px-2">€/u {compareData.mese2?.label}</th>
+                        <th className="text-right py-2 pl-2">Diff €</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(showAllProducts ? compareData.articoli : compareData.articoli.slice(0, 10)).map((art, idx) => (
+                        <tr key={art.prodotto} className="border-b border-slate-700/50 hover:bg-slate-700/20">
+                          <td className="py-1.5 pr-4 text-slate-300 truncate max-w-[200px]">{art.prodotto}</td>
+                          <td className="py-1.5 px-2 text-right text-slate-300">{art.qty1}</td>
+                          <td className="py-1.5 px-2 text-right text-slate-300">{art.qty2}</td>
+                          <td className={cn("py-1.5 px-2 text-right font-medium", art.diff_qty > 0 ? "text-emerald-400" : art.diff_qty < 0 ? "text-red-400" : "text-slate-400")}>
+                            {art.diff_qty > 0 ? '+' : ''}{art.diff_qty}
+                          </td>
+                          <td className="py-1.5 px-2 text-right text-slate-300">€{art.prezzo1.toFixed(2)}</td>
+                          <td className="py-1.5 px-2 text-right text-slate-300">€{art.prezzo2.toFixed(2)}</td>
+                          <td className={cn("py-1.5 pl-2 text-right font-medium", art.diff_prezzo > 0 ? "text-emerald-400" : art.diff_prezzo < 0 ? "text-red-400" : "text-slate-400")}>
+                            {art.diff_prezzo > 0 ? '+' : ''}€{art.diff_prezzo.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {compareData.articoli.length > 10 && !showAllProducts && (
+                  <button
+                    onClick={() => setShowAllProducts(true)}
+                    className="mt-3 w-full py-2 text-xs font-medium text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 rounded-lg transition-colors flex items-center justify-center gap-1"
+                  >
+                    <span>+</span> Mostra tutti ({compareData.articoli.length - 10} altri)
+                  </button>
+                )}
+                {showAllProducts && compareData.articoli.length > 10 && (
+                  <button
+                    onClick={() => setShowAllProducts(false)}
+                    className="mt-3 w-full py-2 text-xs font-medium text-slate-400 hover:text-slate-300 bg-slate-700/30 hover:bg-slate-700/50 rounded-lg transition-colors"
+                  >
+                    Mostra meno
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
         </div>
       )}
 

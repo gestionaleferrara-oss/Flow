@@ -843,6 +843,99 @@ async def get_top_clienti_prodotti_calo():
     }
 
 
+@router.get("/confronta-periodi")
+async def confronta_periodi(
+    start1: str = Query(..., description="Start date periodo 1 (YYYY-MM-DD)"),
+    end1: str = Query(..., description="End date periodo 1 (YYYY-MM-DD)"),
+    start2: str = Query(..., description="Start date periodo 2 (YYYY-MM-DD)"),
+    end2: str = Query(..., description="End date periodo 2 (YYYY-MM-DD)")
+):
+    """
+    Compare two periods and return detailed product-level differences.
+    """
+    # Get sales for period 1
+    vendite1 = await db.vendite.find(
+        {"data": {"$gte": start1, "$lte": end1}},
+        {"_id": 0, "prodotto_nome": 1, "quantita": 1, "totale": 1}
+    ).to_list(100000)
+    
+    # Get sales for period 2
+    vendite2 = await db.vendite.find(
+        {"data": {"$gte": start2, "$lte": end2}},
+        {"_id": 0, "prodotto_nome": 1, "quantita": 1, "totale": 1}
+    ).to_list(100000)
+    
+    # Aggregate by product for period 1
+    prod1 = {}
+    for v in vendite1:
+        nome = v.get('prodotto_nome', '')
+        if nome:
+            if nome not in prod1:
+                prod1[nome] = {'qty': 0, 'totale': 0}
+            prod1[nome]['qty'] += abs(v.get('quantita', 0))
+            prod1[nome]['totale'] += abs(v.get('totale', 0))
+    
+    # Aggregate by product for period 2
+    prod2 = {}
+    for v in vendite2:
+        nome = v.get('prodotto_nome', '')
+        if nome:
+            if nome not in prod2:
+                prod2[nome] = {'qty': 0, 'totale': 0}
+            prod2[nome]['qty'] += abs(v.get('quantita', 0))
+            prod2[nome]['totale'] += abs(v.get('totale', 0))
+    
+    # Combine all products
+    all_products = set(prod1.keys()) | set(prod2.keys())
+    
+    confronto = []
+    for nome in all_products:
+        p1 = prod1.get(nome, {'qty': 0, 'totale': 0})
+        p2 = prod2.get(nome, {'qty': 0, 'totale': 0})
+        
+        qty1 = p1['qty']
+        qty2 = p2['qty']
+        tot1 = p1['totale']
+        tot2 = p2['totale']
+        
+        # Calculate prices (totale / qty)
+        prezzo1 = tot1 / qty1 if qty1 > 0 else 0
+        prezzo2 = tot2 / qty2 if qty2 > 0 else 0
+        
+        diff_qty = qty1 - qty2
+        diff_prezzo = prezzo1 - prezzo2
+        diff_totale = tot1 - tot2
+        
+        # Calculate percentage changes
+        pct_qty = ((qty1 - qty2) / qty2 * 100) if qty2 > 0 else (100 if qty1 > 0 else 0)
+        pct_prezzo = ((prezzo1 - prezzo2) / prezzo2 * 100) if prezzo2 > 0 else (100 if prezzo1 > 0 else 0)
+        
+        confronto.append({
+            "prodotto": nome,
+            "qty1": round(qty1, 1),
+            "qty2": round(qty2, 1),
+            "diff_qty": round(diff_qty, 1),
+            "pct_qty": round(pct_qty, 1),
+            "prezzo1": round(prezzo1, 2),
+            "prezzo2": round(prezzo2, 2),
+            "diff_prezzo": round(diff_prezzo, 2),
+            "pct_prezzo": round(pct_prezzo, 1),
+            "totale1": round(tot1, 2),
+            "totale2": round(tot2, 2),
+            "diff_totale": round(diff_totale, 2)
+        })
+    
+    # Sort by absolute total difference (biggest changes first)
+    confronto.sort(key=lambda x: abs(x["diff_totale"]), reverse=True)
+    
+    return {
+        "confronto": confronto,
+        "totale_prodotti": len(confronto),
+        "periodo1": f"{start1} - {end1}",
+        "periodo2": f"{start2} - {end2}"
+    }
+
+
 @router.get("/ai-reports")
 async def get_ai_reports():
     reports = await db.ai_reports.find({}, {"_id": 0}).sort("created_at", -1).limit(20).to_list(20)
