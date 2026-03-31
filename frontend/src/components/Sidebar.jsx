@@ -194,7 +194,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
               {/* AI active state indicator */}
               {(location.pathname === '/forecast' || location.pathname === '/report-ai') && !showAiMenu && (
                 <motion.div
-                  layoutId="nav-ai-active"
+                  layoutId="nav-active"
                   className="absolute inset-0 rounded-xl bg-purple-500/10 border border-purple-500/20"
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />

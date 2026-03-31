@@ -322,66 +322,35 @@ async def _flush_and_update(cache):
 
 
 async def _flush_and_update_incremental(cache):
-    """Update DB with incremental changes, avoiding duplicates using batch checks"""
+    """Update DB with incremental changes.
+    For vendite: upsert on data+cliente_nome+prodotto_nome so corrections (changed qty/totale) replace old records.
+    For ordini: upsert on data+fornitore_nome+prodotto_nome.
+    """
+    from pymongo import UpdateOne
+
     if cache['vendite_batch']:
-        # Build set of existing keys first (batch query)
-        batch_keys = [
-            {"data": v.get("data"), "cliente_nome": v.get("cliente_nome"), 
-             "prodotto_nome": v.get("prodotto_nome"), "quantita": v.get("quantita"), "totale": v.get("totale")}
-            for v in cache['vendite_batch']
-        ]
-        
-        if batch_keys:
-            existing_cursor = db.vendite.find(
-                {"$or": batch_keys},
-                {"_id": 0, "data": 1, "cliente_nome": 1, "prodotto_nome": 1, "quantita": 1, "totale": 1}
-            )
-            existing_set = set()
-            async for doc in existing_cursor:
-                key = (doc.get("data"), doc.get("cliente_nome"), doc.get("prodotto_nome"), 
-                       doc.get("quantita"), doc.get("totale"))
-                existing_set.add(key)
-            
-            # Filter out duplicates
-            new_vendite = []
-            for v in cache['vendite_batch']:
-                key = (v.get("data"), v.get("cliente_nome"), v.get("prodotto_nome"), 
-                       v.get("quantita"), v.get("totale"))
-                if key not in existing_set:
-                    new_vendite.append(v)
-            
-            if new_vendite:
-                await db.vendite.insert_many(new_vendite)
+        bulk_ops = []
+        for v in cache['vendite_batch']:
+            filter_key = {
+                "data": v.get("data"),
+                "cliente_nome": v.get("cliente_nome"),
+                "prodotto_nome": v.get("prodotto_nome")
+            }
+            bulk_ops.append(UpdateOne(filter_key, {"$set": v}, upsert=True))
+        if bulk_ops:
+            await db.vendite.bulk_write(bulk_ops, ordered=False)
             
     if cache['ordini_batch']:
-        # Build set of existing keys first (batch query)
-        batch_keys = [
-            {"data": o.get("data"), "fornitore_nome": o.get("fornitore_nome"),
-             "prodotto_nome": o.get("prodotto_nome"), "quantita": o.get("quantita"), "totale": o.get("totale")}
-            for o in cache['ordini_batch']
-        ]
-        
-        if batch_keys:
-            existing_cursor = db.ordini.find(
-                {"$or": batch_keys},
-                {"_id": 0, "data": 1, "fornitore_nome": 1, "prodotto_nome": 1, "quantita": 1, "totale": 1}
-            )
-            existing_set = set()
-            async for doc in existing_cursor:
-                key = (doc.get("data"), doc.get("fornitore_nome"), doc.get("prodotto_nome"),
-                       doc.get("quantita"), doc.get("totale"))
-                existing_set.add(key)
-            
-            # Filter out duplicates
-            new_ordini = []
-            for o in cache['ordini_batch']:
-                key = (o.get("data"), o.get("fornitore_nome"), o.get("prodotto_nome"),
-                       o.get("quantita"), o.get("totale"))
-                if key not in existing_set:
-                    new_ordini.append(o)
-            
-            if new_ordini:
-                await db.ordini.insert_many(new_ordini)
+        bulk_ops = []
+        for o in cache['ordini_batch']:
+            filter_key = {
+                "data": o.get("data"),
+                "fornitore_nome": o.get("fornitore_nome"),
+                "prodotto_nome": o.get("prodotto_nome")
+            }
+            bulk_ops.append(UpdateOne(filter_key, {"$set": o}, upsert=True))
+        if bulk_ops:
+            await db.ordini.bulk_write(bulk_ops, ordered=False)
     
     for nome_prodotto, prod_data in cache['prodotti'].items():
         if isinstance(prod_data, dict):

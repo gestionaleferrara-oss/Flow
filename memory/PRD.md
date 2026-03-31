@@ -78,11 +78,11 @@
 - (P2) Margine widget Trend: chiarire se assoluto o variazione
 - (P3) Image scraper ilcorriereortofrutticolo non funziona
 
-### 2026-03-31 (sessione 3)
-- FIX: Ripristinato quadrato viola sidebar AI icon (/forecast, /report-ai) con layoutId separato
-- FIX UI: Grid 2 colonne quando Globale selezionato — step 2 nascosta completamente
-- FIX: Algoritmo forecast migliorato: anchor anno più recente + trend YoY cappato ±25% + momentum recente
-- FIX: AI prompt arricchito con storico completo + tabella YoY anno su anno + analisi trimestrale
+### 2026-03-31 (sessione 4)
+- FIX Upload: deduplication cambiata da insert+check a upsert (bulk_write) su data+cliente+prodotto — le correzioni ora sostituiscono il vecchio record
+- FIX UI: Sidebar AI icon usa layoutId="nav-active" originale → animazione di transizione ripristinata
+- FIX UI: Step 2 nascosto quando Globale, grid 2 colonne
+- FIX Forecast: barre ora usano globalMax condiviso → proporzioni corrette tra i 3 mesi
 
 ## Changelog
 

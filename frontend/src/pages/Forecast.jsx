@@ -406,7 +406,9 @@ export default function Forecast() {
               
               {/* Forecast Bars */}
               <div className="space-y-3">
-                {(forecast.previsioni || []).map((prev, idx) => (
+                {(() => {
+                  const globalMax = Math.max(...(forecast.previsioni || []).map(p => p.massimo)) * 1.15;
+                  return (forecast.previsioni || []).map((prev, idx) => (
                   <div key={prev.mese} className="relative">
                     <div className="flex items-center justify-between mb-1">
                       <span className={cn(
@@ -424,19 +426,19 @@ export default function Forecast() {
                       <div 
                         className="absolute h-full bg-slate-700/30 rounded-lg"
                         style={{
-                          left: `${(prev.minimo / (prev.massimo * 1.2)) * 100}%`,
-                          width: `${((prev.massimo - prev.minimo) / (prev.massimo * 1.2)) * 100}%`
+                          left: `${(prev.minimo / globalMax) * 100}%`,
+                          width: `${((prev.massimo - prev.minimo) / globalMax) * 100}%`
                         }}
                       />
                       {/* Forecast value bar */}
                       <div 
                         className={cn(
-                          "absolute h-full rounded-lg transition-all",
+                          "absolute h-full rounded-lg transition-all duration-700",
                           idx === 0 ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : 
                           idx === 1 ? "bg-gradient-to-r from-blue-500 to-blue-400" :
                           "bg-gradient-to-r from-violet-500 to-violet-400"
                         )}
-                        style={{ width: `${(prev.previsione / (prev.massimo * 1.2)) * 100}%` }}
+                        style={{ width: `${(prev.previsione / globalMax) * 100}%` }}
                       />
                       {/* Labels inside bar */}
                       <div className="absolute inset-0 flex items-center justify-between px-2">
@@ -460,7 +462,8 @@ export default function Forecast() {
                       </div>
                     )}
                   </div>
-                ))}
+                  ));
+                })()}
               </div>
               
               {/* Summary Cards */}
