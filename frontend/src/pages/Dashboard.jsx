@@ -60,6 +60,10 @@ export default function Dashboard() {
   const [salesInsight, setSalesInsight] = useState(null);
   const [insightLoading, setInsightLoading] = useState(false);
   
+  // Prodotti in calo Top Clienti
+  const [prodottiCaloTopClienti, setProdottiCaloTopClienti] = useState(null);
+  const [loadingProdottiCalo, setLoadingProdottiCalo] = useState(false);
+  
   // Margine state
   const [margineData, setMargineData] = useState(null);
   
@@ -110,6 +114,7 @@ export default function Dashboard() {
       axios.get(`${API}/ai-suggestion`).then(r => setAiSuggestion(r.data)).catch(() => {});
       axios.get(`${API}/alerts`).then(r => setAlerts(r.data)).catch(() => {});
       axios.get(`${API}/margine-vendite`).then(r => setMargineData(r.data)).catch(() => {});
+      axios.get(`${API}/top-clienti-prodotti-calo`).then(r => setProdottiCaloTopClienti(r.data)).catch(() => {});
     };
     loadAll();
   }, []);
@@ -423,11 +428,11 @@ export default function Dashboard() {
           ].filter(Boolean).join('\n') || null} />
       </div>
 
-      {/* Main Content Grid - Trends left, Insight right, Quick Links far right */}
+      {/* Main Content Grid - Trends left, Insight center, Calo right, Quick Links far right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
         {/* Trends Widget - Left */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="lg:col-span-5 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden relative"
+          className="lg:col-span-4 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden relative"
           data-testid="trends-widget">
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
@@ -571,9 +576,9 @@ export default function Dashboard() {
           </AnimatePresence>
         </motion.div>
 
-        {/* Sales Insight - Center/Right - Clickable items */}
+        {/* Sales Insight - Center - Clickable items */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="lg:col-span-5 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden"
+          className="lg:col-span-4 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden"
           data-testid="sales-insight-widget">
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
             <div className="p-2 rounded-md bg-amber-500/15">
@@ -617,6 +622,53 @@ export default function Dashboard() {
                 </div>
                 <p className="text-sm text-slate-400 mb-1">Analisi in corso...</p>
                 <p className="text-xs text-slate-600">Gli insight appariranno quando ci sono dati sufficienti</p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Prodotti in Calo - Top Clienti */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
+          className="lg:col-span-3 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] overflow-hidden"
+          data-testid="prodotti-calo-widget">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+            <div className="p-2 rounded-md bg-red-500/15">
+              <TrendingDown className="w-4 h-4 text-red-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-white">Calo Clienti Top</h3>
+              <p className="text-xs text-slate-500 truncate">
+                {prodottiCaloTopClienti?.mese_corrente && prodottiCaloTopClienti?.mese_precedente 
+                  ? `${prodottiCaloTopClienti.mese_precedente} vs ${prodottiCaloTopClienti.mese_corrente}` 
+                  : 'Ultimi 2 mesi'}
+              </p>
+            </div>
+          </div>
+          <div className="p-3 max-h-[220px] overflow-y-auto">
+            {!prodottiCaloTopClienti ? (
+              <div className="flex items-center justify-center h-24"><RefreshCw className="w-4 h-4 text-slate-600 animate-spin" /></div>
+            ) : prodottiCaloTopClienti.prodotti_calo?.length > 0 ? (
+              <div className="space-y-1.5">
+                {prodottiCaloTopClienti.prodotti_calo.slice(0, 6).map((p, idx) => (
+                  <div key={p.prodotto} 
+                    onClick={() => viewProdottoAnalisi({ nome: p.prodotto })}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] cursor-pointer hover:bg-white/[0.05] transition-colors">
+                    <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold flex items-center justify-center">{idx + 1}</span>
+                    <span className="flex-1 text-xs text-slate-300 truncate">{p.prodotto}</span>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-500">{p.qty_mese_prec}→{p.qty_mese_curr}</span>
+                      <span className="ml-1 text-xs font-semibold text-red-400">{p.variazione_pct}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-2">
+                  <TrendingUp className="w-5 h-5 text-emerald-500/50" />
+                </div>
+                <p className="text-xs text-emerald-400">Nessun calo significativo</p>
+                <p className="text-[10px] text-slate-600 mt-1">I tuoi clienti top mantengono gli ordini</p>
               </div>
             )}
           </div>
