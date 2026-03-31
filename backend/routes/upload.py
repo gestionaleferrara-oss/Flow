@@ -257,11 +257,66 @@ async def _flush_and_update(cache):
 
 
 async def _flush_and_update_incremental(cache):
-    """Update DB with incremental changes"""
+    """Update DB with incremental changes, avoiding duplicates using batch checks"""
     if cache['vendite_batch']:
-        await db.vendite.insert_many(cache['vendite_batch'])
+        # Build set of existing keys first (batch query)
+        batch_keys = [
+            {"data": v.get("data"), "cliente_nome": v.get("cliente_nome"), 
+             "prodotto_nome": v.get("prodotto_nome"), "quantita": v.get("quantita"), "totale": v.get("totale")}
+            for v in cache['vendite_batch']
+        ]
+        
+        if batch_keys:
+            existing_cursor = db.vendite.find(
+                {"$or": batch_keys},
+                {"_id": 0, "data": 1, "cliente_nome": 1, "prodotto_nome": 1, "quantita": 1, "totale": 1}
+            )
+            existing_set = set()
+            async for doc in existing_cursor:
+                key = (doc.get("data"), doc.get("cliente_nome"), doc.get("prodotto_nome"), 
+                       doc.get("quantita"), doc.get("totale"))
+                existing_set.add(key)
+            
+            # Filter out duplicates
+            new_vendite = []
+            for v in cache['vendite_batch']:
+                key = (v.get("data"), v.get("cliente_nome"), v.get("prodotto_nome"), 
+                       v.get("quantita"), v.get("totale"))
+                if key not in existing_set:
+                    new_vendite.append(v)
+            
+            if new_vendite:
+                await db.vendite.insert_many(new_vendite)
+            
     if cache['ordini_batch']:
-        await db.ordini.insert_many(cache['ordini_batch'])
+        # Build set of existing keys first (batch query)
+        batch_keys = [
+            {"data": o.get("data"), "fornitore_nome": o.get("fornitore_nome"),
+             "prodotto_nome": o.get("prodotto_nome"), "quantita": o.get("quantita"), "totale": o.get("totale")}
+            for o in cache['ordini_batch']
+        ]
+        
+        if batch_keys:
+            existing_cursor = db.ordini.find(
+                {"$or": batch_keys},
+                {"_id": 0, "data": 1, "fornitore_nome": 1, "prodotto_nome": 1, "quantita": 1, "totale": 1}
+            )
+            existing_set = set()
+            async for doc in existing_cursor:
+                key = (doc.get("data"), doc.get("fornitore_nome"), doc.get("prodotto_nome"),
+                       doc.get("quantita"), doc.get("totale"))
+                existing_set.add(key)
+            
+            # Filter out duplicates
+            new_ordini = []
+            for o in cache['ordini_batch']:
+                key = (o.get("data"), o.get("fornitore_nome"), o.get("prodotto_nome"),
+                       o.get("quantita"), o.get("totale"))
+                if key not in existing_set:
+                    new_ordini.append(o)
+            
+            if new_ordini:
+                await db.ordini.insert_many(new_ordini)
     
     for nome_prodotto, prod_data in cache['prodotti'].items():
         if isinstance(prod_data, dict):

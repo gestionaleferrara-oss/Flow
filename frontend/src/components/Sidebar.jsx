@@ -118,8 +118,8 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
           <Link to="/" className="group" data-testid="logo-link">
             <div className="relative shrink-0">
               <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 blur-sm group-hover:blur-md transition-all duration-500" />
-              <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:shadow-cyan-500/40 transition-all duration-500">
-                <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
+              <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-cyan-500/20 group-hover:shadow-cyan-500/40 transition-all duration-500">
+                <img src="/favicon.ico" alt="Flow" className="w-full h-full object-cover" />
               </div>
             </div>
           </Link>
