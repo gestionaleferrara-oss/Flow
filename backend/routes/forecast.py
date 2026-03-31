@@ -192,10 +192,21 @@ Dati storici per {target_month_name} ({metric_label}):
         month_historical = [s for s in storico if s['_id'].endswith(f"-{forecast_month:02d}")]
         month_values = [s.get(metric_key, 0) for s in month_historical]
         
+        # Calculate confidence based on data availability
+        confidence = "alta" if len(month_historical) >= 3 else "media" if len(month_historical) >= 2 else "bassa"
+        
         if month_values:
             hist_avg = sum(month_values) / len(month_values)
             hist_max = max(month_values)
             hist_min = min(month_values)
+            
+            # Calculate variance for reliability
+            if len(month_values) > 1:
+                variance = sum((v - hist_avg) ** 2 for v in month_values) / len(month_values)
+                std_dev = variance ** 0.5
+                cv = (std_dev / hist_avg * 100) if hist_avg > 0 else 0  # Coefficient of variation
+            else:
+                cv = 50  # High uncertainty with single data point
             
             # Calculate trend
             if len(month_historical) >= 2:
@@ -206,18 +217,24 @@ Dati storici per {target_month_name} ({metric_label}):
             else:
                 trend_pct = 0
             
-            # Apply trend to calculate forecast
-            trend_factor = 1 + (trend_pct / 100) * 0.3  # Conservative trend application
+            # Apply trend to calculate forecast (weighted by confidence)
+            trend_weight = 0.4 if confidence == "alta" else 0.25 if confidence == "media" else 0.1
+            trend_factor = 1 + (trend_pct / 100) * trend_weight
             forecast_value = hist_avg * trend_factor
-            forecast_min = min(hist_min * 0.9, forecast_value * 0.85)
-            forecast_max = max(hist_max * 1.1, forecast_value * 1.15)
+            
+            # Range calculation based on variance
+            range_factor = max(0.15, min(0.35, cv / 100))  # 15%-35% range
+            forecast_min = forecast_value * (1 - range_factor)
+            forecast_max = forecast_value * (1 + range_factor)
         else:
-            # No historical data for this month, use general average
+            # No historical data for this month, use general average with high uncertainty
             forecast_value = media_mensile
-            forecast_min = media_mensile * 0.7
-            forecast_max = media_mensile * 1.3
+            forecast_min = media_mensile * 0.6
+            forecast_max = media_mensile * 1.4
             trend_pct = 0
             hist_avg = 0
+            cv = 100
+            confidence = "molto_bassa"
         
         previsioni_mesi.append({
             "mese": month_key,
@@ -227,7 +244,9 @@ Dati storici per {target_month_name} ({metric_label}):
             "massimo": round(forecast_max, 2) if metrica == "fatturato" else round(forecast_max),
             "storico_avg": round(hist_avg, 2) if metrica == "fatturato" else round(hist_avg),
             "trend": round(trend_pct, 1),
-            "anni_dati": len(month_historical)
+            "anni_dati": len(month_historical),
+            "confidenza": confidence,
+            "variabilita": round(cv, 1)
         })
     
     # Build context for AI
@@ -235,7 +254,7 @@ Dati storici per {target_month_name} ({metric_label}):
     storico_str = "\n".join([f"- {s['_id']}: {metric_unit}{s.get(metric_key, 0):,.2f}{metric_suffix}" for s in storico_recente])
     
     previsioni_str = "\n".join([
-        f"- {p['mese_nome']}: {metric_unit}{p['previsione']:,.2f}{metric_suffix} (range {metric_unit}{p['minimo']:,.2f} - {metric_unit}{p['massimo']:,.2f}{metric_suffix})"
+        f"- {p['mese_nome']}: {metric_unit}{p['previsione']:,.2f}{metric_suffix} (range {metric_unit}{p['minimo']:,.2f} - {metric_unit}{p['massimo']:,.2f}{metric_suffix}) [Confidenza: {p['confidenza']}, {p['anni_dati']} anni dati]"
         for p in previsioni_mesi
     ])
     
@@ -277,28 +296,32 @@ DATI STORICI ({months_with_data} mesi disponibili):
 {storico_str}
 
 STATISTICHE CHIAVE:
-- Media mensile: €{media_mensile:,.2f}
+- Media mensile: {metric_unit}{media_mensile:,.2f}{metric_suffix}
 - Trend generale: {trend_description} ({overall_trend:+.1f}%)
-- Dati per {target_month_name}: {len(same_month_data)} anni disponibili
-{f'- Media storica {target_month_name}: €{same_month_avg:,.2f}' if same_month_data else '- Nessun dato storico per questo mese'}
+- Dati storici per {target_month_name}: {len(same_month_data)} anni disponibili
+{f'- Media storica {target_month_name}: {metric_unit}{same_month_avg:,.2f}{metric_suffix}' if same_month_data else '- Nessun dato storico per questo mese'}
 
-PREVISIONI CALCOLATE (algoritmo):
+PREVISIONI CALCOLATE (algoritmo statistico):
 {previsioni_str}
 
 {extra_context}
 
-Genera un'analisi CONCISA che includa:
+Genera un'analisi CONCISA e SPECIFICA basata SOLO sui dati forniti:
 
 ## PREVISIONE {previsioni_mesi[0]['mese_nome'].upper()}
-Indica la previsione di fatturato e spiega brevemente il ragionamento (max 2 righe).
+Indica il valore previsto ({metric_unit}{previsioni_mesi[0]['previsione']:,.2f}{metric_suffix}) e spiega il ragionamento basato sui dati (max 2-3 righe).
+Indica il livello di affidabilità: {previsioni_mesi[0]['confidenza']} (basato su {previsioni_mesi[0]['anni_dati']} anni di dati).
 
-## TREND ATTESO
-Descrivi l'andamento previsto nei prossimi 3 mesi (in crescita/stabile/calo e perché).
+## TREND ATTESO TRIMESTRE
+Per i prossimi 3 mesi, descrivi:
+- Andamento previsto (crescita/stabile/calo)  
+- Range di variazione atteso
+- Fattori stagionali se rilevanti
 
 ## AZIONI CONSIGLIATE
-2-3 suggerimenti pratici e specifici per questo {entity_type}.
+2-3 suggerimenti PRATICI e SPECIFICI per questo {entity_type}, basati sui pattern osservati.
 
-IMPORTANTE: Non inventare numeri, usa solo i dati forniti."""
+REGOLE: Usa SOLO i numeri forniti. Non inventare cifre. Sii specifico e concreto."""
 
         user_message = UserMessage(text=prompt)
         ai_response = await chat.send_message(user_message)

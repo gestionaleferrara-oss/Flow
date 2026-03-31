@@ -490,6 +490,8 @@ export default function Dashboard() {
                     className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] cursor-pointer hover:bg-white/[0.05] transition-colors">
                     <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
                     <span className="flex-1 text-sm text-slate-300 truncate">{t.prodotto}</span>
+                    {/* Always show quantity sold */}
+                    <span className="text-[10px] text-slate-500 mr-1">{Math.round(t.quantita_2w)}u</span>
                     {/* Dynamic badge based on current filter */}
                     {trendsOrdinaPer === 'richieste' ? (
                       <span className="text-xs font-semibold px-2 py-1 rounded text-cyan-400 bg-cyan-500/10">{t.richieste} ord.</span>
@@ -544,6 +546,8 @@ export default function Dashboard() {
                       className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/[0.04] cursor-pointer transition-colors">
                       <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold flex items-center justify-center">{idx + 1}</span>
                       <span className="flex-1 text-xs text-slate-300 truncate">{t.prodotto}</span>
+                      {/* Always show quantity */}
+                      <span className="text-[9px] text-slate-500 mr-1">{Math.round(t.quantita_2w)}u</span>
                       {/* Dynamic badge based on filter */}
                       {trendsOrdinaPer === 'richieste' ? (
                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded text-cyan-400 bg-cyan-500/10">{t.richieste} ord.</span>

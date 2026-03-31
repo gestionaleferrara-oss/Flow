@@ -71,11 +71,13 @@ export default function Statistiche() {
   const [showFilters, setShowFilters] = useState(false);
   const [activePreset, setActivePreset] = useState(null);
   
-  // Month comparison state
+  // Month comparison state - separate month and year
   const [showCompare, setShowCompare] = useState(false);
   const [compareData, setCompareData] = useState(null);
-  const [compareMese1, setCompareMese1] = useState('');
-  const [compareMese2, setCompareMese2] = useState('');
+  const [compare1Month, setCompare1Month] = useState('');
+  const [compare1Year, setCompare1Year] = useState('');
+  const [compare2Month, setCompare2Month] = useState('');
+  const [compare2Year, setCompare2Year] = useState('');
   const [loadingCompare, setLoadingCompare] = useState(false);
 
   const hasActiveFilters = filters.prodotto || filters.cliente || filters.fornitore || filters.startDate || filters.endDate;
@@ -180,36 +182,32 @@ export default function Statistiche() {
     }
   };
 
-  // Generate month options for comparison (last 3 years = 36 months)
-  const getMonthOptions = () => {
-    const months = [];
-    const now = new Date();
-    const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
-    for (let i = 0; i < 36; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push({
-        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-        label: `${monthNames[d.getMonth()]} ${d.getFullYear()}`
-      });
-    }
-    return months;
-  };
-  const monthOptions = getMonthOptions();
+  // Month and year options for comparison
+  const monthOptions = [
+    { value: '01', label: 'Gen' }, { value: '02', label: 'Feb' }, { value: '03', label: 'Mar' },
+    { value: '04', label: 'Apr' }, { value: '05', label: 'Mag' }, { value: '06', label: 'Giu' },
+    { value: '07', label: 'Lug' }, { value: '08', label: 'Ago' }, { value: '09', label: 'Set' },
+    { value: '10', label: 'Ott' }, { value: '11', label: 'Nov' }, { value: '12', label: 'Dic' }
+  ];
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i); // Last 5 years
 
   // Load comparison data
   const loadCompareData = async () => {
-    if (!compareMese1 || !compareMese2) {
-      toast.error('Seleziona entrambi i mesi da confrontare');
+    if (!compare1Month || !compare1Year || !compare2Month || !compare2Year) {
+      toast.error('Seleziona mese e anno per entrambi i periodi');
       return;
     }
     setLoadingCompare(true);
     try {
-      // Parse month strings to get date ranges
-      const [y1, m1] = compareMese1.split('-').map(Number);
-      const [y2, m2] = compareMese2.split('-').map(Number);
-      const start1 = `${y1}-${String(m1).padStart(2, '0')}-01`;
-      const end1 = new Date(y1, m1, 0).toISOString().split('T')[0]; // Last day of month
-      const start2 = `${y2}-${String(m2).padStart(2, '0')}-01`;
+      const y1 = parseInt(compare1Year);
+      const m1 = parseInt(compare1Month);
+      const y2 = parseInt(compare2Year);
+      const m2 = parseInt(compare2Month);
+      
+      const start1 = `${y1}-${compare1Month}-01`;
+      const end1 = new Date(y1, m1, 0).toISOString().split('T')[0];
+      const start2 = `${y2}-${compare2Month}-01`;
       const end2 = new Date(y2, m2, 0).toISOString().split('T')[0];
 
       const endpoint = viewMode === 'vendite' ? 'statistiche' : 'statistiche/acquisti';
@@ -218,10 +216,10 @@ export default function Statistiche() {
         axios.get(`${API}/${endpoint}?start_date=${start2}&end_date=${end2}`)
       ]);
 
-      const monthNames = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+      const monthLabels = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
       setCompareData({
-        mese1: { label: `${monthNames[m1 - 1]} ${y1}`, data: res1.data },
-        mese2: { label: `${monthNames[m2 - 1]} ${y2}`, data: res2.data }
+        mese1: { label: `${monthLabels[m1 - 1]} ${y1}`, data: res1.data },
+        mese2: { label: `${monthLabels[m2 - 1]} ${y2}`, data: res2.data }
       });
     } catch (e) {
       console.error(e);
@@ -379,45 +377,71 @@ export default function Statistiche() {
       {/* Month comparison panel */}
       {showCompare && (
         <div className="mb-6 p-4 bg-violet-500/5 rounded-xl border border-violet-500/20">
-          <div className="flex flex-wrap items-end gap-4 mb-4">
-            <div className="flex-1 min-w-[160px]">
-              <label className="block text-xs text-slate-400 mb-1.5">Mese 1</label>
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            {/* Period 1 */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-violet-400 font-medium">Periodo 1:</span>
               <select
-                value={compareMese1}
-                onChange={(e) => setCompareMese1(e.target.value)}
-                className="w-full h-9 px-3 rounded-lg bg-slate-800 border border-slate-700 text-sm text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500 cursor-pointer"
+                value={compare1Month}
+                onChange={(e) => setCompare1Month(e.target.value)}
+                className="h-8 px-2 rounded-md bg-slate-800 border border-slate-600 text-xs text-white cursor-pointer"
                 data-testid="compare-month-1"
-                style={{ WebkitAppearance: 'menulist', appearance: 'menulist' }}
               >
-                <option value="">Seleziona mese...</option>
+                <option value="">Mese</option>
                 {monthOptions.map(m => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
-            </div>
-            <div className="text-slate-500 text-sm font-medium pb-2">vs</div>
-            <div className="flex-1 min-w-[160px]">
-              <label className="block text-xs text-slate-400 mb-1.5">Mese 2</label>
               <select
-                value={compareMese2}
-                onChange={(e) => setCompareMese2(e.target.value)}
-                className="w-full h-9 px-3 rounded-lg bg-slate-800 border border-slate-700 text-sm text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500 cursor-pointer"
-                data-testid="compare-month-2"
-                style={{ WebkitAppearance: 'menulist', appearance: 'menulist' }}
+                value={compare1Year}
+                onChange={(e) => setCompare1Year(e.target.value)}
+                className="h-8 px-2 rounded-md bg-slate-800 border border-slate-600 text-xs text-white cursor-pointer"
+                data-testid="compare-year-1"
               >
-                <option value="">Seleziona mese...</option>
+                <option value="">Anno</option>
+                {yearOptions.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            <span className="text-slate-500 text-sm font-medium">vs</span>
+
+            {/* Period 2 */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-cyan-400 font-medium">Periodo 2:</span>
+              <select
+                value={compare2Month}
+                onChange={(e) => setCompare2Month(e.target.value)}
+                className="h-8 px-2 rounded-md bg-slate-800 border border-slate-600 text-xs text-white cursor-pointer"
+                data-testid="compare-month-2"
+              >
+                <option value="">Mese</option>
                 {monthOptions.map(m => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
+              <select
+                value={compare2Year}
+                onChange={(e) => setCompare2Year(e.target.value)}
+                className="h-8 px-2 rounded-md bg-slate-800 border border-slate-600 text-xs text-white cursor-pointer"
+                data-testid="compare-year-2"
+              >
+                <option value="">Anno</option>
+                {yearOptions.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
             </div>
+
             <Button 
               onClick={loadCompareData}
-              disabled={loadingCompare || !compareMese1 || !compareMese2}
-              className="bg-violet-500 hover:bg-violet-600 text-white h-9"
+              disabled={loadingCompare || !compare1Month || !compare1Year || !compare2Month || !compare2Year}
+              size="sm"
+              className="bg-violet-500 hover:bg-violet-600 text-white h-8 px-4"
               data-testid="compare-load-btn"
             >
-              {loadingCompare ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Confronta'}
+              {loadingCompare ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Confronta'}
             </Button>
           </div>
           
