@@ -612,21 +612,34 @@ export default function Statistiche() {
                     </thead>
                     <tbody>
                       {(() => {
+                        // Sort: first items with data in BOTH periods, then items with 0 in one period
                         const sorted = [...compareData.articoli].sort((a, b) => {
+                          // Check if both have data in both periods (qty > 0 and prezzo > 0)
+                          const aComplete = a.qty1 > 0 && a.qty2 > 0 && a.prezzo1 > 0 && a.prezzo2 > 0;
+                          const bComplete = b.qty1 > 0 && b.qty2 > 0 && b.prezzo1 > 0 && b.prezzo2 > 0;
+                          
+                          // Complete items come first
+                          if (aComplete && !bComplete) return -1;
+                          if (!aComplete && bComplete) return 1;
+                          
+                          // Within same group, apply selected sort
                           if (compareSortBy === 'qty') return Math.abs(b.diff_qty) - Math.abs(a.diff_qty);
                           if (compareSortBy === 'prezzo') return Math.abs(b.diff_prezzo) - Math.abs(a.diff_prezzo);
                           return Math.abs(b.diff_totale) - Math.abs(a.diff_totale);
                         });
                         return (showAllProducts ? sorted : sorted.slice(0, 10)).map((art, idx) => (
-                        <tr key={art.prodotto} className="border-b border-slate-700/50 hover:bg-slate-700/20">
+                        <tr key={art.prodotto} className={cn(
+                          "border-b border-slate-700/50 hover:bg-slate-700/20",
+                          (art.qty1 === 0 || art.qty2 === 0) && "opacity-60"
+                        )}>
                           <td className="py-1.5 pr-4 text-slate-300 truncate max-w-[200px]">{art.prodotto}</td>
-                          <td className="py-1.5 px-2 text-right text-slate-300">{art.qty1}</td>
-                          <td className="py-1.5 px-2 text-right text-slate-300">{art.qty2}</td>
+                          <td className={cn("py-1.5 px-2 text-right", art.qty1 === 0 ? "text-slate-500" : "text-slate-300")}>{art.qty1}</td>
+                          <td className={cn("py-1.5 px-2 text-right", art.qty2 === 0 ? "text-slate-500" : "text-slate-300")}>{art.qty2}</td>
                           <td className={cn("py-1.5 px-2 text-right font-medium", art.diff_qty > 0 ? "text-emerald-400" : art.diff_qty < 0 ? "text-red-400" : "text-slate-400")}>
                             {art.diff_qty > 0 ? '+' : ''}{art.diff_qty}
                           </td>
-                          <td className="py-1.5 px-2 text-right text-slate-300">€{art.prezzo1.toFixed(2)}</td>
-                          <td className="py-1.5 px-2 text-right text-slate-300">€{art.prezzo2.toFixed(2)}</td>
+                          <td className={cn("py-1.5 px-2 text-right", art.prezzo1 === 0 ? "text-slate-500" : "text-slate-300")}>€{art.prezzo1.toFixed(2)}</td>
+                          <td className={cn("py-1.5 px-2 text-right", art.prezzo2 === 0 ? "text-slate-500" : "text-slate-300")}>€{art.prezzo2.toFixed(2)}</td>
                           <td className={cn("py-1.5 pl-2 text-right font-medium", art.diff_prezzo > 0 ? "text-emerald-400" : art.diff_prezzo < 0 ? "text-red-400" : "text-slate-400")}>
                             {art.diff_prezzo > 0 ? '+' : ''}€{art.diff_prezzo.toFixed(2)}
                           </td>
