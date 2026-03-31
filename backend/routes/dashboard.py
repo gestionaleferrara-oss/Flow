@@ -413,12 +413,15 @@ async def get_sales_insight():
     best_growth = None
     for prod, curr_data in prodotti_mese.items():
         prev_fatt = prodotti_prev.get(prod, 0)
-        if prev_fatt > 0 and curr_data['fatturato'] > prev_fatt:
+        # Require minimum €50 previous month to avoid extreme percentages
+        if prev_fatt >= 50 and curr_data['fatturato'] > prev_fatt:
             crescita_pct = ((curr_data['fatturato'] - prev_fatt) / prev_fatt) * 100
+            # Cap growth at 500% for display purposes
+            crescita_pct_display = min(crescita_pct, 500)
             if crescita_pct > 10 and (not best_growth or crescita_pct > best_growth[1]):
-                best_growth = (prod, crescita_pct, curr_data['fatturato'])
+                best_growth = (prod, crescita_pct_display, curr_data['fatturato'])
     if best_growth:
-        insights.append({"tipo": "growth_product", "icona": "\U0001F4C8", "titolo": "Crescita Maggiore", "valore": best_growth[0], "dettaglio": f"+{best_growth[1]:.0f}% vs mese prec. \u2022 \u20ac{best_growth[2]:,.0f}", "colore": "cyan"})
+        insights.append({"tipo": "growth_product", "icona": "\U0001F4C8", "titolo": "Crescita Maggiore", "valore": best_growth[0], "dettaglio": f"+{best_growth[1]:.0f}% vs mese prec. • €{best_growth[2]:,.0f}", "colore": "cyan"})
 
     # 3. Top client this month
     clienti_mese_pipeline = [
@@ -475,8 +478,12 @@ async def get_sales_insight():
         qty = m['quantita']
         # Calculate actual selling price from period data
         pv = fatt / qty if qty > 0 else 0
+        # Require reasonable margin (max 300%) and minimum fatturato
         if pa > 0 and pv > pa and fatt > 100:
             margine_pct = ((pv - pa) / pa) * 100
+            # Skip unrealistic margins (likely data errors)
+            if margine_pct > 300:
+                continue
             score = margine_pct * min(fatt, 1000)
             if not best_margin or score > best_margin[5]:
                 best_margin = (nome, margine_pct, pv, pa, fatt, score)
