@@ -20,6 +20,46 @@ import { toast } from 'sonner';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16'];
 
+// Autocomplete component - extracted to prevent re-creation on parent re-render
+function FilterAutocomplete({ placeholder, value, field, suggestions, filters, setFilters }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const filtered = suggestions.filter(s => s.toLowerCase().includes((value || '').toLowerCase())).slice(0, 10);
+  
+  return (
+    <div className="relative">
+      <Input
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => {
+          setFilters({ ...filters, [field]: e.target.value });
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setTimeout(() => setIsOpen(false), 250)}
+        className="h-8 text-sm"
+        data-testid={`filter-${field}`}
+      />
+      {isOpen && value && filtered.length > 0 && (
+        <div className="absolute top-full left-0 right-0 bg-slate-800 border border-slate-700 rounded-lg mt-1 max-h-48 overflow-auto z-50 shadow-xl">
+          {filtered.map((s, i) => (
+            <div 
+              key={i} 
+              className="px-3 py-2 hover:bg-slate-700 cursor-pointer text-xs text-slate-200"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setFilters({ ...filters, [field]: s });
+                setIsOpen(false);
+              }}
+            >
+              {s}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Statistiche() {
   const [data, setData] = useState(null);
   const [dataAcquisti, setDataAcquisti] = useState(null);
@@ -30,6 +70,13 @@ export default function Statistiche() {
   const [showSuggestions, setShowSuggestions] = useState({});
   const [showFilters, setShowFilters] = useState(false);
   const [activePreset, setActivePreset] = useState(null);
+  
+  // Month comparison state
+  const [showCompare, setShowCompare] = useState(false);
+  const [compareData, setCompareData] = useState(null);
+  const [compareMese1, setCompareMese1] = useState('');
+  const [compareMese2, setCompareMese2] = useState('');
+  const [loadingCompare, setLoadingCompare] = useState(false);
 
   const hasActiveFilters = filters.prodotto || filters.cliente || filters.fornitore || filters.startDate || filters.endDate;
 
@@ -133,27 +180,56 @@ export default function Statistiche() {
     }
   };
 
-  const Autocomplete = ({ placeholder, value, field, suggestions }) => (
-    <div className="relative">
-      <Input
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => setFilters({ ...filters, [field]: e.target.value })}
-        onFocus={() => setShowSuggestions({ [field]: true })}
-        onBlur={() => setTimeout(() => setShowSuggestions({}), 200)}
-        className="h-8 text-sm"
-        data-testid={`filter-${field}`}
-      />
-      {showSuggestions[field] && value && (
-        <div className="absolute top-full left-0 right-0 bg-slate-800 border border-slate-700 rounded-lg mt-1 max-h-40 overflow-auto z-20">
-          {suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase())).slice(0, 8).map((s, i) => (
-            <div key={i} className="px-3 py-1.5 hover:bg-slate-700 cursor-pointer text-xs"
-              onClick={() => setFilters({ ...filters, [field]: s })}>{s}</div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  // Generate month options for comparison (last 12 months)
+  const getMonthOptions = () => {
+    const months = [];
+    const now = new Date();
+    const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: `${monthNames[d.getMonth()]} ${d.getFullYear()}`
+      });
+    }
+    return months;
+  };
+  const monthOptions = getMonthOptions();
+
+  // Load comparison data
+  const loadCompareData = async () => {
+    if (!compareMese1 || !compareMese2) {
+      toast.error('Seleziona entrambi i mesi da confrontare');
+      return;
+    }
+    setLoadingCompare(true);
+    try {
+      // Parse month strings to get date ranges
+      const [y1, m1] = compareMese1.split('-').map(Number);
+      const [y2, m2] = compareMese2.split('-').map(Number);
+      const start1 = `${y1}-${String(m1).padStart(2, '0')}-01`;
+      const end1 = new Date(y1, m1, 0).toISOString().split('T')[0]; // Last day of month
+      const start2 = `${y2}-${String(m2).padStart(2, '0')}-01`;
+      const end2 = new Date(y2, m2, 0).toISOString().split('T')[0];
+
+      const endpoint = viewMode === 'vendite' ? 'statistiche' : 'statistiche/acquisti';
+      const [res1, res2] = await Promise.all([
+        axios.get(`${API}/${endpoint}?start_date=${start1}&end_date=${end1}`),
+        axios.get(`${API}/${endpoint}?start_date=${start2}&end_date=${end2}`)
+      ]);
+
+      const monthNames = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+      setCompareData({
+        mese1: { label: `${monthNames[m1 - 1]} ${y1}`, data: res1.data },
+        mese2: { label: `${monthNames[m2 - 1]} ${y2}`, data: res2.data }
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error('Errore nel caricamento dati confronto');
+    } finally {
+      setLoadingCompare(false);
+    }
+  };
 
   if (loading && !data) return <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>;
 
@@ -220,10 +296,10 @@ export default function Statistiche() {
         {presets.map(p => (
           <button
             key={p.key}
-            onClick={() => applyPreset(p.key)}
+            onClick={() => { applyPreset(p.key); setShowCompare(false); }}
             className={cn(
               "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-              activePreset === p.key
+              activePreset === p.key && !showCompare
                 ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                 : "bg-slate-800/40 text-slate-400 hover:text-slate-300 hover:bg-slate-800/80 border border-transparent"
             )}
@@ -231,6 +307,21 @@ export default function Statistiche() {
             {p.label}
           </button>
         ))}
+        
+        {/* Compare months button */}
+        <button
+          onClick={() => { setShowCompare(!showCompare); setActivePreset(null); setCompareData(null); }}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+            showCompare
+              ? "bg-violet-500/20 text-violet-400 border border-violet-500/30"
+              : "bg-slate-800/40 text-slate-400 hover:text-slate-300 hover:bg-slate-800/80 border border-transparent"
+          )}
+          data-testid="compare-months-btn"
+        >
+          <TrendingUp className="w-3.5 h-3.5" />
+          Confronta
+        </button>
 
         {/* Divider */}
         <div className="w-px h-6 bg-slate-700" />
@@ -261,17 +352,17 @@ export default function Statistiche() {
 
       {/* Expanded filters panel */}
       {showFilters && (
-        <div className="flex flex-wrap items-end gap-3 mb-6 p-3 bg-slate-800/30 rounded-lg border border-slate-700/50">
-          <div className="w-44">
-            <Autocomplete placeholder="Prodotto" value={filters.prodotto} field="prodotto" suggestions={lists.prodotti} />
+        <div className="flex flex-wrap items-end gap-3 mb-6 p-3 bg-slate-800/30 rounded-lg border border-slate-700/50 overflow-visible">
+          <div className="w-44 relative z-20">
+            <FilterAutocomplete placeholder="Prodotto" value={filters.prodotto} field="prodotto" suggestions={lists.prodotti} filters={filters} setFilters={setFilters} />
           </div>
           {viewMode === 'vendite' ? (
-            <div className="w-44">
-              <Autocomplete placeholder="Cliente" value={filters.cliente} field="cliente" suggestions={lists.clienti} />
+            <div className="w-44 relative z-10">
+              <FilterAutocomplete placeholder="Cliente" value={filters.cliente} field="cliente" suggestions={lists.clienti} filters={filters} setFilters={setFilters} />
             </div>
           ) : (
-            <div className="w-44">
-              <Autocomplete placeholder="Fornitore" value={filters.fornitore} field="fornitore" suggestions={lists.fornitori || []} />
+            <div className="w-44 relative z-10">
+              <FilterAutocomplete placeholder="Fornitore" value={filters.fornitore} field="fornitore" suggestions={lists.fornitori || []} filters={filters} setFilters={setFilters} />
             </div>
           )}
           <div className="w-36">
@@ -282,6 +373,149 @@ export default function Statistiche() {
             <Input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
               className="h-8 text-sm" data-testid="filter-end-date" />
           </div>
+        </div>
+      )}
+
+      {/* Month comparison panel */}
+      {showCompare && (
+        <div className="mb-6 p-4 bg-violet-500/5 rounded-xl border border-violet-500/20">
+          <div className="flex flex-wrap items-end gap-4 mb-4">
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-xs text-slate-400 mb-1.5">Mese 1</label>
+              <select
+                value={compareMese1}
+                onChange={(e) => setCompareMese1(e.target.value)}
+                className="w-full h-9 px-3 rounded-lg bg-slate-800 border border-slate-700 text-sm text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                data-testid="compare-month-1"
+              >
+                <option value="">Seleziona mese</option>
+                {monthOptions.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="text-slate-500 text-sm font-medium pb-2">vs</div>
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-xs text-slate-400 mb-1.5">Mese 2</label>
+              <select
+                value={compareMese2}
+                onChange={(e) => setCompareMese2(e.target.value)}
+                className="w-full h-9 px-3 rounded-lg bg-slate-800 border border-slate-700 text-sm text-white focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                data-testid="compare-month-2"
+              >
+                <option value="">Seleziona mese</option>
+                {monthOptions.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+            <Button 
+              onClick={loadCompareData}
+              disabled={loadingCompare || !compareMese1 || !compareMese2}
+              className="bg-violet-500 hover:bg-violet-600 text-white h-9"
+              data-testid="compare-load-btn"
+            >
+              {loadingCompare ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Confronta'}
+            </Button>
+          </div>
+          
+          {/* Comparison results */}
+          {compareData && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Month 1 card */}
+              <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                <h4 className="text-sm font-semibold text-violet-400 mb-3">{compareData.mese1.label}</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-slate-400">Fatturato</span>
+                    <span className="text-sm font-semibold text-white">{formatCurrency(compareData.mese1.data.totaleEuro || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-slate-400">Articoli</span>
+                    <span className="text-sm text-slate-300">{(compareData.mese1.data.totaleArticoli || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-slate-400">{viewMode === 'vendite' ? 'Clienti' : 'Fornitori'}</span>
+                    <span className="text-sm text-slate-300">{viewMode === 'vendite' ? compareData.mese1.data.clientiAttivi || 0 : compareData.mese1.data.fornitoriAttivi || 0}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Month 2 card */}
+              <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                <h4 className="text-sm font-semibold text-cyan-400 mb-3">{compareData.mese2.label}</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-slate-400">Fatturato</span>
+                    <span className="text-sm font-semibold text-white">{formatCurrency(compareData.mese2.data.totaleEuro || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-slate-400">Articoli</span>
+                    <span className="text-sm text-slate-300">{(compareData.mese2.data.totaleArticoli || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-slate-400">{viewMode === 'vendite' ? 'Clienti' : 'Fornitori'}</span>
+                    <span className="text-sm text-slate-300">{viewMode === 'vendite' ? compareData.mese2.data.clientiAttivi || 0 : compareData.mese2.data.fornitoriAttivi || 0}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Difference card */}
+              <div className="md:col-span-2 p-4 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 rounded-lg border border-violet-500/20">
+                <h4 className="text-sm font-semibold text-white mb-3">Variazione</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  {(() => {
+                    const fatt1 = compareData.mese1.data.totaleEuro || 0;
+                    const fatt2 = compareData.mese2.data.totaleEuro || 0;
+                    const diffFatt = fatt2 - fatt1;
+                    const pctFatt = fatt1 > 0 ? ((fatt2 - fatt1) / fatt1 * 100) : 0;
+                    
+                    const art1 = compareData.mese1.data.totaleArticoli || 0;
+                    const art2 = compareData.mese2.data.totaleArticoli || 0;
+                    const diffArt = art2 - art1;
+                    const pctArt = art1 > 0 ? ((art2 - art1) / art1 * 100) : 0;
+                    
+                    const cli1 = viewMode === 'vendite' ? (compareData.mese1.data.clientiAttivi || 0) : (compareData.mese1.data.fornitoriAttivi || 0);
+                    const cli2 = viewMode === 'vendite' ? (compareData.mese2.data.clientiAttivi || 0) : (compareData.mese2.data.fornitoriAttivi || 0);
+                    const diffCli = cli2 - cli1;
+                    const pctCli = cli1 > 0 ? ((cli2 - cli1) / cli1 * 100) : 0;
+                    
+                    return (
+                      <>
+                        <div className="text-center">
+                          <div className="text-xs text-slate-400 mb-1">Fatturato</div>
+                          <div className={cn("text-lg font-bold", diffFatt >= 0 ? "text-emerald-400" : "text-red-400")}>
+                            {diffFatt >= 0 ? '+' : ''}{formatCurrency(diffFatt)}
+                          </div>
+                          <div className={cn("text-xs", pctFatt >= 0 ? "text-emerald-400" : "text-red-400")}>
+                            ({pctFatt >= 0 ? '+' : ''}{pctFatt.toFixed(1)}%)
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-slate-400 mb-1">Articoli</div>
+                          <div className={cn("text-lg font-bold", diffArt >= 0 ? "text-emerald-400" : "text-red-400")}>
+                            {diffArt >= 0 ? '+' : ''}{diffArt.toLocaleString()}
+                          </div>
+                          <div className={cn("text-xs", pctArt >= 0 ? "text-emerald-400" : "text-red-400")}>
+                            ({pctArt >= 0 ? '+' : ''}{pctArt.toFixed(1)}%)
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-slate-400 mb-1">{viewMode === 'vendite' ? 'Clienti' : 'Fornitori'}</div>
+                          <div className={cn("text-lg font-bold", diffCli >= 0 ? "text-emerald-400" : "text-red-400")}>
+                            {diffCli >= 0 ? '+' : ''}{diffCli}
+                          </div>
+                          <div className={cn("text-xs", pctCli >= 0 ? "text-emerald-400" : "text-red-400")}>
+                            ({pctCli >= 0 ? '+' : ''}{pctCli.toFixed(1)}%)
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

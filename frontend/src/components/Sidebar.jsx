@@ -1,24 +1,28 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home, Upload, Package, Users, Truck, ShoppingCart,
-  BarChart3, Newspaper, Sparkles, Zap, X
+  BarChart3, Newspaper, Sparkles, Zap, X, ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// Main navigation (without Upload and AI items)
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Importa Dati', href: '/upload', icon: Upload },
-  { name: 'Forecast', href: '/forecast', icon: Sparkles, badge: 'AI' },
   { name: 'Magazzino', href: '/magazzino', icon: Package },
   { name: 'Vendite', href: '/vendite', icon: BarChart3 },
   { name: 'Clienti', href: '/clienti', icon: Users },
   { name: 'Fornitori', href: '/fornitori', icon: Truck },
   { name: 'Acquisti', href: '/ordini', icon: ShoppingCart },
   { name: 'Statistiche', href: '/statistiche', icon: BarChart3 },
-  { name: 'Report AI', href: '/report-ai', icon: Sparkles, badge: 'AI' },
   { name: 'Notizie', href: '/notizie', icon: Newspaper },
+];
+
+// AI submenu items
+const aiItems = [
+  { name: 'Forecast AI', href: '/forecast' },
+  { name: 'Report AI', href: '/report-ai' },
 ];
 
 // Prefetch map for instant navigation
@@ -39,9 +43,12 @@ const prefetched = new Set();
 
 export default function Sidebar({ mobileOpen, onMobileClose }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [hoveredItem, setHoveredItem] = useState(null);
   const [hoverPos, setHoverPos] = useState({ top: 0 });
+  const [showAiMenu, setShowAiMenu] = useState(false);
   const leaveTimer = useRef(null);
+  const aiMenuRef = useRef(null);
 
   const enterItem = useCallback((name, el, href) => {
     clearTimeout(leaveTimer.current);
@@ -171,11 +178,97 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
               </div>
             );
           })}
+          
+          {/* AI Button with submenu */}
+          <div className="relative h-[44px]" ref={aiMenuRef}>
+            <button
+              onClick={() => setShowAiMenu(!showAiMenu)}
+              data-testid="nav-ai"
+              className={cn(
+                'flex items-center justify-center w-full h-full rounded-xl transition-colors duration-150',
+                showAiMenu || location.pathname === '/forecast' || location.pathname === '/report-ai'
+                  ? 'text-purple-400' 
+                  : 'text-slate-500 hover:text-slate-200'
+              )}
+            >
+              {(location.pathname === '/forecast' || location.pathname === '/report-ai') && !showAiMenu && (
+                <motion.div
+                  layoutId="nav-active"
+                  className="absolute inset-0 rounded-xl bg-purple-500/10 border border-purple-500/20"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
+              <div className="relative z-10">
+                <Sparkles size={22} />
+              </div>
+            </button>
+          </div>
         </nav>
 
-        <div className="px-4 py-3 shrink-0">
-          <div className="h-px bg-white/[0.04] mb-2" />
-          <div className="flex items-center justify-center">
+        {/* AI Submenu - positioned outside sidebar to avoid clipping */}
+        <AnimatePresence>
+          {showAiMenu && aiMenuRef.current && (
+            <motion.div
+              initial={{ opacity: 0, x: -10, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -10, scale: 0.95 }}
+              className="fixed bg-slate-900/95 backdrop-blur-xl border border-purple-500/30 rounded-xl overflow-hidden shadow-2xl z-[100]"
+              style={{ 
+                minWidth: 150,
+                left: 84,
+                top: aiMenuRef.current.getBoundingClientRect().top
+              }}
+            >
+              {aiItems.map((ai) => (
+                <button
+                  key={ai.href}
+                  onClick={() => { navigate(ai.href); setShowAiMenu(false); }}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors",
+                    location.pathname === ai.href 
+                      ? "bg-purple-500/20 text-purple-300" 
+                      : "text-slate-300 hover:bg-purple-500/10 hover:text-purple-300"
+                  )}
+                >
+                  <ChevronRight className="w-3 h-3" />
+                  {ai.name}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Bottom section - Upload */}
+        <div className="px-2 pb-3 shrink-0">
+          <div className="mx-2 h-px bg-white/[0.04] mb-2" />
+          
+          {/* Upload button */}
+          <div
+            className="relative h-[44px]"
+            onMouseEnter={(e) => enterItem('Importa Dati', e.currentTarget, '/upload')}
+            onMouseLeave={leaveItem}
+          >
+            <Link
+              to="/upload"
+              data-testid="nav-importa-dati"
+              className={cn(
+                'flex items-center justify-center w-full h-full rounded-xl transition-colors duration-150',
+                hoveredItem === 'Importa Dati' ? 'text-cyan-400' : location.pathname === '/upload' ? 'text-cyan-400' : 'text-slate-500 hover:text-slate-200'
+              )}
+            >
+              {location.pathname === '/upload' && hoveredItem !== 'Importa Dati' && (
+                <motion.div
+                  className="absolute inset-0 rounded-xl bg-white/[0.07] border border-white/[0.08]"
+                />
+              )}
+              <div className="relative z-10">
+                <Upload size={22} />
+              </div>
+            </Link>
+          </div>
+          
+          {/* Status indicator */}
+          <div className="flex items-center justify-center mt-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           </div>
         </div>

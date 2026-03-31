@@ -656,10 +656,14 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
             {"$sort": {"totale_periodo": -1}}, {"$limit": 5}
         ]
         new_cli = await db.vendite.aggregate(new_pipeline).to_list(5)
-        # Most frequent
+        # Most frequent - count unique order days (not individual product lines)
+        # An "order" is all products purchased on the same day by the same customer
         freq_pipeline = [
             {"$match": {"data": cli_date_filter, "cliente_nome": {"$nin": EXCLUDED}}},
-            {"$group": {"_id": "$cliente_nome", "visite": {"$sum": 1}}},
+            # First, group by (cliente, data) to identify unique order days
+            {"$group": {"_id": {"cliente": "$cliente_nome", "data": "$data"}}},
+            # Then count unique days per customer
+            {"$group": {"_id": "$_id.cliente", "visite": {"$sum": 1}}},
             {"$sort": {"visite": -1}}, {"$limit": 5}
         ]
         freq_cli = await db.vendite.aggregate(freq_pipeline).to_list(5)
