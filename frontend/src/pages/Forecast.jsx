@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { 
   Sparkles, Search, Calendar, TrendingUp, Package, Users, 
-  RefreshCw, RotateCcw, FileDown, Target, Lightbulb
+  RefreshCw, RotateCcw, FileDown, Target, Lightbulb,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,117 @@ import { formatCurrency, cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const MESI_BREVI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+const MESI_LUNGHI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+function MonthPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  const parsed = value ? { year: parseInt(value.split('-')[0]), month: parseInt(value.split('-')[1]) } : null;
+  const [viewYear, setViewYear] = useState(() => parsed?.year || new Date().getFullYear() + 1);
+
+  // sync viewYear when value changes from outside
+  useEffect(() => { if (parsed?.year) setViewYear(parsed.year); }, [value]);
+
+  // close on outside click
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const displayText = parsed
+    ? `${MESI_LUNGHI[parsed.month - 1]} ${parsed.year}`
+    : 'Seleziona mese';
+
+  const selectMonth = (monthIdx) => {
+    onChange(`${viewYear}-${String(monthIdx + 1).padStart(2, '0')}`);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} className="relative flex-1" data-testid="month-picker">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        data-testid="month-picker-trigger"
+        className={cn(
+          "w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all text-left",
+          open
+            ? "bg-emerald-500/10 border-emerald-500/40 text-white"
+            : "bg-white/[0.04] border-white/[0.08] text-white hover:bg-white/[0.07] hover:border-white/[0.14]"
+        )}
+      >
+        <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
+        <span className={parsed ? 'text-white font-medium' : 'text-slate-500'}>
+          {displayText}
+        </span>
+        <ChevronRight className={cn("w-3.5 h-3.5 ml-auto text-slate-500 transition-transform duration-200", open && "rotate-90")} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.96 }}
+            transition={{ duration: 0.15 }}
+            className="absolute top-[calc(100%+6px)] left-0 z-50 rounded-xl border border-white/[0.10] bg-slate-900/98 backdrop-blur-xl shadow-2xl shadow-black/40 p-3 w-64"
+          >
+            {/* Year navigation */}
+            <div className="flex items-center justify-between mb-3 px-1">
+              <button
+                type="button"
+                onClick={() => setViewYear(y => y - 1)}
+                className="p-1.5 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-bold text-white tracking-wide">{viewYear}</span>
+              <button
+                type="button"
+                onClick={() => setViewYear(y => y + 1)}
+                className="p-1.5 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Separator */}
+            <div className="h-px bg-white/[0.06] mb-3" />
+
+            {/* Month grid */}
+            <div className="grid grid-cols-3 gap-1.5">
+              {MESI_BREVI.map((m, i) => {
+                const isSelected = parsed?.year === viewYear && parsed?.month === i + 1;
+                const isCurrentMonth = new Date().getFullYear() === viewYear && new Date().getMonth() === i;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => selectMonth(i)}
+                    className={cn(
+                      "py-2.5 px-1 rounded-lg text-xs font-semibold transition-all duration-150 relative",
+                      isSelected
+                        ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-105"
+                        : isCurrentMonth
+                        ? "bg-white/[0.06] text-emerald-400 ring-1 ring-emerald-500/30"
+                        : "text-slate-300 hover:bg-white/[0.08] hover:text-white"
+                    )}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function Forecast() {
   const [tipo, setTipo] = useState('globale'); // 'prodotto', 'cliente', 'globale'
@@ -299,37 +411,8 @@ export default function Forecast() {
             <span className="text-sm font-medium text-white">Mese Target</span>
           </div>
           <div className="flex gap-2">
-            {/* Custom month + year selectors */}
-            <div className="flex gap-1.5 flex-1">
-              <select
-                value={meseTarget ? meseTarget.split('-')[1] : ''}
-                onChange={(e) => {
-                  const yr = meseTarget ? meseTarget.split('-')[0] : new Date().getFullYear() + 1;
-                  if (e.target.value) setMeseTarget(`${yr}-${e.target.value}`);
-                }}
-                data-testid="mese-select"
-                className="flex-1 px-2 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-white text-sm focus:outline-none focus:border-emerald-500/50 appearance-none cursor-pointer"
-              >
-                <option value="" className="bg-slate-900">Mese</option>
-                {['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'].map((m, i) => (
-                  <option key={i} value={String(i+1).padStart(2,'0')} className="bg-slate-900">{m}</option>
-                ))}
-              </select>
-              <select
-                value={meseTarget ? meseTarget.split('-')[0] : ''}
-                onChange={(e) => {
-                  const mn = meseTarget ? meseTarget.split('-')[1] : '01';
-                  if (e.target.value) setMeseTarget(`${e.target.value}-${mn}`);
-                }}
-                data-testid="anno-select"
-                className="w-24 px-2 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] text-white text-sm focus:outline-none focus:border-emerald-500/50 appearance-none cursor-pointer"
-              >
-                <option value="" className="bg-slate-900">Anno</option>
-                {[2024,2025,2026,2027,2028].map(y => (
-                  <option key={y} value={y} className="bg-slate-900">{y}</option>
-                ))}
-              </select>
-            </div>
+            {/* Month picker calendar */}
+            <MonthPicker value={meseTarget} onChange={setMeseTarget} />
             <Button 
               onClick={generateForecast}
               disabled={(tipo !== 'globale' && !selectedEntity) || !meseTarget || loading}
