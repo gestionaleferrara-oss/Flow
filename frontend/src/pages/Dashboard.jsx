@@ -639,7 +639,7 @@ export default function Dashboard() {
               <h3 className="text-sm font-semibold text-white">Prodotti in Calo</h3>
               <p className="text-xs text-slate-500 truncate">
                 {prodottiCaloTopClienti?.mese_precedente && prodottiCaloTopClienti?.mese_corrente 
-                  ? `${prodottiCaloTopClienti.mese_precedente} → ${prodottiCaloTopClienti.mese_corrente} • Top ${prodottiCaloTopClienti.clienti_analizzati || 10} clienti` 
+                  ? `${prodottiCaloTopClienti.mese_precedente} → ${prodottiCaloTopClienti.mese_corrente}` 
                   : 'Caricamento...'}
               </p>
             </div>

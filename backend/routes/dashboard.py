@@ -764,7 +764,7 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
 @router.get("/top-clienti-prodotti-calo")
 async def get_top_clienti_prodotti_calo():
     """
-    Get products that are declining in quantity for the top frequent customers.
+    Get products that are declining in quantity across ALL sales.
     Compares current month with previous month.
     """
     EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
@@ -776,32 +776,17 @@ async def get_top_clienti_prodotti_calo():
     prev_month_end = prev_month.strftime("%Y-%m-%d")
     current_end = now.strftime("%Y-%m-%d")
     
-    # Get top 10 most frequent customers (by number of unique order days in last 60 days)
-    sixty_days_ago = (now - timedelta(days=60)).strftime("%Y-%m-%d")
-    freq_pipeline = [
-        {"$match": {"data": {"$gte": sixty_days_ago}, "cliente_nome": {"$nin": EXCLUDED}}},
-        {"$group": {"_id": {"cliente": "$cliente_nome", "data": "$data"}}},
-        {"$group": {"_id": "$_id.cliente", "ordini": {"$sum": 1}}},
-        {"$sort": {"ordini": -1}},
-        {"$limit": 10}
-    ]
-    top_clienti = await db.vendite.aggregate(freq_pipeline).to_list(10)
-    top_clienti_nomi = [c["_id"] for c in top_clienti if c["_id"]]
-    
-    if not top_clienti_nomi:
-        return {"prodotti_calo": [], "clienti_analizzati": 0}
-    
-    # Get current month sales for these customers
+    # Get current month sales (ALL customers)
     current_sales = await db.vendite.find({
         "data": {"$gte": current_month_start, "$lte": current_end},
-        "cliente_nome": {"$in": top_clienti_nomi}
-    }, {"_id": 0, "prodotto_nome": 1, "quantita": 1, "cliente_nome": 1}).to_list(50000)
+        "cliente_nome": {"$nin": EXCLUDED}
+    }, {"_id": 0, "prodotto_nome": 1, "quantita": 1}).to_list(100000)
     
-    # Get previous month sales for these customers
+    # Get previous month sales (ALL customers)
     prev_sales = await db.vendite.find({
         "data": {"$gte": prev_month_start, "$lte": prev_month_end},
-        "cliente_nome": {"$in": top_clienti_nomi}
-    }, {"_id": 0, "prodotto_nome": 1, "quantita": 1, "cliente_nome": 1}).to_list(50000)
+        "cliente_nome": {"$nin": EXCLUDED}
+    }, {"_id": 0, "prodotto_nome": 1, "quantita": 1}).to_list(100000)
     
     # Aggregate by product
     current_by_prod = {}
@@ -822,8 +807,8 @@ async def get_top_clienti_prodotti_calo():
         curr_qty = current_by_prod.get(prod, 0)
         if prev_qty > 0:
             variazione = ((curr_qty - prev_qty) / prev_qty) * 100
-            # Only include significant declines (> 20% drop and at least 5 units less)
-            if variazione < -20 and (prev_qty - curr_qty) >= 5:
+            # Only include significant declines (> 20% drop and at least 10 units less)
+            if variazione < -20 and (prev_qty - curr_qty) >= 10:
                 prodotti_calo.append({
                     "prodotto": prod,
                     "qty_mese_prec": round(prev_qty, 1),
@@ -837,7 +822,7 @@ async def get_top_clienti_prodotti_calo():
     
     return {
         "prodotti_calo": prodotti_calo[:10],
-        "clienti_analizzati": len(top_clienti_nomi),
+        "totale_prodotti_calo": len(prodotti_calo),
         "mese_corrente": current_month_start[:7],
         "mese_precedente": prev_month_start[:7]
     }
