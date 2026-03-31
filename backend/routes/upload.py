@@ -10,6 +10,71 @@ from utils import auto_detect_columns, process_csv_row
 router = APIRouter()
 
 
+@router.post("/pulisci-duplicati")
+async def pulisci_duplicati():
+    """
+    Remove duplicate sales and orders from the database.
+    Duplicates are identified by: data + cliente/fornitore + prodotto + quantita + totale
+    """
+    # Clean vendite duplicates
+    vendite_pipeline = [
+        {"$group": {
+            "_id": {
+                "data": "$data",
+                "cliente_nome": "$cliente_nome",
+                "prodotto_nome": "$prodotto_nome",
+                "quantita": "$quantita",
+                "totale": "$totale"
+            },
+            "ids": {"$push": "$_id"},
+            "count": {"$sum": 1}
+        }},
+        {"$match": {"count": {"$gt": 1}}}
+    ]
+    
+    duplicati_vendite = await db.vendite.aggregate(vendite_pipeline).to_list(100000)
+    vendite_rimossi = 0
+    
+    for dup in duplicati_vendite:
+        # Keep the first one, delete the rest
+        ids_to_delete = dup['ids'][1:]  # Skip first ID
+        if ids_to_delete:
+            result = await db.vendite.delete_many({"_id": {"$in": ids_to_delete}})
+            vendite_rimossi += result.deleted_count
+    
+    # Clean ordini duplicates
+    ordini_pipeline = [
+        {"$group": {
+            "_id": {
+                "data": "$data",
+                "fornitore_nome": "$fornitore_nome",
+                "prodotto_nome": "$prodotto_nome",
+                "quantita": "$quantita",
+                "totale": "$totale"
+            },
+            "ids": {"$push": "$_id"},
+            "count": {"$sum": 1}
+        }},
+        {"$match": {"count": {"$gt": 1}}}
+    ]
+    
+    duplicati_ordini = await db.ordini.aggregate(ordini_pipeline).to_list(100000)
+    ordini_rimossi = 0
+    
+    for dup in duplicati_ordini:
+        ids_to_delete = dup['ids'][1:]
+        if ids_to_delete:
+            result = await db.ordini.delete_many({"_id": {"$in": ids_to_delete}})
+            ordini_rimossi += result.deleted_count
+    
+    return {
+        "success": True,
+        "vendite_duplicati_rimossi": vendite_rimossi,
+        "ordini_duplicati_rimossi": ordini_rimossi,
+        "message": f"Rimossi {vendite_rimossi} vendite duplicate e {ordini_rimossi} ordini duplicati"
+    }
+
+
 @router.post("/upload-csv")
 async def upload_csv(file: UploadFile = File(...)):
     filename = file.filename.lower()
