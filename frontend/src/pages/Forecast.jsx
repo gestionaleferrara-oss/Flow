@@ -72,7 +72,7 @@ function MonthPicker({ value, onChange }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.96 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-[calc(100%+6px)] left-0 z-50 rounded-xl border border-white/[0.10] bg-slate-900/98 backdrop-blur-xl shadow-2xl shadow-black/40 p-3 w-64"
+            className="absolute top-[calc(100%+6px)] left-0 z-50 rounded-xl border border-white/[0.15] bg-[#0f1729] shadow-2xl shadow-black/60 p-3 w-64"
           >
             {/* Year navigation */}
             <div className="flex items-center justify-between mb-3 px-1">
