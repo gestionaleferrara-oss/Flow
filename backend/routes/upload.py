@@ -13,64 +13,58 @@ router = APIRouter()
 @router.post("/pulisci-duplicati")
 async def pulisci_duplicati():
     """
-    Remove duplicate sales and orders from the database.
-    Duplicates are identified by: data + cliente/fornitore + prodotto + quantita + totale
+    Remove duplicate vendite and ordini, keeping the most recently inserted record.
+    Dedup key: data + cliente_nome + prodotto_nome  (ignores qty/totale to catch corrections too)
     """
-    # Clean vendite duplicates
+    # ── Vendite ──────────────────────────────────────────────────────
     vendite_pipeline = [
         {"$group": {
             "_id": {
-                "data": "$data",
+                "data":         "$data",
                 "cliente_nome": "$cliente_nome",
-                "prodotto_nome": "$prodotto_nome",
-                "quantita": "$quantita",
-                "totale": "$totale"
+                "prodotto_nome": "$prodotto_nome"
             },
-            "ids": {"$push": "$_id"},
+            "ids":   {"$push": "$_id"},
             "count": {"$sum": 1}
         }},
         {"$match": {"count": {"$gt": 1}}}
     ]
-    
-    duplicati_vendite = await db.vendite.aggregate(vendite_pipeline).to_list(100000)
+    duplicati_vendite = await db.vendite.aggregate(vendite_pipeline).to_list(500000)
     vendite_rimossi = 0
-    
     for dup in duplicati_vendite:
-        # Keep the first one, delete the rest
-        ids_to_delete = dup['ids'][1:]  # Skip first ID
+        # Sort ids so we keep the LAST inserted (highest ObjectId = most recent)
+        sorted_ids = sorted(dup['ids'], key=lambda x: str(x))
+        ids_to_delete = sorted_ids[:-1]   # keep last
         if ids_to_delete:
             result = await db.vendite.delete_many({"_id": {"$in": ids_to_delete}})
             vendite_rimossi += result.deleted_count
-    
-    # Clean ordini duplicates
+
+    # ── Ordini ───────────────────────────────────────────────────────
     ordini_pipeline = [
         {"$group": {
             "_id": {
-                "data": "$data",
+                "data":           "$data",
                 "fornitore_nome": "$fornitore_nome",
-                "prodotto_nome": "$prodotto_nome",
-                "quantita": "$quantita",
-                "totale": "$totale"
+                "prodotto_nome":  "$prodotto_nome"
             },
-            "ids": {"$push": "$_id"},
+            "ids":   {"$push": "$_id"},
             "count": {"$sum": 1}
         }},
         {"$match": {"count": {"$gt": 1}}}
     ]
-    
-    duplicati_ordini = await db.ordini.aggregate(ordini_pipeline).to_list(100000)
+    duplicati_ordini = await db.ordini.aggregate(ordini_pipeline).to_list(500000)
     ordini_rimossi = 0
-    
     for dup in duplicati_ordini:
-        ids_to_delete = dup['ids'][1:]
+        sorted_ids = sorted(dup['ids'], key=lambda x: str(x))
+        ids_to_delete = sorted_ids[:-1]
         if ids_to_delete:
             result = await db.ordini.delete_many({"_id": {"$in": ids_to_delete}})
             ordini_rimossi += result.deleted_count
-    
+
     return {
         "success": True,
-        "vendite_duplicati_rimossi": vendite_rimossi,
-        "ordini_duplicati_rimossi": ordini_rimossi,
+        "vendite_rimossi": vendite_rimossi,
+        "ordini_rimossi":  ordini_rimossi,
         "message": f"Rimossi {vendite_rimossi} vendite duplicate e {ordini_rimossi} ordini duplicati"
     }
 
@@ -122,7 +116,29 @@ async def upload_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/upload-multiple")
+async def _upsert_vendite_batch(batch):
+    """Upsert a batch of vendite records (no duplicates on data+cliente+prodotto)."""
+    from pymongo import UpdateOne
+    if not batch: return
+    ops = [UpdateOne(
+        {"data": v.get("data"), "cliente_nome": v.get("cliente_nome"), "prodotto_nome": v.get("prodotto_nome")},
+        {"$set": v}, upsert=True
+    ) for v in batch]
+    await db.vendite.bulk_write(ops, ordered=False)
+
+
+async def _upsert_ordini_batch(batch):
+    """Upsert a batch of ordini records (no duplicates on data+fornitore+prodotto)."""
+    from pymongo import UpdateOne
+    if not batch: return
+    ops = [UpdateOne(
+        {"data": o.get("data"), "fornitore_nome": o.get("fornitore_nome"), "prodotto_nome": o.get("prodotto_nome")},
+        {"$set": o}, upsert=True
+    ) for o in batch]
+    await db.ordini.bulk_write(ops, ordered=False)
+
+
+
 async def upload_multiple_files(files: List[UploadFile] = File(...), mode: Optional[str] = Form("incremental")):
     total_stats = {
         'new_clienti': 0, 'existing_clienti': 0, 'new_fornitori': 0, 'existing_fornitori': 0,
@@ -156,10 +172,10 @@ async def upload_multiple_files(files: List[UploadFile] = File(...), mode: Optio
                     await process_csv_row(row, total_stats, col_mapping, cache)
                     total_stats['rows_processed'] += 1
                     if len(cache['vendite_batch']) >= BATCH_SIZE:
-                        await db.vendite.insert_many(cache['vendite_batch'])
+                        await _upsert_vendite_batch(cache['vendite_batch'])
                         cache['vendite_batch'] = []
                     if len(cache['ordini_batch']) >= BATCH_SIZE:
-                        await db.ordini.insert_many(cache['ordini_batch'])
+                        await _upsert_ordini_batch(cache['ordini_batch'])
                         cache['ordini_batch'] = []
                 except Exception as e:
                     total_stats['errors'].append(f"File {file.filename}, riga {total_stats['rows_processed']}: {str(e)}")
@@ -206,10 +222,10 @@ async def upload_incremental(file: UploadFile = File(...)):
                 await process_csv_row(row, stats, col_mapping, cache)
                 stats['rows_processed'] += 1
                 if len(cache['vendite_batch']) >= BATCH_SIZE:
-                    await db.vendite.insert_many(cache['vendite_batch'])
+                    await _upsert_vendite_batch(cache['vendite_batch'])
                     cache['vendite_batch'] = []
                 if len(cache['ordini_batch']) >= BATCH_SIZE:
-                    await db.ordini.insert_many(cache['ordini_batch'])
+                    await _upsert_ordini_batch(cache['ordini_batch'])
                     cache['ordini_batch'] = []
             except Exception as e:
                 stats['errors'].append(f"Riga {stats['rows_processed'] + 1}: {str(e)}")
