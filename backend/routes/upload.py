@@ -62,6 +62,9 @@ async def pulisci_duplicati():
             result = await db.ordini.delete_many({"_id": {"$in": ids_to_delete}})
             ordini_rimossi += result.deleted_count
 
+    # Recompute stock so giacenze stay consistent after removing duplicates
+    await recompute_all_quantities()
+
     return {
         "success": True,
         "vendite_rimossi": vendite_rimossi,

@@ -361,6 +361,8 @@ async def get_trends_vendite(periodo: str = "2w", ordina_per: str = "interest", 
 
     current_sales = await db.vendite.find({"data": {"$gt": current_start, "$lte": current_end}}, {"_id": 0, "prodotto_nome": 1, "quantita": 1, "totale": 1, "prezzo_unitario": 1}).to_list(100000)
     prev_sales = await db.vendite.find({"data": {"$gt": prev_start, "$lte": prev_end}}, {"_id": 0, "prodotto_nome": 1, "quantita": 1, "totale": 1}).to_list(100000)
+    from routes.esclusioni import get_prodotti_esclusi_set
+    esclusi_set = await get_prodotti_esclusi_set()
     
     # Get purchase prices for margin calculation
     prezzi_acquisto = {}
@@ -373,7 +375,7 @@ async def get_trends_vendite(periodo: str = "2w", ordina_per: str = "interest", 
     total_fatturato = 0
     for s in current_sales:
         prod = s.get('prodotto_nome', '')
-        if prod:
+        if prod and prod not in esclusi_set:
             if prod not in current_by_product:
                 current_by_product[prod] = {'qty': 0, 'totale': 0, 'richieste': 0, 'prezzo_vendita_sum': 0, 'prezzo_vendita_count': 0}
             current_by_product[prod]['qty'] += abs(s.get('quantita', 0))
@@ -387,7 +389,7 @@ async def get_trends_vendite(periodo: str = "2w", ordina_per: str = "interest", 
     prev_by_product = {}
     for s in prev_sales:
         prod = s.get('prodotto_nome', '')
-        if prod:
+        if prod and prod not in esclusi_set:
             if prod not in prev_by_product:
                 prev_by_product[prod] = {'qty': 0, 'totale': 0, 'richieste': 0}
             prev_by_product[prod]['qty'] += abs(s.get('quantita', 0))

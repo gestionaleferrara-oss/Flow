@@ -393,12 +393,16 @@ async def get_sales_insight():
     prev_month_end = prev_month.strftime("%Y-%m-%d")
     last_30_days = (reference_date - timedelta(days=30)).strftime("%Y-%m-%d")
     EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    from routes.esclusioni import get_prodotti_esclusi
+    prod_esclusi = await get_prodotti_esclusi()
+    excl_prod = {"prodotto_nome": {"$nin": prod_esclusi}} if prod_esclusi else {}
+    esclusi_set = set(prod_esclusi)
 
     insights = []
 
     # 1. Top product & client this month + prev month products (single query each via aggregation)
     prodotti_mese_pipeline = [
-        {"$match": {"data": {"$gte": current_month_start}}},
+        {"$match": {"data": {"$gte": current_month_start}, **excl_prod}},
         {"$group": {"_id": "$prodotto_nome", "fatturato": {"$sum": {"$abs": "$totale"}}, "qty": {"$sum": {"$abs": "$quantita"}}}}
     ]
     prodotti_mese_agg = await db.vendite.aggregate(prodotti_mese_pipeline).to_list(5000)
@@ -411,7 +415,7 @@ async def get_sales_insight():
 
     # 2. Growth product vs prev month
     prodotti_prev_pipeline = [
-        {"$match": {"data": {"$gte": prev_month_start, "$lte": prev_month_end}}},
+        {"$match": {"data": {"$gte": prev_month_start, "$lte": prev_month_end}, **excl_prod}},
         {"$group": {"_id": "$prodotto_nome", "fatturato": {"$sum": {"$abs": "$totale"}}}}
     ]
     prodotti_prev_agg = await db.vendite.aggregate(prodotti_prev_pipeline).to_list(5000)
@@ -432,7 +436,7 @@ async def get_sales_insight():
 
     # 3. Top client this month
     clienti_mese_pipeline = [
-        {"$match": {"data": {"$gte": current_month_start}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+        {"$match": {"data": {"$gte": current_month_start}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}, **excl_prod}},
         {"$group": {"_id": "$cliente_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
         {"$sort": {"totale": -1}},
         {"$limit": 1}
@@ -455,7 +459,7 @@ async def get_sales_insight():
 
     # 5. New client this month (aggregation: find clients whose first sale is this month)
     new_client_pipeline = [
-        {"$match": {"cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+        {"$match": {"cliente_nome": {"$nin": EXCLUDED_CLIENTS}, **excl_prod}},
         {"$group": {"_id": "$cliente_nome", "prima_vendita": {"$min": "$data"}, "totale_mese": {"$sum": {"$cond": [{"$gte": ["$data", current_month_start]}, {"$abs": "$totale"}, 0]}}}},
         {"$match": {"prima_vendita": {"$gte": current_month_start}}},
         {"$sort": {"totale_mese": -1}},
@@ -470,7 +474,7 @@ async def get_sales_insight():
     # 6. Best margin (from prodotti with prezzo_medio + current month sales)
     # Use fatturato/quantita for actual selling price in the period
     prodotti_con_prezzo = await db.prodotti.find({"prezzo_medio": {"$gt": 0}}, {"_id": 0, "nome": 1, "prezzo_medio": 1}).to_list(5000)
-    prezzo_acquisto_map = {p['nome']: p['prezzo_medio'] for p in prodotti_con_prezzo}
+    prezzo_acquisto_map = {p['nome']: p['prezzo_medio'] for p in prodotti_con_prezzo if p['nome'] not in esclusi_set}
 
     margine_pipeline = [
         {"$match": {"data": {"$gte": current_month_start}, "prodotto_nome": {"$in": list(prezzo_acquisto_map.keys())}}},
@@ -499,7 +503,7 @@ async def get_sales_insight():
 
     # 7. Fastest selling product (30 days)
     velocity_pipeline = [
-        {"$match": {"data": {"$gte": last_30_days}}},
+        {"$match": {"data": {"$gte": last_30_days}, **excl_prod}},
         {"$group": {"_id": "$prodotto_nome", "qty": {"$sum": {"$abs": "$quantita"}}}},
         {"$sort": {"qty": -1}},
         {"$limit": 1}
@@ -518,7 +522,7 @@ async def get_sales_insight():
 
     # Count unique clients
     clienti_count_pipeline = [
-        {"$match": {"data": {"$gte": current_month_start}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+        {"$match": {"data": {"$gte": current_month_start}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}, **excl_prod}},
         {"$group": {"_id": "$cliente_nome"}},
         {"$count": "total"}
     ]
@@ -816,6 +820,8 @@ async def get_top_clienti_prodotti_calo():
     Compares current month with previous month.
     """
     EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    from routes.esclusioni import get_prodotti_esclusi_set
+    esclusi_set = await get_prodotti_esclusi_set()
     
     now = datetime.now()
     current_month_start = now.replace(day=1).strftime("%Y-%m-%d")
@@ -840,13 +846,13 @@ async def get_top_clienti_prodotti_calo():
     current_by_prod = {}
     for s in current_sales:
         prod = s.get("prodotto_nome", "")
-        if prod:
+        if prod and prod not in esclusi_set:
             current_by_prod[prod] = current_by_prod.get(prod, 0) + abs(s.get("quantita", 0))
     
     prev_by_prod = {}
     for s in prev_sales:
         prod = s.get("prodotto_nome", "")
-        if prod:
+        if prod and prod not in esclusi_set:
             prev_by_prod[prod] = prev_by_prod.get(prod, 0) + abs(s.get("quantita", 0))
     
     # Find products with decline

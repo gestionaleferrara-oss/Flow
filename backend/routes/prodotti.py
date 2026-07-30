@@ -142,10 +142,17 @@ async def recompute_all_quantities():
             continue
         vendite = await db.vendite.find({"prodotto_nome": nome}, {"_id": 0, "quantita": 1, "movimento": 1}).to_list(100000)
         ordini = await db.ordini.find({"prodotto_nome": nome}, {"_id": 0, "quantita": 1}).to_list(100000)
-        total_in = sum(abs(o.get('quantita', 0)) for o in ordini)
-        total_out = sum(abs(v.get('quantita', 0)) for v in vendite if v.get('movimento', '').upper() == 'SCARICO')
-        total_reso = sum(abs(v.get('quantita', 0)) for v in vendite if v.get('movimento', '').upper() == 'CARICO')
-        new_qty = max(0, round(total_in + total_reso - total_out, 2))
+        # CARICO: net purchases (signed). A negative order = reso a fornitore -> reduces stock.
+        carico = sum(o.get('quantita', 0) for o in ordini)
+        # SCARICO: sales reduce stock; a CARICO movement (reso da cliente) adds back.
+        scarico = 0.0
+        for v in vendite:
+            q = v.get('quantita', 0)
+            if v.get('movimento', '').upper() == 'CARICO':
+                scarico -= q
+            else:
+                scarico += q
+        new_qty = max(0, round(carico - scarico, 2))
         prezzo_medio = p.get('prezzo_medio', 0) or 0
         await db.prodotti.update_one(
             {"nome": nome},
