@@ -12,12 +12,14 @@ import {
   Package,
   ShoppingCart,
   X,
-  Files
+  Files,
+  Eraser
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -27,6 +29,24 @@ export default function UploadCSV() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [uploadMode, setUploadMode] = useState('incremental'); // 'incremental' or 'full'
+  const [cleaning, setCleaning] = useState(false);
+
+  const handlePulisciDuplicati = async () => {
+    setCleaning(true);
+    try {
+      const res = await axios.post(`${API}/pulisci-duplicati`);
+      const { vendite_rimossi = 0, ordini_rimossi = 0 } = res.data;
+      if (vendite_rimossi === 0 && ordini_rimossi === 0) {
+        toast.success('Nessun duplicato trovato. I dati sono già puliti.');
+      } else {
+        toast.success(`Rimossi ${vendite_rimossi} vendite e ${ordini_rimossi} ordini duplicati`);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Errore durante la pulizia dei duplicati');
+    } finally {
+      setCleaning(false);
+    }
+  };
 
   const onDrop = useCallback((acceptedFiles) => {
     if (acceptedFiles.length > 0) {
@@ -103,7 +123,18 @@ export default function UploadCSV() {
       <PageHeader
         title="Importa Dati"
         subtitle="Carica uno o più file CSV/XLSX per importare vendite, clienti e prodotti"
-      />
+      >
+        <Button
+          onClick={handlePulisciDuplicati}
+          disabled={cleaning}
+          variant="outline"
+          className="gap-2"
+          data-testid="pulisci-duplicati-btn"
+        >
+          <Eraser className={cn("w-4 h-4", cleaning && "animate-pulse")} />
+          {cleaning ? 'Pulizia...' : 'Pulisci duplicati'}
+        </Button>
+      </PageHeader>
 
       {uploading && <LoadingSpinner fullScreen />}
 

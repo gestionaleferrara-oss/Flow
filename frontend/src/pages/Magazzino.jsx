@@ -12,13 +12,16 @@ import {
   ChevronRight,
   CircleCheck,
   CircleAlert,
-  CircleX
+  CircleX,
+  Package,
+  RefreshCw
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { cn, formatCurrency } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -44,6 +47,7 @@ export default function Magazzino() {
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
+  const [recalculating, setRecalculating] = useState(false);
   const perPage = 15;
 
   useEffect(() => {
@@ -113,6 +117,21 @@ export default function Magazzino() {
     setPage(1);
   };
 
+  const handleRecalculate = async () => {
+    setRecalculating(true);
+    try {
+      const res = await axios.post(`${API}/prodotti/recalculate-quantities`);
+      toast.success(`Giacenze ricalcolate: ${res.data.prodotti_aggiornati} prodotti aggiornati`);
+      await loadProdotti();
+      await loadStats();
+    } catch (error) {
+      console.error('Error recalculating:', error);
+      toast.error('Errore nel ricalcolo delle giacenze');
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>;
 
   return (
@@ -120,7 +139,18 @@ export default function Magazzino() {
       <PageHeader
         title="Magazzino"
         subtitle="Gestione inventario e scorte"
-      />
+      >
+        <Button
+          onClick={handleRecalculate}
+          disabled={recalculating}
+          variant="outline"
+          className="gap-2"
+          data-testid="recalculate-btn"
+        >
+          <RefreshCw className={cn("w-4 h-4", recalculating && "animate-spin")} />
+          {recalculating ? 'Ricalcolo...' : 'Ricalcola giacenze'}
+        </Button>
+      </PageHeader>
 
       {/* Filter Bar */}
       <div className="rounded-lg mb-6">

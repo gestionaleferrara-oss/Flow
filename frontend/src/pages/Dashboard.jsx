@@ -1463,16 +1463,19 @@ export default function Dashboard() {
                   ))}
                 </div>
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/15 text-center">
+                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/15 text-center" data-testid="ordini-scontrino-medio">
                     <p className="text-[10px] text-slate-500">Scontrino Medio</p>
                     <p className="text-lg font-bold text-emerald-400">{formatCurrency(cardDetail.scontrino_medio)}</p>
                   </div>
-                  {cardDetail.giorni_picco?.slice(0,2).map(g => (
-                    <div key={g.data} className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/15 text-center">
-                      <p className="text-[10px] text-slate-500">Picco {g.data?.slice(8)}/{g.data?.slice(5,7)}</p>
-                      <p className="text-lg font-bold text-emerald-400">{g.ordini} ordini</p>
-                    </div>
-                  ))}
+                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/15 text-center" data-testid="ordini-media-giornaliera">
+                    <p className="text-[10px] text-slate-500">Media Ordini/Giorno</p>
+                    <p className="text-lg font-bold text-emerald-400">{(cardDetail.media_ordini_giornaliera || 0).toLocaleString('it-IT')}</p>
+                    <p className="text-[9px] text-slate-600">su {cardDetail.giorni_attivi || 0} gg attivi</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/15 text-center" data-testid="ordini-totali">
+                    <p className="text-[10px] text-slate-500">Ordini Totali</p>
+                    <p className="text-lg font-bold text-emerald-400">{(cardDetail.num_visite_totali || 0).toLocaleString('it-IT')}</p>
+                  </div>
                 </div>
                 <div className="h-48 w-full">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1541,17 +1544,22 @@ export default function Dashboard() {
                     ))}
                   </div>
                 )}
-                <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+                <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden" data-testid="clienti-in-crescita">
                   <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06] flex items-center gap-2">
-                    <Activity className="w-3.5 h-3.5 text-violet-400" />
-                    <span className="text-xs font-semibold text-white">Piu Frequenti</span>
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-xs font-semibold text-white">Clienti in Crescita</span>
+                    <span className="ml-auto text-[10px] text-slate-500">vs periodo precedente</span>
                   </div>
-                  {cardDetail.piu_frequenti?.map((c, i) => (
+                  {cardDetail.clienti_in_crescita?.length > 0 ? cardDetail.clienti_in_crescita.map((c, i) => (
                     <div key={c.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04]">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold flex items-center justify-center">{i+1}</span>
                       <span className="flex-1 text-xs text-slate-300 truncate">{c.nome}</span>
-                      <span className="text-xs font-medium text-violet-400">{c.visite} visite</span>
+                      <span className="text-[10px] text-slate-500">{formatCurrency(c.spesa_precedente)} → {formatCurrency(c.spesa_corrente)}</span>
+                      <span className="text-xs font-medium text-emerald-400">+{formatCurrency(c.crescita_eur)}{c.crescita_pct != null ? ` (${c.crescita_pct > 0 ? '+' : ''}${c.crescita_pct}%)` : ''}</span>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="px-3 py-4 text-center text-xs text-slate-500">Nessun cliente in crescita nel periodo</div>
+                  )}
                 </div>
               </>)}
 

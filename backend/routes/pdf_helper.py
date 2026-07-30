@@ -107,6 +107,17 @@ class FlowPDF(FPDF):
         self.set_xy(10, y + 8)
         self.ln(3)
 
+    def note_text(self, text):
+        """Small muted italic note (e.g. a table legend)."""
+        self.ensure_space(12)
+        self.ln(1)
+        self.set_font('Helvetica', 'I', 7)
+        self.set_text_color(*C_SLATE)
+        self.set_x(10)
+        self.multi_cell(190, 3.6, clean_text(text))
+        self.ln(1)
+
+
     # ── KPI boxes ───────────────────────────────────────────────────
     def kpi_box(self, x, y, w, h, label, value, color=None, sub=None):
         color = color or C_BLUE

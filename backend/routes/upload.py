@@ -6,6 +6,7 @@ import io
 
 from database import db, logger
 from utils import auto_detect_columns, process_csv_row
+from routes.prodotti import recompute_all_quantities
 
 router = APIRouter()
 
@@ -108,6 +109,7 @@ async def upload_csv(file: UploadFile = File(...)):
                 stats['errors'].append(f"Riga {stats['rows_processed'] + 1}: {str(e)}")
 
         await _flush_and_update(cache)
+        await recompute_all_quantities()
         return {"success": True, "message": "File elaborato con successo", "stats": stats}
     except HTTPException:
         raise
@@ -188,6 +190,7 @@ async def upload_multiple_files(files: List[UploadFile] = File(...), mode: Optio
         await _flush_and_update(cache)
     else:
         await _flush_and_update_incremental(cache)
+    await recompute_all_quantities()
     return {"success": True, "message": f"Elaborati {total_stats['files_processed']} file con successo", "stats": total_stats}
 
 
@@ -231,6 +234,7 @@ async def upload_incremental(file: UploadFile = File(...)):
                 stats['errors'].append(f"Riga {stats['rows_processed'] + 1}: {str(e)}")
 
         await _flush_and_update_incremental(cache)
+        await recompute_all_quantities()
         
         return {
             "success": True,

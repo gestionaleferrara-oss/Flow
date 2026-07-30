@@ -113,8 +113,17 @@ async def delete_prodotto(prodotto_id: str):
 
 @router.post("/prodotti/recalculate-quantities")
 async def recalculate_quantities():
+    count = await recompute_all_quantities()
+    return {"message": "Quantità ricalcolate", "prodotti_aggiornati": count}
+
+
+async def recompute_all_quantities():
+    """Recompute stock for every product from load/unload movements.
+    Giacenza = Acquisti (ordini) + Resi (vendite CARICO) - Vendite (SCARICO).
+    Also refreshes valore_scorte = giacenza * prezzo_medio.
+    """
     await db.prodotti.update_many({}, {"$set": {"quantita": 0}})
-    prodotti = await db.prodotti.find({}, {"_id": 0, "nome": 1}).to_list(10000)
+    prodotti = await db.prodotti.find({}, {"_id": 0, "nome": 1, "prezzo_medio": 1}).to_list(10000)
     for p in prodotti:
         nome = p.get('nome', '')
         if not nome:
@@ -124,9 +133,13 @@ async def recalculate_quantities():
         total_in = sum(abs(o.get('quantita', 0)) for o in ordini)
         total_out = sum(abs(v.get('quantita', 0)) for v in vendite if v.get('movimento', '').upper() == 'SCARICO')
         total_reso = sum(abs(v.get('quantita', 0)) for v in vendite if v.get('movimento', '').upper() == 'CARICO')
-        new_qty = total_in + total_reso - total_out
-        await db.prodotti.update_one({"nome": nome}, {"$set": {"quantita": round(new_qty, 2)}})
-    return {"message": "Quantità ricalcolate", "prodotti_aggiornati": len(prodotti)}
+        new_qty = max(0, round(total_in + total_reso - total_out, 2))
+        prezzo_medio = p.get('prezzo_medio', 0) or 0
+        await db.prodotti.update_one(
+            {"nome": nome},
+            {"$set": {"quantita": new_qty, "valore_scorte": round(new_qty * prezzo_medio, 2)}}
+        )
+    return len(prodotti)
 
 
 @router.get("/prodotti/{prodotto_nome:path}/analisi")

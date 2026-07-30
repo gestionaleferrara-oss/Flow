@@ -247,13 +247,18 @@ Dati storici per {target_month_name} ({metric_label}):
             
             # Anchor to the most recent year's same-month value
             most_recent = sorted_hist[-1].get(metric_key, 0)
+            anno_recente = sorted_hist[-1]['_id'][:4]
             
             # YoY trend capped at ±25% to avoid extreme projections
             if len(month_historical) >= 2:
                 prev_year = sorted_hist[-2].get(metric_key, 0)
+                anno_precedente = sorted_hist[-2]['_id'][:4]
+                val_precedente = prev_year
                 trend_pct = ((most_recent - prev_year) / prev_year * 100) if prev_year > 0 else 0
                 trend_pct_capped = max(-25.0, min(25.0, trend_pct))
             else:
+                anno_precedente = ""
+                val_precedente = 0
                 trend_pct = 0
                 trend_pct_capped = 0
             
@@ -284,6 +289,10 @@ Dati storici per {target_month_name} ({metric_label}):
             hist_avg = 0
             cv = 100
             confidence = "molto_bassa"
+            most_recent = 0
+            anno_recente = ""
+            val_precedente = 0
+            anno_precedente = ""
         
         previsioni_mesi.append({
             "mese": month_key,
@@ -295,7 +304,11 @@ Dati storici per {target_month_name} ({metric_label}):
             "trend": round(trend_pct, 1),
             "anni_dati": len(month_historical),
             "confidenza": confidence,
-            "variabilita": round(cv, 1)
+            "variabilita": round(cv, 1),
+            "anno_recente": anno_recente,
+            "val_recente": round(most_recent, 2) if metrica == "fatturato" else round(most_recent),
+            "anno_precedente": anno_precedente,
+            "val_precedente": round(val_precedente, 2) if metrica == "fatturato" else round(val_precedente)
         })
     
     # Build rich context for AI
@@ -464,23 +477,40 @@ async def export_forecast_pdf(data: dict):
 
         # 3-month forecast table
         pdf.section_title("Previsioni per mese", C_EMERALD, top_gap=3)
+        # Determine year labels for the actual-revenue columns (consistent across months)
+        anno_rec = ""
+        anno_prec = ""
+        for p in previsioni:
+            if p.get('anno_recente'):
+                anno_rec = str(p.get('anno_recente'))
+            if p.get('anno_precedente'):
+                anno_prec = str(p.get('anno_precedente'))
+            if anno_rec and anno_prec:
+                break
+        col_rec = f"Fatt. {anno_rec}" if anno_rec else "Fatt. anno rec."
+        col_prec = f"Fatt. {anno_prec}" if anno_prec else "Fatt. anno prec."
+        col_trend = f"Trend {anno_rec[-2:]} vs {anno_prec[-2:]}" if (anno_rec and anno_prec) else "Trend YoY"
         rows_p = []
         for p in previsioni:
-            trend_str = f"{p.get('trend',0):+.1f}%"
+            trend_str = f"{p.get('trend',0):+.1f}%" if p.get('anno_precedente') else "n/d"
             rows_p.append([
                 clean_text(p.get('mese_nome','')),
                 f"{p.get('previsione',0):,.2f}",
-                f"{p.get('minimo',0):,.2f}",
-                f"{p.get('massimo',0):,.2f}",
+                f"{p.get('val_recente',0):,.2f}" if p.get('anno_recente') else "-",
+                f"{p.get('val_precedente',0):,.2f}" if p.get('anno_precedente') else "-",
                 trend_str,
                 p.get('confidenza','N/D'),
                 str(p.get('anni_dati',0))
             ])
         pdf.smart_table(
-            ["Mese","Previsione EUR","Min EUR","Max EUR","Trend YoY","Confidenza","Dati"],
-            [34, 34, 30, 30, 22, 28, 12],
+            ["Mese","Previsione EUR",col_rec,col_prec,col_trend,"Confidenza","Dati"],
+            [32, 32, 30, 30, 26, 26, 14],
             rows_p,
             ['L','R','R','R','R','C','C']
+        )
+        pdf.note_text(
+            f"{col_trend}: variazione percentuale del fatturato reale "
+            f"dell'ultimo anno disponibile rispetto allo stesso mese dell'anno precedente."
         )
 
         # Historical bar chart

@@ -1,0 +1,34 @@
+{
+  "summary": "Verified iteration-7 features across backend and frontend. All 5 backend endpoints and 4 frontend flows pass. Magazzino ricalcola giacenze, Upload pulisci duplicati, Dashboard ordini modal (Media Ordini/Giorno + Ordini Totali, NO Picco), Dashboard clienti modal (Clienti in Crescita, NO Piu Frequenti), Forecast PDF with anno_recente/val_recente/anno_precedente/val_precedente all working.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Magazzino table", "issues": ["Hydration warning: <span data-ve-dynamic> wrapping <tr> inside <tbody> (cosmetic; carried over from previous iteration)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_flow_v7_features.py",
+    "/app/test_reports/pytest/pytest_v7.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "recompute_all_quantities() in backend/routes/prodotti.py loops N products with per-product find() to db.vendite and db.ordini (potential N+1). For 100+ products with large vendite/ordini this can be slow. Consider aggregation pipeline with $group on prodotto_nome for both collections.",
+    "In /pulisci-duplicati the sort key `sorted(dup['ids'], key=lambda x: str(x))` stringifies ObjectId which is close but not identical to natural ObjectId ordering; works because ObjectId string repr is monotonic-ish but relying on lexicographic sort could fail across differing generation clocks. Prefer sorting by ObjectId natively.",
+    "Dashboard card-detail 'clienti' clienti_in_crescita loops all customers in Python; consider $lookup or two aggregations with client-side diff kept as is (fine for current dataset).",
+    "Forecast export-pdf reads `stats.get('num_mesi_dati',0)` but forecast/generate never sets that key inside statistiche -> KPI 'X mesi dati' will always show 0 in the PDF (minor)."
+  ],
+  "updated_files": ["/app/backend/tests/test_flow_v7_features.py"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (4/4 flows)"},
+  "test_credentials": "None (no auth)",
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All iteration-7 features validated. Backend base URL from frontend/.env. Dashboard KPI cards are blurred; open detail modals by clicking StatCard icon (data-testid=stat-card-icon) - order: 0=Fatturato, 1=Ordini, 2=Clienti, 3=Alert. New testids: recalculate-btn (Magazzino), pulisci-duplicati-btn (Upload), ordini-media-giornaliera, ordini-totali, clienti-in-crescita, ordini-scontrino-medio, card-detail-modal.",
+  "evidence": {
+    "ordini_modal_tiles": "Scontrino Medio €112.79, Media Ordini/Giorno 24.2 (su 21 gg attivi), Ordini Totali 509. No Picco tile.",
+    "clienti_in_crescita_sample": "LIDO FRUTTA DI MARIANI & C. SAS +964€ (+482%), GREMENTIERI ALDO SAS +910€ (+82.7%). No Piu Frequenti section.",
+    "pdf": "%PDF header verified, content-type application/pdf"
+  }
+}

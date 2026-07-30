@@ -617,21 +617,18 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
             {"$sort": {"richieste": -1}}, {"$limit": 5}
         ]
         top_req = await db.vendite.aggregate(req_pipeline).to_list(5)
-        peak_pipeline = [
-            {"$match": {"data": {"$gte": date_start}, "cliente_nome": {"$nin": EXCLUDED}}},
-            {"$group": {"_id": {"data": "$data", "cliente": "$cliente_nome"}}},
-            {"$group": {"_id": "$_id.data", "visite": {"$sum": 1}}},
-            {"$sort": {"visite": -1}}, {"$limit": 3}
-        ]
-        peak = await db.vendite.aggregate(peak_pipeline).to_list(3)
+        # Daily average orders across active days in the period
+        giorni_attivi = len(daily)
+        media_ordini_giornaliera = round(num_visite / giorni_attivi, 1) if giorni_attivi > 0 else 0
         return {
             "tipo": "ordini",
             "periodo_label": periodo_labels.get(periodo, periodo),
             "giornaliero": [{"data": d["_id"], "ordini": d["visite"], "totale": round(d["totale"], 2)} for d in daily],
             "scontrino_medio": round(avg_order, 2),
             "num_visite_totali": num_visite,
-            "top_prodotti_richieste": [{"nome": p["_id"], "richieste": p["richieste"], "quantita": round(p["quantita"], 1)} for p in top_req],
-            "giorni_picco": [{"data": p["_id"], "ordini": p["visite"]} for p in peak]
+            "media_ordini_giornaliera": media_ordini_giornaliera,
+            "giorni_attivi": giorni_attivi,
+            "top_prodotti_richieste": [{"nome": p["_id"], "richieste": p["richieste"], "quantita": round(p["quantita"], 1)} for p in top_req]
         }
 
     elif card_type == "clienti":
@@ -666,23 +663,56 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
             {"$sort": {"totale_periodo": -1}}, {"$limit": 5}
         ]
         new_cli = await db.vendite.aggregate(new_pipeline).to_list(5)
-        # Most frequent - count unique order days (not individual product lines)
-        # An "order" is all products purchased on the same day by the same customer
-        freq_pipeline = [
-            {"$match": {"data": cli_date_filter, "cliente_nome": {"$nin": EXCLUDED}}},
-            # First, group by (cliente, data) to identify unique order days
-            {"$group": {"_id": {"cliente": "$cliente_nome", "data": "$data"}}},
-            # Then count unique days per customer
-            {"$group": {"_id": "$_id.cliente", "visite": {"$sum": 1}}},
-            {"$sort": {"visite": -1}}, {"$limit": 5}
-        ]
-        freq_cli = await db.vendite.aggregate(freq_pipeline).to_list(5)
+        # Clienti in crescita: confronto spesa periodo corrente vs periodo precedente equivalente
+        from datetime import datetime as _dt
+        def _d(days):
+            return (ref - timedelta(days=days)).strftime("%Y-%m-%d")
+        if periodo == "30gg":
+            cur_lo, cur_hi = _d(30), ref.strftime("%Y-%m-%d")
+            prev_lo, prev_hi = _d(60), _d(30)
+        elif periodo == "90gg":
+            cur_lo, cur_hi = _d(90), ref.strftime("%Y-%m-%d")
+            prev_lo, prev_hi = _d(180), _d(90)
+        elif periodo == "mese_prec":
+            cur_lo, cur_hi = prev_start, prev_end
+            pp_end = (prev_m.replace(day=1) - timedelta(days=1))
+            prev_lo, prev_hi = pp_end.replace(day=1).strftime("%Y-%m-%d"), pp_end.strftime("%Y-%m-%d")
+        else:  # mese corrente
+            cur_lo, cur_hi = month_start, ref.strftime("%Y-%m-%d")
+            prev_lo, prev_hi = prev_start, prev_end
+
+        async def _spesa_map(lo, hi):
+            pipe = [
+                {"$match": {"data": {"$gte": lo, "$lte": hi}, "cliente_nome": {"$nin": EXCLUDED}}},
+                {"$group": {"_id": "$cliente_nome", "totale": {"$sum": {"$abs": "$totale"}}}}
+            ]
+            res = await db.vendite.aggregate(pipe).to_list(100000)
+            return {r["_id"]: r["totale"] for r in res if r["_id"]}
+
+        cur_map = await _spesa_map(cur_lo, cur_hi)
+        prev_map = await _spesa_map(prev_lo, prev_hi)
+        crescita = []
+        for nome_c, spesa_cur in cur_map.items():
+            spesa_prev = prev_map.get(nome_c, 0)
+            delta = spesa_cur - spesa_prev
+            if delta <= 0:
+                continue
+            var_pct = ((delta / spesa_prev) * 100) if spesa_prev > 0 else None
+            crescita.append({
+                "nome": nome_c,
+                "spesa_corrente": round(spesa_cur, 2),
+                "spesa_precedente": round(spesa_prev, 2),
+                "crescita_eur": round(delta, 2),
+                "crescita_pct": round(var_pct, 1) if var_pct is not None else None
+            })
+        crescita.sort(key=lambda x: x["crescita_eur"], reverse=True)
+        clienti_in_crescita = crescita[:5]
         return {
             "tipo": "clienti",
             "periodo_label": cli_periodo_labels.get(periodo, periodo),
             "top_clienti": [{"nome": c["_id"], "totale": round(c["totale"], 2), "ordini": c["ordini"]} for c in top_cli],
             "nuovi_clienti": [{"nome": c["_id"], "totale": round(c["totale_periodo"], 2), "dal": c["prima_vendita"]} for c in new_cli],
-            "piu_frequenti": [{"nome": c["_id"], "visite": c["visite"]} for c in freq_cli]
+            "clienti_in_crescita": clienti_in_crescita
         }
 
     elif card_type == "alert":
