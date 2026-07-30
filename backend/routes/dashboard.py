@@ -27,15 +27,22 @@ async def get_dashboard():
     prev_month_end = prev_month.strftime("%Y-%m-%d")
 
     EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    from routes.esclusioni import get_prodotti_esclusi_set
+    prod_esclusi = await get_prodotti_esclusi_set()
+
+    def _keep(v):
+        return (v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]
+                and v.get('prodotto_nome', '') not in prod_esclusi)
 
     vendite_mese_corrente = await db.vendite.find({"data": {"$gte": current_month_start}}, {"_id": 0}).to_list(100000)
-    vendite_mese_corrente = [v for v in vendite_mese_corrente if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    vendite_mese_corrente = [v for v in vendite_mese_corrente if _keep(v)]
 
     fatturato_mese = sum(abs(v.get('totale', 0)) for v in vendite_mese_corrente)
-    ordini_mese = len(vendite_mese_corrente)
+    # An "order" = one customer on one day (unique cliente+data), not individual product lines
+    ordini_mese = len(set((v.get('cliente_nome', ''), v.get('data', '')) for v in vendite_mese_corrente))
 
     vendite_mese_prec = await db.vendite.find({"data": {"$gte": prev_month_start, "$lte": prev_month_end}}, {"_id": 0}).to_list(100000)
-    vendite_mese_prec = [v for v in vendite_mese_prec if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    vendite_mese_prec = [v for v in vendite_mese_prec if _keep(v)]
     fatturato_mese_prec = sum(abs(v.get('totale', 0)) for v in vendite_mese_prec)
     crescita = ((fatturato_mese - fatturato_mese_prec) / fatturato_mese_prec * 100) if fatturato_mese_prec > 0 else (100 if fatturato_mese > 0 else 0)
 
@@ -47,7 +54,7 @@ async def get_dashboard():
     )
     nuovi_clienti = len(clienti_mese_set)
 
-    ordini_mese_prec = len(vendite_mese_prec)
+    ordini_mese_prec = len(set((v.get('cliente_nome', ''), v.get('data', '')) for v in vendite_mese_prec))
     clienti_prec_set = set(
         v.get('cliente_nome', '') for v in vendite_mese_prec
         if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS_DASH]
@@ -546,6 +553,9 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
     prev_start = prev_m.replace(day=1).strftime("%Y-%m-%d")
     prev_end = prev_m.strftime("%Y-%m-%d")
     EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    from routes.esclusioni import get_prodotti_esclusi
+    prod_esclusi = await get_prodotti_esclusi()
+    excl_prod = {"prodotto_nome": {"$nin": prod_esclusi}} if prod_esclusi else {}
 
     # Compute date_start based on periodo for fatturato/ordini
     if periodo == "30gg":
@@ -568,19 +578,19 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
 
     if card_type == "fatturato":
         daily_pipeline = [
-            {"$match": {"data": date_filter, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"data": date_filter, "cliente_nome": {"$nin": EXCLUDED}, **excl_prod}},
             {"$group": {"_id": "$data", "totale": {"$sum": {"$abs": "$totale"}}, "count": {"$sum": 1}}},
             {"$sort": {"_id": 1}}
         ]
         daily = await db.vendite.aggregate(daily_pipeline).to_list(90)
         top_prod_pipeline = [
-            {"$match": {"data": date_filter}},
+            {"$match": {"data": date_filter, **excl_prod}},
             {"$group": {"_id": "$prodotto_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
             {"$sort": {"totale": -1}}, {"$limit": 5}
         ]
         top_prod = await db.vendite.aggregate(top_prod_pipeline).to_list(5)
         week_pipeline = [
-            {"$match": {"data": date_filter}},
+            {"$match": {"data": date_filter, **excl_prod}},
             {"$addFields": {"giorno": {"$dayOfMonth": {"$dateFromString": {"dateString": "$data"}}}}},
             {"$addFields": {"settimana": {"$ceil": {"$divide": ["$giorno", 7]}}}},
             {"$group": {"_id": "$settimana", "totale": {"$sum": {"$abs": "$totale"}}}},
@@ -597,7 +607,7 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
 
     elif card_type == "ordini":
         scontrino_pipeline = [
-            {"$match": {"data": date_filter, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"data": date_filter, "cliente_nome": {"$nin": EXCLUDED}, **excl_prod}},
             {"$group": {"_id": {"cliente": "$cliente_nome", "data": "$data"}, "totale_visita": {"$sum": {"$abs": "$totale"}}}},
             {"$group": {"_id": None, "media": {"$avg": "$totale_visita"}, "num_visite": {"$sum": 1}, "totale": {"$sum": "$totale_visita"}}}
         ]
@@ -605,14 +615,14 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
         avg_order = scontrino_res[0]["media"] if scontrino_res else 0
         num_visite = scontrino_res[0]["num_visite"] if scontrino_res else 0
         daily_pipeline = [
-            {"$match": {"data": date_filter, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"data": date_filter, "cliente_nome": {"$nin": EXCLUDED}, **excl_prod}},
             {"$group": {"_id": {"data": "$data", "cliente": "$cliente_nome"}, "totale_visita": {"$sum": {"$abs": "$totale"}}}},
             {"$group": {"_id": "$_id.data", "visite": {"$sum": 1}, "totale": {"$sum": "$totale_visita"}}},
             {"$sort": {"_id": 1}}
         ]
         daily = await db.vendite.aggregate(daily_pipeline).to_list(90)
         req_pipeline = [
-            {"$match": {"data": date_filter}},
+            {"$match": {"data": date_filter, **excl_prod}},
             {"$group": {"_id": "$prodotto_nome", "richieste": {"$sum": 1}, "quantita": {"$sum": {"$abs": "$quantita"}}}},
             {"$sort": {"richieste": -1}}, {"$limit": 5}
         ]
@@ -650,14 +660,14 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
 
         # Top clients
         top_pipeline = [
-            {"$match": {"data": cli_date_filter, "cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"data": cli_date_filter, "cliente_nome": {"$nin": EXCLUDED}, **excl_prod}},
             {"$group": {"_id": "$cliente_nome", "totale": {"$sum": {"$abs": "$totale"}}, "ordini": {"$sum": 1}}},
             {"$sort": {"totale": -1}}, {"$limit": 5}
         ]
         top_cli = await db.vendite.aggregate(top_pipeline).to_list(5)
         # New clients (first purchase in period)
         new_pipeline = [
-            {"$match": {"cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"cliente_nome": {"$nin": EXCLUDED}, **excl_prod}},
             {"$group": {"_id": "$cliente_nome", "prima_vendita": {"$min": "$data"}, "totale_periodo": {"$sum": {"$cond": [{"$and": [{"$gte": ["$data", cli_date_start]}, {"$lte": ["$data", prev_end if periodo == "mese_prec" else ref.strftime("%Y-%m-%d")]}]}, {"$abs": "$totale"}, 0]}}}},
             {"$match": {"prima_vendita": cli_date_filter}},
             {"$sort": {"totale_periodo": -1}}, {"$limit": 5}
@@ -683,7 +693,7 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
 
         async def _spesa_map(lo, hi):
             pipe = [
-                {"$match": {"data": {"$gte": lo, "$lte": hi}, "cliente_nome": {"$nin": EXCLUDED}}},
+                {"$match": {"data": {"$gte": lo, "$lte": hi}, "cliente_nome": {"$nin": EXCLUDED}, **excl_prod}},
                 {"$group": {"_id": "$cliente_nome", "totale": {"$sum": {"$abs": "$totale"}}}}
             ]
             res = await db.vendite.aggregate(pipe).to_list(100000)
@@ -692,27 +702,35 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
         cur_map = await _spesa_map(cur_lo, cur_hi)
         prev_map = await _spesa_map(prev_lo, prev_hi)
         crescita = []
-        for nome_c, spesa_cur in cur_map.items():
+        calo = []
+        tutti_clienti = set(cur_map.keys()) | set(prev_map.keys())
+        for nome_c in tutti_clienti:
+            spesa_cur = cur_map.get(nome_c, 0)
             spesa_prev = prev_map.get(nome_c, 0)
             delta = spesa_cur - spesa_prev
-            if delta <= 0:
-                continue
             var_pct = ((delta / spesa_prev) * 100) if spesa_prev > 0 else None
-            crescita.append({
+            row = {
                 "nome": nome_c,
                 "spesa_corrente": round(spesa_cur, 2),
                 "spesa_precedente": round(spesa_prev, 2),
                 "crescita_eur": round(delta, 2),
                 "crescita_pct": round(var_pct, 1) if var_pct is not None else None
-            })
+            }
+            if delta > 0:
+                crescita.append(row)
+            elif delta < 0:
+                calo.append(row)
         crescita.sort(key=lambda x: x["crescita_eur"], reverse=True)
+        calo.sort(key=lambda x: x["crescita_eur"])
         clienti_in_crescita = crescita[:5]
+        clienti_in_calo = calo[:5]
         return {
             "tipo": "clienti",
             "periodo_label": cli_periodo_labels.get(periodo, periodo),
             "top_clienti": [{"nome": c["_id"], "totale": round(c["totale"], 2), "ordini": c["ordini"]} for c in top_cli],
             "nuovi_clienti": [{"nome": c["_id"], "totale": round(c["totale_periodo"], 2), "dal": c["prima_vendita"]} for c in new_cli],
-            "clienti_in_crescita": clienti_in_crescita
+            "clienti_in_crescita": clienti_in_crescita,
+            "clienti_in_calo": clienti_in_calo
         }
 
     elif card_type == "alert":

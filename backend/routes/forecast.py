@@ -56,6 +56,9 @@ async def generate_forecast(
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     
     EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    from routes.esclusioni import get_prodotti_esclusi
+    prod_esclusi = await get_prodotti_esclusi()
+    excl_prod = {"prodotto_nome": {"$nin": prod_esclusi}} if prod_esclusi else {}
     
     # Parse target month
     try:
@@ -68,7 +71,7 @@ async def generate_forecast(
     if tipo == "globale":
         # Aggregate ALL sales by month (excluding internal movements)
         pipeline = [
-            {"$match": {"cliente_nome": {"$nin": EXCLUDED}, "totale": {"$gt": 0}}},
+            {"$match": {"cliente_nome": {"$nin": EXCLUDED}, "totale": {"$gt": 0}, **excl_prod}},
             {"$addFields": {"mese": {"$substr": ["$data", 0, 7]}}},
             {"$group": {
                 "_id": "$mese",
@@ -82,7 +85,7 @@ async def generate_forecast(
         
         # Top products globally
         top_prod_pipeline = [
-            {"$match": {"cliente_nome": {"$nin": EXCLUDED}}},
+            {"$match": {"cliente_nome": {"$nin": EXCLUDED}, **excl_prod}},
             {"$group": {"_id": "$prodotto_nome", "totale": {"$sum": {"$abs": "$totale"}}}},
             {"$sort": {"totale": -1}},
             {"$limit": 5}
@@ -311,6 +314,51 @@ Dati storici per {target_month_name} ({metric_label}):
             "val_precedente": round(val_precedente, 2) if metrica == "fatturato" else round(val_precedente)
         })
     
+    # Per-product forecast table (global only): top products in target month
+    previsioni_prodotti = []
+    if tipo == "globale":
+        pp_pipeline = [
+            {"$match": {"cliente_nome": {"$nin": EXCLUDED}, "totale": {"$gt": 0}, **excl_prod}},
+            {"$addFields": {"mese_num": {"$substr": ["$data", 5, 2]}, "anno": {"$substr": ["$data", 0, 4]}}},
+            {"$match": {"mese_num": f"{target_month:02d}"}},
+            {"$group": {"_id": {"prodotto": "$prodotto_nome", "anno": "$anno"},
+                        "fatturato": {"$sum": {"$abs": "$totale"}}}},
+        ]
+        pp_rows = await db.vendite.aggregate(pp_pipeline).to_list(100000)
+        # Build {prodotto: {anno: fatturato}}
+        prod_year = {}
+        for r in pp_rows:
+            prod = r["_id"]["prodotto"]
+            anno = r["_id"]["anno"]
+            if not prod:
+                continue
+            prod_year.setdefault(prod, {})[anno] = r["fatturato"]
+        prod_list = []
+        for prod, years in prod_year.items():
+            anni_sorted = sorted(years.keys())
+            anno_rec = anni_sorted[-1]
+            val_rec = years[anno_rec]
+            anno_prec = anni_sorted[-2] if len(anni_sorted) >= 2 else ""
+            val_prec = years[anno_prec] if anno_prec else 0
+            if anno_prec and val_prec > 0:
+                trend = ((val_rec - val_prec) / val_prec) * 100
+                trend_capped = max(-25.0, min(25.0, trend))
+            else:
+                trend = 0
+                trend_capped = 0
+            previsione_prod = val_rec * (1 + trend_capped / 100)
+            prod_list.append({
+                "prodotto": prod,
+                "anno_recente": anno_rec,
+                "val_recente": round(val_rec, 2),
+                "anno_precedente": anno_prec,
+                "val_precedente": round(val_prec, 2),
+                "trend": round(trend, 1),
+                "previsione": round(previsione_prod, 2)
+            })
+        prod_list.sort(key=lambda x: x["val_recente"], reverse=True)
+        previsioni_prodotti = prod_list[:10]
+
     # Build rich context for AI
     # Full historical data (not just last 6)
     storico_str = "\n".join([f"- {s['_id']}: {metric_unit}{s.get(metric_key, 0):,.2f}{metric_suffix}" for s in storico])
@@ -426,6 +474,7 @@ IMPORTANTE: Usa SOLO i numeri dei dati forniti. Sii specifico e operativo."""
             "mese_target": mese_target,
             "mese_target_nome": f"{target_month_name} {target_year}",
             "previsioni": previsioni_mesi,
+            "previsioni_prodotti": previsioni_prodotti,
             "storico": [{"mese": s["_id"], "valore": round(s.get(metric_key, 0), 2)} for s in storico[-12:]],
             "statistiche": {
                 "media_mensile": round(media_mensile, 2),
@@ -456,6 +505,7 @@ async def export_forecast_pdf(data: dict):
         mese_lbl = clean_text(str(data.get('mese_target_nome','')))
         stats    = data.get('statistiche', {})
         previsioni = data.get('previsioni', [])
+        previsioni_prodotti = data.get('previsioni_prodotti', [])
         storico    = data.get('storico', [])
         ai_text    = str(data.get('previsione_ai',''))
 
@@ -519,6 +569,37 @@ async def export_forecast_pdf(data: dict):
             pdf.section_title("Storico mensile — ultimi 12 mesi", C_BLUE, top_gap=3)
             pairs = [(s['mese'], s['valore']) for s in storico]
             pdf.monthly_chart(pairs, 'EUR ')
+
+        # Per-product forecast table (global only)
+        if previsioni_prodotti:
+            pp_rec = ""
+            pp_prec = ""
+            for p in previsioni_prodotti:
+                if p.get('anno_recente'):
+                    pp_rec = str(p.get('anno_recente'))
+                if p.get('anno_precedente'):
+                    pp_prec = str(p.get('anno_precedente'))
+                if pp_rec and pp_prec:
+                    break
+            c_rec = f"Fatt. {pp_rec}" if pp_rec else "Fatt. rec."
+            c_prec = f"Fatt. {pp_prec}" if pp_prec else "Fatt. prec."
+            pdf.section_title(f"Top 10 prodotti — {mese_lbl.split()[0] if mese_lbl else 'mese target'}", C_AMBER, top_gap=3)
+            rows_pp = []
+            for p in previsioni_prodotti:
+                rows_pp.append([
+                    clean_text(str(p.get('prodotto',''))[:40]),
+                    f"{p.get('val_recente',0):,.2f}",
+                    f"{p.get('val_precedente',0):,.2f}" if p.get('anno_precedente') else "-",
+                    f"{p.get('previsione',0):,.2f}",
+                    f"{p.get('trend',0):+.1f}%" if p.get('anno_precedente') else "n/d"
+                ])
+            pdf.smart_table(
+                ["Prodotto", c_rec, c_prec, "Previsione EUR", "Trend"],
+                [78, 28, 28, 32, 22],
+                rows_pp,
+                ['L','R','R','R','R']
+            )
+            pdf.note_text("Principali prodotti per fatturato nello stesso mese: fatturato reale a confronto e previsione stimata.")
 
         # AI analysis
         if ai_text.strip():

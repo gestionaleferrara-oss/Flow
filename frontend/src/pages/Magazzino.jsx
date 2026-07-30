@@ -14,7 +14,8 @@ import {
   CircleAlert,
   CircleX,
   Package,
-  RefreshCw
+  RefreshCw,
+  EyeOff
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { cn, formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
+import { ExclusionDialog } from '@/components/ExclusionDialog';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -48,12 +50,27 @@ export default function Magazzino() {
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
   const [recalculating, setRecalculating] = useState(false);
+  const [showExclusion, setShowExclusion] = useState(false);
+  const [excludedSet, setExcludedSet] = useState(new Set());
   const perPage = 15;
 
   useEffect(() => {
     loadProdotti();
     loadStats();
   }, [search, filter, page]);
+
+  useEffect(() => {
+    loadExclusions();
+  }, []);
+
+  const loadExclusions = async () => {
+    try {
+      const res = await axios.get(`${API}/esclusioni`);
+      setExcludedSet(new Set(res.data?.nomi || []));
+    } catch (e) {
+      console.error('Error loading exclusions:', e);
+    }
+  };
 
   const loadProdotti = async () => {
     try {
@@ -141,6 +158,18 @@ export default function Magazzino() {
         subtitle="Gestione inventario e scorte"
       >
         <Button
+          onClick={() => setShowExclusion(true)}
+          variant="outline"
+          className="gap-2"
+          data-testid="open-exclusion-btn"
+        >
+          <EyeOff className="w-4 h-4" />
+          <span className="hidden sm:inline">Escludi articoli</span>
+          {excludedSet.size > 0 && (
+            <span className="text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full">{excludedSet.size}</span>
+          )}
+        </Button>
+        <Button
           onClick={handleRecalculate}
           disabled={recalculating}
           variant="outline"
@@ -151,6 +180,12 @@ export default function Magazzino() {
           {recalculating ? 'Ricalcolo...' : 'Ricalcola giacenze'}
         </Button>
       </PageHeader>
+
+      <ExclusionDialog
+        open={showExclusion}
+        onOpenChange={setShowExclusion}
+        onSaved={() => { loadExclusions(); loadProdotti(); loadStats(); }}
+      />
 
       {/* Filter Bar */}
       <div className="rounded-lg mb-6">
@@ -207,15 +242,18 @@ export default function Magazzino() {
         {prodotti.map((p, index) => {
           const isEditing = editingId === p.id;
           const qty = Math.max(0, p.quantita || 0);
+          const isExcluded = excludedSet.has(p.nome);
+          const dimmed = isExcluded || qty === 0;
           
           return (
             <motion.div
               key={p.id}
               initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={{ opacity: dimmed ? 0.45 : 1, y: 0 }}
               transition={{ delay: index * 0.02 }}
               className={cn(
                 "p-4 rounded-xl border bg-card/50",
+                isExcluded ? 'border-amber-500/30' :
                 p.stato === 'ordinare' ? 'border-amber-500/30 bg-amber-500/5' :
                 p.stato === 'non_disponibile' ? 'border-red-500/30 bg-red-500/5' :
                 'border-border/50'
@@ -224,8 +262,9 @@ export default function Magazzino() {
             >
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <StatusIcon stato={p.stato} />
+                  {isExcluded ? <EyeOff className="w-4 h-4 text-amber-500/70" /> : <StatusIcon stato={p.stato} />}
                   <span className="font-medium text-sm truncate">{p.nome}</span>
+                  {isExcluded && <span className="text-[9px] text-amber-400/80">escluso</span>}
                 </div>
                 <div className="flex gap-1">
                   {isEditing ? (
@@ -340,19 +379,22 @@ export default function Magazzino() {
               {prodotti.map((p, index) => {
                 const isEditing = editingId === p.id;
                 const qty = Math.max(0, p.quantita || 0);
+                const isExcluded = excludedSet.has(p.nome);
+                const dimmed = isExcluded || qty === 0;
 
                 return (
                   <motion.tr
                     key={p.id}
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    animate={{ opacity: dimmed ? 0.4 : 1 }}
                     transition={{ delay: index * 0.02 }}
+                    className={cn(isExcluded && "line-through decoration-amber-500/40")}
                     data-testid={`row-${p.id}`}
                   >
                     <td className="w-10 text-center">
-                      <StatusIcon stato={p.stato} />
+                      {isExcluded ? <EyeOff className="w-4 h-4 text-amber-500/70" /> : <StatusIcon stato={p.stato} />}
                     </td>
-                    <td className="font-medium">{p.nome}</td>
+                    <td className="font-medium">{p.nome}{isExcluded && <span className="ml-2 text-[10px] text-amber-400/80 no-underline">escluso</span>}</td>
                     {/* Quantita - EDITABLE, never negative */}
                     <td className="text-right tabular-nums">
                       {isEditing ? (

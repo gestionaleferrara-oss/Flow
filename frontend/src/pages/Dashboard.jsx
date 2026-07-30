@@ -10,7 +10,7 @@ import {
   Euro, ShoppingCart, Users, Package, AlertTriangle, ArrowUpRight, Upload,
   BarChart3, TrendingUp, TrendingDown, Search, Box, Sparkles, Lightbulb,
   RefreshCw, Clock, UserX, PackageX, AlertCircle, Minus, X, Filter,
-  ArrowDownAZ, Activity, Plus, ChevronRight, Calendar, Eye, Send, MessageCircle, Bot
+  ArrowDownAZ, Activity, Plus, ChevronRight, Calendar, Eye, EyeOff, Send, MessageCircle, Bot
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import StatCard from '@/components/StatCard';
@@ -18,6 +18,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ExclusionDialog } from '@/components/ExclusionDialog';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -27,6 +28,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [prodotti, setProdotti] = useState([]);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showExclusion, setShowExclusion] = useState(false);
+  const [clientiTab, setClientiTab] = useState('top');
   const [prodottoSearch, setProdottoSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -118,6 +121,13 @@ export default function Dashboard() {
     };
     loadAll();
   }, []);
+
+  const refreshDashboardData = () => {
+    axios.get(`${API}/dashboard`).then(r => setData(r.data)).catch(() => {});
+    axios.get(`${API}/trends-vendite?limite=5`).then(r => setTrendsVendite(r.data)).catch(() => {});
+    axios.get(`${API}/margine-vendite`).then(r => setMargineData(r.data)).catch(() => {});
+    axios.get(`${API}/top-clienti-prodotti-calo`).then(r => setProdottiCaloTopClienti(r.data)).catch(() => {});
+  };
 
   const refreshAiSuggestion = async () => {
     setLoadingAi(true);
@@ -394,10 +404,19 @@ export default function Dashboard() {
   return (
     <PageWrapper>
       <PageHeader title="Dashboard" subtitle="Panoramica attività">
+        <Button variant="outline" size="icon" onClick={() => setShowExclusion(true)} className="h-9 w-9 relative" data-testid="open-exclusion-btn" title="Escludi articoli dai calcoli">
+          <EyeOff className="w-4 h-4" />
+        </Button>
         <Button variant="outline" onClick={() => setShowSearchModal(true)} className="gap-2 h-9" data-testid="open-search-prodotto">
           <Search className="w-4 h-4" /> <span className="hidden sm:inline">Cerca</span>
         </Button>
       </PageHeader>
+
+      <ExclusionDialog
+        open={showExclusion}
+        onOpenChange={setShowExclusion}
+        onSaved={refreshDashboardData}
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
@@ -1515,52 +1534,88 @@ export default function Dashboard() {
                       )}>{p.l}</button>
                   ))}
                 </div>
-                <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
-                  <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06] flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="text-xs font-semibold text-white">Top 5 Clienti per Spesa</span>
-                  </div>
-                  {cardDetail.top_clienti?.map((c, i) => (
-                    <div key={c.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04] hover:bg-white/[0.02]">
-                      <span className="w-5 h-5 rounded-full bg-cyan-500/15 text-cyan-400 text-[10px] font-bold flex items-center justify-center">{i+1}</span>
-                      <span className="flex-1 text-xs text-slate-300 truncate">{c.nome}</span>
-                      <span className="text-xs text-slate-500">{c.ordini} ord.</span>
-                      <span className="text-xs font-medium text-cyan-400">{formatCurrency(c.totale)}</span>
-                    </div>
-                  ))}
+
+                {/* Tab buttons */}
+                <div className="flex gap-2" data-testid="clienti-tabs">
+                  {[
+                    {v:'top', l:'Top Clienti', icon: Users, active:'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'},
+                    {v:'crescita', l:'In Crescita', icon: TrendingUp, active:'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'},
+                    {v:'calo', l:'In Calo', icon: TrendingDown, active:'bg-red-500/20 text-red-300 border-red-500/30'},
+                  ].map(t => {
+                    const Icon = t.icon;
+                    const isActive = clientiTab === t.v;
+                    return (
+                      <button key={t.v} onClick={() => setClientiTab(t.v)} data-testid={`clienti-tab-${t.v}`}
+                        className={cn("flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all border",
+                          isActive ? t.active : "bg-white/[0.02] text-slate-400 border-white/[0.06] hover:text-slate-200"
+                        )}>
+                        <Icon className="w-3.5 h-3.5" /> {t.l}
+                      </button>
+                    );
+                  })}
                 </div>
-                {cardDetail.nuovi_clienti?.length > 0 && (
-                  <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+
+                {/* Top Clienti tab */}
+                {clientiTab === 'top' && (
+                  <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden" data-testid="clienti-top">
                     <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06] flex items-center gap-2">
-                      <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                      <span className="text-xs font-semibold text-white">Nuovi Clienti nel Periodo</span>
+                      <Users className="w-3.5 h-3.5 text-cyan-400" />
+                      <span className="text-xs font-semibold text-white">Top 5 Clienti per Spesa</span>
                     </div>
-                    {cardDetail.nuovi_clienti.map((c, i) => (
-                      <div key={c.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04]">
+                    {cardDetail.top_clienti?.length > 0 ? cardDetail.top_clienti.map((c, i) => (
+                      <div key={c.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04] hover:bg-white/[0.02]">
+                        <span className="w-5 h-5 rounded-full bg-cyan-500/15 text-cyan-400 text-[10px] font-bold flex items-center justify-center">{i+1}</span>
                         <span className="flex-1 text-xs text-slate-300 truncate">{c.nome}</span>
-                        <span className="text-[10px] text-slate-500">dal {c.dal}</span>
-                        <span className="text-xs font-medium text-blue-400">{formatCurrency(c.totale)}</span>
+                        <span className="text-xs text-slate-500">{c.ordini} ord.</span>
+                        <span className="text-xs font-medium text-cyan-400">{formatCurrency(c.totale)}</span>
                       </div>
-                    ))}
+                    )) : (
+                      <div className="px-3 py-4 text-center text-xs text-slate-500">Nessun dato nel periodo</div>
+                    )}
                   </div>
                 )}
-                <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden" data-testid="clienti-in-crescita">
-                  <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06] flex items-center gap-2">
-                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-xs font-semibold text-white">Clienti in Crescita</span>
-                    <span className="ml-auto text-[10px] text-slate-500">vs periodo precedente</span>
-                  </div>
-                  {cardDetail.clienti_in_crescita?.length > 0 ? cardDetail.clienti_in_crescita.map((c, i) => (
-                    <div key={c.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04]">
-                      <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold flex items-center justify-center">{i+1}</span>
-                      <span className="flex-1 text-xs text-slate-300 truncate">{c.nome}</span>
-                      <span className="text-[10px] text-slate-500">{formatCurrency(c.spesa_precedente)} → {formatCurrency(c.spesa_corrente)}</span>
-                      <span className="text-xs font-medium text-emerald-400">+{formatCurrency(c.crescita_eur)}{c.crescita_pct != null ? ` (${c.crescita_pct > 0 ? '+' : ''}${c.crescita_pct}%)` : ''}</span>
+
+                {/* In Crescita tab */}
+                {clientiTab === 'crescita' && (
+                  <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden" data-testid="clienti-in-crescita">
+                    <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06] flex items-center gap-2">
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-xs font-semibold text-white">Clienti in Crescita</span>
+                      <span className="ml-auto text-[10px] text-slate-500">vs periodo precedente</span>
                     </div>
-                  )) : (
-                    <div className="px-3 py-4 text-center text-xs text-slate-500">Nessun cliente in crescita nel periodo</div>
-                  )}
-                </div>
+                    {cardDetail.clienti_in_crescita?.length > 0 ? cardDetail.clienti_in_crescita.map((c, i) => (
+                      <div key={c.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04]">
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold flex items-center justify-center">{i+1}</span>
+                        <span className="flex-1 text-xs text-slate-300 truncate">{c.nome}</span>
+                        <span className="text-[10px] text-slate-500">{formatCurrency(c.spesa_precedente)} → {formatCurrency(c.spesa_corrente)}</span>
+                        <span className="text-xs font-medium text-emerald-400">+{formatCurrency(c.crescita_eur)}{c.crescita_pct != null ? ` (${c.crescita_pct > 0 ? '+' : ''}${c.crescita_pct}%)` : ''}</span>
+                      </div>
+                    )) : (
+                      <div className="px-3 py-4 text-center text-xs text-slate-500">Nessun cliente in crescita nel periodo</div>
+                    )}
+                  </div>
+                )}
+
+                {/* In Calo tab */}
+                {clientiTab === 'calo' && (
+                  <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden" data-testid="clienti-in-calo">
+                    <div className="px-3 py-2 bg-white/[0.03] border-b border-white/[0.06] flex items-center gap-2">
+                      <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+                      <span className="text-xs font-semibold text-white">Clienti in Calo</span>
+                      <span className="ml-auto text-[10px] text-slate-500">vs periodo precedente</span>
+                    </div>
+                    {cardDetail.clienti_in_calo?.length > 0 ? cardDetail.clienti_in_calo.map((c, i) => (
+                      <div key={c.nome} className="flex items-center gap-2 px-3 py-2 border-t border-white/[0.04]">
+                        <span className="w-5 h-5 rounded-full bg-red-500/15 text-red-400 text-[10px] font-bold flex items-center justify-center">{i+1}</span>
+                        <span className="flex-1 text-xs text-slate-300 truncate">{c.nome}</span>
+                        <span className="text-[10px] text-slate-500">{formatCurrency(c.spesa_precedente)} → {formatCurrency(c.spesa_corrente)}</span>
+                        <span className="text-xs font-medium text-red-400">{formatCurrency(c.crescita_eur)}{c.crescita_pct != null ? ` (${c.crescita_pct}%)` : ''}</span>
+                      </div>
+                    )) : (
+                      <div className="px-3 py-4 text-center text-xs text-slate-500">Nessun cliente in calo nel periodo</div>
+                    )}
+                  </div>
+                )}
               </>)}
 
               {/* ALERT detail */}

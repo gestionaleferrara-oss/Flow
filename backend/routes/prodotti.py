@@ -58,13 +58,25 @@ async def get_prodotti(
         # Products with expiry date set
         query["scadenza"] = {"$exists": True, "$ne": "", "$ne": None}
     
-    prodotti = await db.prodotti.find(query, {"_id": 0}).sort(sort_by, sort_order).skip(skip).limit(limit).to_list(limit)
+    # Zero-quantity products go last, everything else keeps requested sort
+    pipeline = [
+        {"$match": query},
+        {"$addFields": {"_zero": {"$cond": [{"$gt": ["$quantita", 0]}, 0, 1]}}},
+        {"$sort": {"_zero": 1, sort_by: sort_order}},
+        {"$skip": skip},
+        {"$limit": limit},
+        {"$project": {"_id": 0, "_zero": 0}}
+    ]
+    prodotti = await db.prodotti.aggregate(pipeline).to_list(limit)
     return prodotti
 
 
 async def get_prodotti_stats():
     """Shared stats function used by both /prodotti/stats and /dashboard"""
+    from routes.esclusioni import get_prodotti_esclusi_set
+    prod_esclusi = await get_prodotti_esclusi_set()
     prodotti = await db.prodotti.find({}, {"_id": 0}).to_list(10000)
+    prodotti = [p for p in prodotti if p.get('nome', '') not in prod_esclusi]
     total = len(prodotti)
     valore_totale = sum(p.get('quantita', 0) * p.get('prezzo_medio', 0) for p in prodotti)
     sotto_scorta = sum(1 for p in prodotti if p.get('quantita_minima', 0) > 0 and p.get('quantita', 0) <= p.get('quantita_minima', 0))

@@ -5,7 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { 
   Sparkles, Search, Calendar, TrendingUp, Package, Users, 
   RefreshCw, RotateCcw, FileDown, Target, Lightbulb,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, BarChart3
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
@@ -589,6 +589,43 @@ export default function Forecast() {
                 </div>
               </div>
             </div>
+
+            {/* Top Products forecast table (global only) */}
+            {forecast.previsioni_prodotti?.length > 0 && (
+              <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4" data-testid="forecast-prodotti-table">
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm font-medium text-white">Top 10 Prodotti — {forecast.mese_target_nome?.split(' ')[0]}</span>
+                  <span className="ml-auto text-[10px] text-slate-500">previsione vs dato reale</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-slate-500 border-b border-white/[0.08]">
+                        <th className="text-left font-medium py-1.5 pr-2">Prodotto</th>
+                        <th className="text-right font-medium py-1.5 px-2">{forecast.previsioni_prodotti[0]?.anno_recente ? `Fatt. ${forecast.previsioni_prodotti[0].anno_recente}` : 'Fatt. rec.'}</th>
+                        <th className="text-right font-medium py-1.5 px-2 hidden sm:table-cell">{forecast.previsioni_prodotti[0]?.anno_precedente ? `Fatt. ${forecast.previsioni_prodotti[0].anno_precedente}` : 'Fatt. prec.'}</th>
+                        <th className="text-right font-medium py-1.5 px-2">Previsione</th>
+                        <th className="text-right font-medium py-1.5 pl-2">Trend</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {forecast.previsioni_prodotti.map((p, i) => (
+                        <tr key={p.prodotto} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
+                          <td className="py-1.5 pr-2 text-slate-300 truncate max-w-[180px]" title={p.prodotto}>{p.prodotto}</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums text-slate-300">{formatCurrency(p.val_recente)}</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums text-slate-500 hidden sm:table-cell">{p.anno_precedente ? formatCurrency(p.val_precedente) : '-'}</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums font-medium text-emerald-400">{formatCurrency(p.previsione)}</td>
+                          <td className={cn("py-1.5 pl-2 text-right tabular-nums font-medium", p.anno_precedente ? (p.trend >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500")}>
+                            {p.anno_precedente ? `${p.trend > 0 ? '+' : ''}${p.trend}%` : 'n/d'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* AI Forecast */}
             <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4">

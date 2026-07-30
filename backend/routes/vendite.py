@@ -106,8 +106,12 @@ async def get_statistiche(
     if end_date:
         query.setdefault("data", {})["$lte"] = end_date
     vendite = await db.vendite.find(query, {"_id": 0}).to_list(100000)
+    from routes.esclusioni import get_prodotti_esclusi_set
+    prod_esclusi = await get_prodotti_esclusi_set()
     EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
-    vendite_filtrate = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
+    vendite_filtrate = [v for v in vendite
+                        if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]
+                        and v.get('prodotto_nome', '') not in prod_esclusi]
     totale_euro = sum(abs(v.get('totale', 0)) for v in vendite_filtrate)
     totale_articoli = sum(abs(v.get('quantita', 0)) for v in vendite_filtrate)
     clienti_attivi = len(set(v.get('cliente_nome', '') for v in vendite_filtrate if v.get('cliente_nome')))
@@ -256,6 +260,9 @@ async def get_statistiche_acquisti(
     if end_date:
         query.setdefault("data", {})["$lte"] = end_date
     ordini = await db.ordini.find(query, {"_id": 0}).to_list(100000)
+    from routes.esclusioni import get_prodotti_esclusi_set
+    prod_esclusi = await get_prodotti_esclusi_set()
+    ordini = [o for o in ordini if o.get('prodotto_nome', '') not in prod_esclusi]
     totale_euro = sum(abs(o.get('totale', 0)) for o in ordini)
     totale_articoli = sum(abs(o.get('quantita', 0)) for o in ordini)
     fornitori_attivi = len(set(o.get('fornitore_nome', '') for o in ordini))

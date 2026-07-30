@@ -338,6 +338,7 @@ from routes.dashboard import router as dashboard_router
 from routes.news import router as news_router
 from routes.pdf_export import router as pdf_export_router
 from routes.forecast import router as forecast_router
+from routes.esclusioni import router as esclusioni_router
 
 api_router.include_router(upload_router)
 api_router.include_router(entities_router)
@@ -347,6 +348,7 @@ api_router.include_router(dashboard_router)
 api_router.include_router(news_router)
 api_router.include_router(pdf_export_router)
 api_router.include_router(forecast_router)
+api_router.include_router(esclusioni_router)
 
 app.include_router(api_router)
 
