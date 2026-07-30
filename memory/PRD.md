@@ -102,3 +102,15 @@
 - Gestione Pagamenti
 - Mobile optimization
 - Refactoring Dashboard.jsx (file troppo grande)
+
+### 2026-07-30 (sessione 6)
+- MAGAZZINO: giacenza calcolata da carico/scarico (Acquisti ordini + Resi CARICO - Vendite SCARICO).
+  - `recompute_all_quantities()` condivisa in prodotti.py, endpoint `/api/prodotti/recalculate-quantities`
+  - Ricalcolo AUTOMATICO ad ogni upload (upload-csv, upload-multiple, upload-incremental)
+  - Pulsante "Ricalcola giacenze" (data-testid=recalculate-btn) in Magazzino
+  - Fix: import `Package` mancante in Magazzino.jsx
+- DASHBOARD card ordini: sostituito "Picco" con "Media Ordini/Giorno" (media_ordini_giornaliera su giorni attivi) + tile Ordini Totali
+- DASHBOARD card clienti: sostituito "Più Frequenti" (ridondante con Top 5) con "Clienti in Crescita" (delta spesa vs periodo precedente equivalente)
+- FORECAST AI PDF: rimosse colonne Min/Max EUR, aggiunte colonne fatturato reale ultimi 2 anni (Fatt. AAAA), header trend chiarito "Trend 25 vs 24" + nota esplicativa; KPI "mesi dati" ora valorizzato
+- UPLOAD: pulsante "Pulisci duplicati" (data-testid=pulisci-duplicati-btn) -> POST /api/pulisci-duplicati (dedup retroattivo su data+cliente/fornitore+prodotto)
+- Testing agent: 100% backend (5/5), 100% frontend (4/4 flussi)

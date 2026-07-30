@@ -429,6 +429,7 @@ IMPORTANTE: Usa SOLO i numeri dei dati forniti. Sii specifico e operativo."""
             "storico": [{"mese": s["_id"], "valore": round(s.get(metric_key, 0), 2)} for s in storico[-12:]],
             "statistiche": {
                 "media_mensile": round(media_mensile, 2),
+                "num_mesi_dati": len(storico),
                 "stesso_mese_avg": round(same_month_avg, 2),
                 "stesso_mese_max": round(same_month_max, 2),
                 "stesso_mese_min": round(same_month_min, 2),
