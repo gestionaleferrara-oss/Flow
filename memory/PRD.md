@@ -134,3 +134,4 @@
 - FIX: AgentMarkdown riconosce come PDF anche i link /api/ai/report/*.pdf (pulsante download).
 - Verificato: chat -> report pistacchio -> PDF 4 pagine con KPI, tabelle prodotti/mensile/top clienti e testo dell'analisi.
 - NOTA: durante i test il budget dell'Emergent LLM Key e' esaurito (RateLimitError budget exceeded) -> l'utente deve ricaricare da Profile > Manage plan > Universal Key > Add Balance.
+- NUOVO (sessione 7b): Archivio report AI. Pulsante "Report salvati" nell'Assistente (data-testid=agent-report-salvati-btn) -> drawer con elenco, apertura PDF e cancellazione. Endpoint GET /api/ai/reports, DELETE /api/ai/reports/{id}.

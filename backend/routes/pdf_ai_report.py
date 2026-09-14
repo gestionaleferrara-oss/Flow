@@ -27,6 +27,27 @@ async def salva_report(titolo: str, sottotitolo: str, testo: str,
     return rid
 
 
+@router.get("/ai/reports")
+async def lista_report(limit: int = 50):
+    docs = await db.ai_report_pdf.find(
+        {}, {"_id": 0, "report_id": 1, "titolo": 1, "sottotitolo": 1, "created_at": 1, "tabelle": 1}
+    ).sort([("created_at", -1)]).to_list(min(limit, 200))
+    return {"reports": [{
+        "report_id": d['report_id'], "titolo": d.get('titolo') or 'Report',
+        "sottotitolo": d.get('sottotitolo') or '', "created_at": d.get('created_at'),
+        "tabelle": len(d.get('tabelle') or []),
+        "url": f"/api/ai/report/{d['report_id']}.pdf",
+    } for d in docs]}
+
+
+@router.delete("/ai/reports/{report_id}")
+async def elimina_report(report_id: str):
+    res = await db.ai_report_pdf.delete_one({"report_id": report_id})
+    if not res.deleted_count:
+        raise HTTPException(status_code=404, detail="Report non trovato")
+    return {"success": True}
+
+
 @router.get("/ai/report/{report_id}.pdf")
 async def ai_report_pdf(report_id: str):
     doc = await db.ai_report_pdf.find_one({"report_id": report_id}, {"_id": 0})

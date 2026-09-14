@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Send, RotateCcw, Wrench, Check, Loader2, User, Zap } from 'lucide-react';
+import { Sparkles, Send, RotateCcw, Wrench, Check, Loader2, User, Zap, FileText, Download, Trash2, X } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { AgentMarkdown } from '@/components/AgentMarkdown';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,81 @@ function ToolChip({ tool }) {
   );
 }
 
+function ReportSalvati({ open, onClose }) {
+  const [reports, setReports] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/ai/reports`);
+      const d = await r.json();
+      setReports(d.reports || []);
+    } catch (e) { setReports([]); }
+  }, []);
+
+  useEffect(() => { if (open) load(); }, [open, load]);
+
+  const elimina = async (id) => {
+    try {
+      await fetch(`${API}/ai/reports/${id}`, { method: 'DELETE' });
+      setReports((r) => r.filter((x) => x.report_id !== id));
+      toast.success('Report eliminato');
+    } catch (e) { toast.error('Eliminazione non riuscita'); }
+  };
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[80] flex items-start justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm overflow-y-auto"
+      onClick={onClose} data-testid="report-salvati-drawer">
+      <div onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl rounded-2xl border border-white/[0.08] bg-[#0b1120] shadow-2xl my-4">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+          <div>
+            <h3 className="text-base font-semibold text-white">Report salvati</h3>
+            <p className="text-xs text-slate-500">Tutti i PDF generati dall'assistente: riaprili senza rigenerarli</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+            data-testid="report-salvati-close">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="divide-y divide-white/[0.04] max-h-[65vh] overflow-y-auto">
+          {reports === null && <div className="px-5 py-8 text-center text-sm text-slate-500">Caricamento…</div>}
+          {reports?.length === 0 && (
+            <div className="px-5 py-10 text-center text-sm text-slate-500" data-testid="report-salvati-empty">
+              Nessun report generato finora. Chiedi in chat "fammi il PDF di questo report".
+            </div>
+          )}
+          {(reports || []).map((r, i) => (
+            <div key={r.report_id} className="px-5 py-3 flex items-center gap-3" data-testid={`report-salvato-${i}`}>
+              <div className="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/25 text-violet-300 flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-white truncate">{r.titolo}</div>
+                <div className="text-[11px] text-slate-500 truncate">
+                  {r.sottotitolo || `${r.tabelle} tabelle`}
+                  {r.created_at && ` · ${new Date(r.created_at).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })}`}
+                </div>
+              </div>
+              <a href={`${process.env.REACT_APP_BACKEND_URL}${r.url}`} target="_blank" rel="noreferrer"
+                data-testid={`report-salvato-${i}-download`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium transition-colors shrink-0">
+                <Download className="w-3.5 h-3.5" /> Apri
+              </a>
+              <button onClick={() => elimina(r.report_id)} data-testid={`report-salvato-${i}-delete`}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-300 hover:bg-rose-500/10 shrink-0">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Assistente() {
+  const [archivio, setArchivio] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -156,10 +230,15 @@ export default function Assistente() {
   return (
     <PageWrapper>
       <PageHeader title="Assistente AI" subtitle="Chiedi qualsiasi cosa: l'agente legge i dati ed esegue azioni nel gestionale">
+        <Button variant="outline" size="sm" onClick={() => setArchivio(true)} data-testid="agent-report-salvati-btn">
+          <FileText className="w-4 h-4 mr-2" /> Report salvati
+        </Button>
         <Button variant="outline" size="sm" onClick={reset} data-testid="agent-reset-btn">
           <RotateCcw className="w-4 h-4 mr-2" /> Nuova chat
         </Button>
       </PageHeader>
+
+      <ReportSalvati open={archivio} onClose={() => setArchivio(false)} />
 
       <div
         className="rounded-2xl border border-white/[0.07] overflow-hidden flex flex-col"
