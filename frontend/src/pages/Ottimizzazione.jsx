@@ -141,8 +141,8 @@ function OrdineAcquisto({ o, idx, onArticolo }) {
           <table className="w-full text-sm">
             <thead>
               <tr>
-                {['Articolo', 'Domanda prev.', 'Giacenza', 'Copertura gg', 'Da ordinare', 'Prezzo', 'Prz. medio', 'Prz. vendita', 'Margine', 'Valore'].map((c, i) => (
-                  <th key={c} className={cn('px-3 py-2 text-[11px] uppercase tracking-wider text-slate-500 whitespace-nowrap',
+                {['Articolo', 'Domanda prev.', 'Giacenza', 'Copertura gg', 'Da ordinare', 'Prezzo', 'Prz. vendita', 'Margine', 'Valore'].map((c, i) => (
+                  <th key={c} className={cn('px-2 py-2 text-[11px] uppercase tracking-wider text-slate-500 whitespace-nowrap',
                     i === 0 ? 'text-left' : 'text-right')}>{c}</th>
                 ))}
               </tr>
@@ -152,20 +152,19 @@ function OrdineAcquisto({ o, idx, onArticolo }) {
                 <tr key={a.prodotto} onClick={() => onArticolo(a)}
                   className="border-t border-white/[0.04] cursor-pointer hover:bg-cyan-500/[0.07] transition-colors"
                   data-testid={`ordine-acquisto-${idx}-row-${i}`}>
-                  <td className="px-3 py-2 text-slate-200 max-w-[280px] truncate">{a.prodotto}</td>
-                  <td className="px-3 py-2 text-right text-slate-300 tabular-nums">{num(a.domanda_prevista)}</td>
-                  <td className="px-3 py-2 text-right text-slate-400 tabular-nums">{num(a.giacenza)}</td>
-                  <td className="px-3 py-2 text-right text-slate-400 tabular-nums">{a.copertura_giorni ?? '—'}</td>
-                  <td className="px-3 py-2 text-right text-white font-semibold tabular-nums">{num(a.da_ordinare)}</td>
-                  <td className="px-3 py-2 text-right text-slate-300 tabular-nums">{a.prezzo_acquisto ? `€${a.prezzo_acquisto.toFixed(2)}` : '—'}</td>
-                  <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{a.prezzo_medio_mercato ? `€${a.prezzo_medio_mercato.toFixed(2)}` : '—'}</td>
-                  <td className="px-3 py-2 text-right text-slate-300 tabular-nums">{a.prezzo_vendita_atteso ? `€${a.prezzo_vendita_atteso.toFixed(2)}` : '—'}</td>
-                  <td className={cn('px-3 py-2 text-right font-semibold tabular-nums',
+                  <td className="px-2 py-2 text-slate-200 max-w-[180px] truncate">{a.prodotto}</td>
+                  <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{num(a.domanda_prevista)}</td>
+                  <td className="px-2 py-2 text-right text-slate-400 tabular-nums">{num(a.giacenza)}</td>
+                  <td className="px-2 py-2 text-right text-slate-400 tabular-nums">{a.copertura_giorni ?? '—'}</td>
+                  <td className="px-2 py-2 text-right text-white font-semibold tabular-nums">{num(a.da_ordinare)}</td>
+                  <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{a.prezzo_acquisto ? `€${a.prezzo_acquisto.toFixed(2)}` : '—'}</td>
+                  <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{a.prezzo_vendita_atteso ? `€${a.prezzo_vendita_atteso.toFixed(2)}` : '—'}</td>
+                  <td className={cn('px-2 py-2 text-right font-semibold tabular-nums',
                     a.margine_pct === null ? 'text-slate-600' : a.margine_pct >= 20 ? 'text-emerald-400'
                       : a.margine_pct >= 10 ? 'text-amber-400' : 'text-rose-400')}>
                     {a.margine_pct === null ? '—' : `${a.margine_pct}%`}
                   </td>
-                  <td className="px-3 py-2 text-right text-cyan-300 font-semibold tabular-nums">{formatCurrency(a.valore)}</td>
+                  <td className="px-2 py-2 text-right text-cyan-300 font-semibold tabular-nums">{formatCurrency(a.valore)}</td>
                 </tr>
               ))}
             </tbody>
