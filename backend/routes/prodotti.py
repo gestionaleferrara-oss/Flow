@@ -56,7 +56,7 @@ async def get_prodotti(
         ]}
     elif filter_type == "scadenza":
         # Products with expiry date set
-        query["scadenza"] = {"$exists": True, "$ne": "", "$ne": None}
+        query["scadenza"] = {"$exists": True, "$nin": ["", None]}
     
     # Zero-quantity products go last, everything else keeps requested sort
     pipeline = [
@@ -126,7 +126,9 @@ async def delete_prodotto(prodotto_id: str):
 @router.post("/prodotti/recalculate-quantities")
 async def recalculate_quantities():
     count = await recompute_all_quantities()
-    return {"message": "Quantità ricalcolate", "prodotti_aggiornati": count}
+    from routes.fifo import rebuild_fifo
+    fifo = await rebuild_fifo()
+    return {"message": "Quantità ricalcolate", "prodotti_aggiornati": count, "fifo": fifo}
 
 
 async def recompute_all_quantities():
@@ -319,7 +321,7 @@ async def get_prodotto_storico_clienti(prodotto_nome: str):
     # Get all sales for this product
     vendite = await db.vendite.find(
         {"prodotto_nome": prodotto_nome},
-        {"_id": 0, "cliente_nome": 1, "data": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1}
+        {"_id": 0, "cliente_nome": 1, "data": 1, "quantita": 1, "prezzo_unitario": 1, "totale": 1, "costo_fifo": 1}
     ).sort("data", -1).to_list(10000)
     
     if not vendite:
@@ -356,10 +358,13 @@ async def get_prodotto_storico_clienti(prodotto_nome: str):
         totale_venduto = sum(abs(v.get('totale', 0)) for v in vendite_cliente)
         totale_qty = sum(abs(v.get('quantita', 0)) for v in vendite_cliente)
         prezzo_medio_cliente = totale_venduto / totale_qty if totale_qty > 0 else 0
-        
-        # Calculate margin
+
+        # Margine reale: costo FIFO del lotto effettivamente venduto a questo cliente
+        costo_fifo_cliente = sum(v.get('costo_fifo', 0) or 0 for v in vendite_cliente)
         margine_percentuale = 0
-        if costo_medio > 0 and prezzo_medio_cliente > 0:
+        if costo_fifo_cliente > 0:
+            margine_percentuale = ((totale_venduto - costo_fifo_cliente) / costo_fifo_cliente) * 100
+        elif costo_medio > 0 and prezzo_medio_cliente > 0:
             margine_percentuale = ((prezzo_medio_cliente - costo_medio) / costo_medio) * 100
         
         clienti_result.append({

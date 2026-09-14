@@ -20,14 +20,16 @@ def _margine_color(val):
         if v >= 20: return C_EMERALD
         if v >= 10: return C_AMBER
         return C_RED
-    except: return C_NAVY
+    except Exception:
+        return C_NAVY
 
 def _trend_color(val):
     try:
         v = float(str(val).replace('%','').replace('+',''))
         if v >= 0: return C_EMERALD
         return C_RED
-    except: return C_NAVY
+    except Exception:
+        return C_NAVY
 
 
 # ── Routes ─────────────────────────────────────────────────────────

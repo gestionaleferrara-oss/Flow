@@ -22,6 +22,8 @@ async def create_indexes_background():
         await db.ordini.create_index([("fornitore_nome", 1)], background=True)
         await db.ordini.create_index([("prodotto_nome", 1)], background=True)
         await db.prodotti.create_index([("nome", 1)], background=True)
+        await db.lotti.create_index([("prodotto", 1), ("data_acquisto", -1)], background=True)
+        await db.vendite.create_index([("prodotto_nome", 1), ("data", 1)], background=True)
         await db.clienti.create_index([("nome", 1)], background=True)
         await db.fornitori.create_index([("nome", 1)], background=True)
         logger.info("Database indexes created successfully")
@@ -339,6 +341,13 @@ from routes.news import router as news_router
 from routes.pdf_export import router as pdf_export_router
 from routes.forecast import router as forecast_router
 from routes.esclusioni import router as esclusioni_router
+from routes.analisi import router as analisi_router
+from routes.fifo import router as fifo_router
+from routes.pdf_analisi import router as pdf_analisi_router
+from routes.ottimizzazione import router as ottimizzazione_router
+from routes.ottimizzazione_detail import router as ottimizzazione_detail_router
+from routes.piano import router as piano_router
+from routes.ai_agent import router as ai_agent_router
 
 api_router.include_router(upload_router)
 api_router.include_router(entities_router)
@@ -349,6 +358,13 @@ api_router.include_router(news_router)
 api_router.include_router(pdf_export_router)
 api_router.include_router(forecast_router)
 api_router.include_router(esclusioni_router)
+api_router.include_router(analisi_router)
+api_router.include_router(fifo_router)
+api_router.include_router(pdf_analisi_router)
+api_router.include_router(ottimizzazione_router)
+api_router.include_router(ottimizzazione_detail_router)
+api_router.include_router(piano_router)
+api_router.include_router(ai_agent_router)
 
 app.include_router(api_router)
 

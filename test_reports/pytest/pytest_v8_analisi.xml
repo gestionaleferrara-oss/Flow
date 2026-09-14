@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="10" time="2.767" timestamp="2026-09-13T13:45:14.336254+00:00" hostname="agent-env-3d2733e4-08c8-4bb7-bcd9-0caa06a7f9d1"><testcase classname="backend.tests.test_flow_v8_analisi_agent.TestAnalisiVendite" name="test_vendite_prodotti_no_dates" time="0.389" /><testcase classname="backend.tests.test_flow_v8_analisi_agent.TestAnalisiVendite" name="test_vendite_prodotti_with_dates" time="0.267" /><testcase classname="backend.tests.test_flow_v8_analisi_agent.TestAnalisiVendite" name="test_vendite_prodotti_search" time="0.191" /><testcase classname="backend.tests.test_flow_v8_analisi_agent.TestAnalisiVendite" name="test_prodotto_dettaglio" time="0.204" /><testcase classname="backend.tests.test_flow_v8_analisi_agent.TestAnalisiAcquisti" name="test_acquisti_no_filters" time="0.177"><failure message="assert 0 &gt; 0&#10; +  where 0 = len([])">backend/tests/test_flow_v8_analisi_agent.py:86: in test_acquisti_no_filters
+    assert len(d["fornitori"]) &gt; 0
+E   assert 0 &gt; 0
+E    +  where 0 = len([])</failure></testcase><testcase classname="backend.tests.test_flow_v8_analisi_agent.TestAnalisiAcquisti" name="test_acquisti_filter_fornitore" time="0.187"><failure message="AttributeError: module 'pytest' has no attribute 'FORN_TOP'">backend/tests/test_flow_v8_analisi_agent.py:97: in test_acquisti_filter_fornitore
+    forn = pytest.FORN_TOP
+           ^^^^^^^^^^^^^^^
+E   AttributeError: module 'pytest' has no attribute 'FORN_TOP'</failure></testcase><testcase classname="backend.tests.test_flow_v8_analisi_agent.TestAnalisiAcquisti" name="test_acquisti_filter_prodotto" time="0.228"><failure message="AttributeError: module 'pytest' has no attribute 'PROD_ACQ'">backend/tests/test_flow_v8_analisi_agent.py:108: in test_acquisti_filter_prodotto
+    prod = pytest.PROD_ACQ
+           ^^^^^^^^^^^^^^^
+E   AttributeError: module 'pytest' has no attribute 'PROD_ACQ'</failure></testcase><testcase classname="backend.tests.test_flow_v8_analisi_agent.TestAnalisiAcquisti" name="test_acquisti_date_range" time="0.196" /><testcase classname="backend.tests.test_flow_v8_analisi_agent.TestAnalisiAcquisti" name="test_confronto_fornitori" time="0.165"><failure message="AssertionError: no product with multiple suppliers found&#10;assert None">backend/tests/test_flow_v8_analisi_agent.py:126: in test_confronto_fornitori
+    assert multi, "no product with multiple suppliers found"
+E   AssertionError: no product with multiple suppliers found
+E   assert None</failure></testcase><testcase classname="backend.tests.test_flow_v8_analisi_agent.TestAnalisiAcquisti" name="test_opzioni" time="0.374" /></testsuite></testsuites>

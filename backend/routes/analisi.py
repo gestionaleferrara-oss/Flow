@@ -1,0 +1,482 @@
+from fastapi import APIRouter, HTTPException
+from typing import Optional, List, Dict
+from datetime import datetime, timedelta
+
+from database import db
+
+router = APIRouter()
+
+EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+
+
+async def reference_date() -> datetime:
+    latest = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
+    if latest and latest.get('data'):
+        try:
+            return datetime.strptime(latest['data'], "%Y-%m-%d")
+        except Exception:
+            pass
+    return datetime.now()
+
+
+async def resolve_period(start_date: Optional[str], end_date: Optional[str]):
+    """Return (start, end, prev_start, prev_end) as YYYY-MM-DD strings."""
+    if not start_date or not end_date:
+        ref = await reference_date()
+        start_date = ref.replace(day=1).strftime("%Y-%m-%d")
+        end_date = ref.strftime("%Y-%m-%d")
+    s = datetime.strptime(start_date, "%Y-%m-%d")
+    e = datetime.strptime(end_date, "%Y-%m-%d")
+    days = max((e - s).days, 0)
+    prev_e = s - timedelta(days=1)
+    prev_s = prev_e - timedelta(days=days)
+    return start_date, end_date, prev_s.strftime("%Y-%m-%d"), prev_e.strftime("%Y-%m-%d")
+
+
+async def esclusi_filter() -> Dict:
+    from routes.esclusioni import get_prodotti_esclusi
+    esclusi = await get_prodotti_esclusi()
+    return {"prodotto_nome": {"$nin": esclusi}} if esclusi else {}
+
+
+async def prezzi_acquisto(nomi: List[str], start: str, end: str) -> Dict[str, float]:
+    """Weighted avg purchase price in period, fallback to last known purchase price."""
+    if not nomi:
+        return {}
+    pipeline = [
+        {"$match": {"prodotto_nome": {"$in": nomi}, "quantita": {"$gt": 0},
+                    "totale": {"$gt": 0}, "data": {"$gte": start, "$lte": end}}},
+        {"$group": {"_id": "$prodotto_nome", "qty": {"$sum": "$quantita"}, "tot": {"$sum": "$totale"}}}
+    ]
+    rows = await db.ordini.aggregate(pipeline).to_list(20000)
+    prezzi = {r['_id']: r['tot'] / r['qty'] for r in rows if r['_id'] and r['qty'] > 0}
+
+    missing = [n for n in nomi if n not in prezzi]
+    if missing:
+        pipeline2 = [
+            {"$match": {"prodotto_nome": {"$in": missing}, "prezzo_unitario": {"$gt": 0},
+                        "quantita": {"$gt": 0}, "data": {"$lte": end}}},
+            {"$sort": {"data": -1}},
+            {"$group": {"_id": "$prodotto_nome", "prezzo": {"$first": "$prezzo_unitario"}}}
+        ]
+        rows2 = await db.ordini.aggregate(pipeline2).to_list(20000)
+        for r in rows2:
+            if r['_id'] and 0 < r['prezzo'] < 1000:
+                prezzi[r['_id']] = r['prezzo']
+    return prezzi
+
+
+# ═══════════════ VENDITE PER PRODOTTO ═══════════════
+
+@router.get("/analisi/vendite-prodotti")
+async def analisi_vendite_prodotti(
+    start_date: Optional[str] = None, end_date: Optional[str] = None,
+    search: Optional[str] = None, limit: int = 300
+):
+    start, end, prev_start, prev_end = await resolve_period(start_date, end_date)
+    excl = await esclusi_filter()
+
+    base_match = {"cliente_nome": {"$nin": EXCLUDED_CLIENTS}, **excl}
+    if search:
+        base_match["prodotto_nome"] = {"$regex": search, "$options": "i"}
+
+    def agg(s, e):
+        return [
+            {"$match": {**base_match, "data": {"$gte": s, "$lte": e}}},
+            {"$group": {
+                "_id": "$prodotto_nome",
+                "quantita": {"$sum": {"$abs": "$quantita"}},
+                "fatturato": {"$sum": {"$abs": "$totale"}},
+                "costo_fifo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
+                "qty_tracciata": {"$sum": {"$cond": [{"$eq": ["$fifo_tracciato", True]}, {"$abs": "$quantita"}, 0]}},
+                "righe": {"$sum": 1},
+                "clienti": {"$addToSet": "$cliente_nome"},
+            }},
+            {"$project": {"quantita": 1, "fatturato": 1, "righe": 1, "costo_fifo": 1,
+                          "qty_tracciata": 1, "n_clienti": {"$size": "$clienti"}}},
+        ]
+
+    curr = await db.vendite.aggregate(agg(start, end)).to_list(20000)
+    prev = await db.vendite.aggregate(agg(prev_start, prev_end)).to_list(20000)
+    prev_map = {p['_id']: p for p in prev}
+
+    nomi = [c['_id'] for c in curr if c['_id']]
+    costi = await prezzi_acquisto(nomi, start, end)
+
+    rows = []
+    tot_fatturato = tot_qty = tot_costo = 0.0
+    for c in curr:
+        nome = c['_id']
+        if not nome:
+            continue
+        qty = c['quantita']
+        fatt = c['fatturato']
+        prezzo_medio = fatt / qty if qty > 0 else 0
+        # Costo reale FIFO (lotto per lotto); fallback al prezzo di acquisto ponderato del periodo
+        costo_tot = c.get('costo_fifo', 0) or 0
+        fifo = costo_tot > 0
+        costo_unit = (costo_tot / qty) if (fifo and qty > 0) else costi.get(nome, 0)
+        if not fifo:
+            costo_tot = costo_unit * qty
+        margine = ((fatt - costo_tot) / costo_tot * 100) if costo_tot > 0 else None
+        copertura = (c.get('qty_tracciata', 0) / qty * 100) if qty > 0 else 0
+        p = prev_map.get(nome)
+        prev_fatt = p['fatturato'] if p else 0
+        prev_qty = p['quantita'] if p else 0
+        rows.append({
+            "prodotto": nome,
+            "quantita": round(qty, 2),
+            "fatturato": round(fatt, 2),
+            "prezzo_medio": round(prezzo_medio, 4),
+            "costo_unitario": round(costo_unit, 4) if costo_unit else None,
+            "margine_pct": round(margine, 1) if margine is not None else None,
+            "profitto": round(fatt - costo_tot, 2) if costo_tot > 0 else None,
+            "da_lotti": fifo,
+            "copertura_lotti_pct": round(copertura, 0),
+            "n_clienti": c.get('n_clienti', 0),
+            "righe": c.get('righe', 0),
+            "fatturato_prec": round(prev_fatt, 2),
+            "quantita_prec": round(prev_qty, 2),
+            "var_fatturato_pct": round((fatt - prev_fatt) / prev_fatt * 100, 1) if prev_fatt > 0 else None,
+            "var_quantita_pct": round((qty - prev_qty) / prev_qty * 100, 1) if prev_qty > 0 else None,
+        })
+        tot_fatturato += fatt
+        tot_qty += qty
+        tot_costo += costo_tot
+
+    rows.sort(key=lambda r: r['fatturato'], reverse=True)
+    tot_prev = sum(p['fatturato'] for p in prev if p['_id'])
+
+    return {
+        "periodo": {"start": start, "end": end, "prev_start": prev_start, "prev_end": prev_end},
+        "kpi": {
+            "fatturato": round(tot_fatturato, 2),
+            "fatturato_prec": round(tot_prev, 2),
+            "var_pct": round((tot_fatturato - tot_prev) / tot_prev * 100, 1) if tot_prev > 0 else None,
+            "quantita": round(tot_qty, 2),
+            "n_prodotti": len(rows),
+            "margine_medio_pct": round((tot_fatturato - tot_costo) / tot_costo * 100, 1) if tot_costo > 0 else None,
+            "profitto_stimato": round(tot_fatturato - tot_costo, 2) if tot_costo > 0 else None,
+        },
+        "prodotti": rows[:limit],
+    }
+
+
+@router.get("/analisi/prodotto-dettaglio")
+async def analisi_prodotto_dettaglio(
+    nome: str, start_date: Optional[str] = None, end_date: Optional[str] = None
+):
+    if not nome:
+        raise HTTPException(status_code=400, detail="Nome prodotto richiesto")
+    start, end, _, _ = await resolve_period(start_date, end_date)
+
+    trend_pipeline = [
+        {"$match": {"prodotto_nome": nome, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+        {"$group": {
+            "_id": {"$substr": ["$data", 0, 7]},
+            "quantita": {"$sum": {"$abs": "$quantita"}},
+            "fatturato": {"$sum": {"$abs": "$totale"}},
+            "costo_fifo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
+        }},
+        {"$sort": {"_id": 1}},
+    ]
+    trend = await db.vendite.aggregate(trend_pipeline).to_list(200)
+
+    acq_pipeline = [
+        {"$match": {"prodotto_nome": nome, "quantita": {"$gt": 0}}},
+        {"$group": {
+            "_id": {"$substr": ["$data", 0, 7]},
+            "quantita": {"$sum": "$quantita"},
+            "spesa": {"$sum": "$totale"},
+        }},
+        {"$sort": {"_id": 1}},
+    ]
+    acquisti = await db.ordini.aggregate(acq_pipeline).to_list(200)
+    acq_map = {a['_id']: a for a in acquisti}
+
+    serie = []
+    for t in trend[-24:]:
+        a = acq_map.get(t['_id'], {})
+        pv = t['fatturato'] / t['quantita'] if t['quantita'] > 0 else 0
+        pa = (a.get('spesa', 0) / a['quantita']) if a.get('quantita') else 0
+        costo_fifo = t.get('costo_fifo', 0) or 0
+        costo_unit_fifo = costo_fifo / t['quantita'] if (costo_fifo > 0 and t['quantita'] > 0) else 0
+        base_costo = costo_unit_fifo or pa
+        serie.append({
+            "mese": t['_id'],
+            "quantita": round(t['quantita'], 2),
+            "fatturato": round(t['fatturato'], 2),
+            "prezzo_vendita": round(pv, 4),
+            "prezzo_acquisto": round(pa, 4) if pa else None,
+            "costo_lotti": round(costo_unit_fifo, 4) if costo_unit_fifo else None,
+            "quantita_acquistata": round(a.get('quantita', 0), 2),
+            "margine_pct": round((pv - base_costo) / base_costo * 100, 1) if base_costo > 0 else None,
+        })
+
+    clienti_pipeline = [
+        {"$match": {"prodotto_nome": nome, "data": {"$gte": start, "$lte": end},
+                    "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+        {"$group": {"_id": "$cliente_nome", "quantita": {"$sum": {"$abs": "$quantita"}},
+                    "fatturato": {"$sum": {"$abs": "$totale"}}, "ordini": {"$sum": 1},
+                    "costo_fifo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}}}},
+        {"$sort": {"fatturato": -1}},
+        {"$limit": 20},
+    ]
+    top_clienti = await db.vendite.aggregate(clienti_pipeline).to_list(20)
+
+    fornitori_pipeline = [
+        {"$match": {"prodotto_nome": nome, "quantita": {"$gt": 0}, "data": {"$gte": start, "$lte": end}}},
+        {"$group": {"_id": "$fornitore_nome", "quantita": {"$sum": "$quantita"},
+                    "spesa": {"$sum": "$totale"}}},
+        {"$sort": {"spesa": -1}},
+    ]
+    fornitori = await db.ordini.aggregate(fornitori_pipeline).to_list(100)
+
+    prodotto = await db.prodotti.find_one({"nome": nome}, {"_id": 0})
+
+    lotti = await db.lotti.find({"prodotto": nome}, {"_id": 0}).sort([("data_acquisto", -1)]).limit(60).to_list(60)
+
+    clienti_out = []
+    for c in top_clienti:
+        if not c['_id']:
+            continue
+        qty = c['quantita']
+        fatt = c['fatturato']
+        costo = c.get('costo_fifo', 0) or 0
+        prezzo = fatt / qty if qty > 0 else 0
+        clienti_out.append({
+            "cliente": c['_id'],
+            "quantita": round(qty, 2),
+            "fatturato": round(fatt, 2),
+            "prezzo_medio": round(prezzo, 4),
+            "costo_unitario": round(costo / qty, 4) if (costo > 0 and qty > 0) else None,
+            "margine_pct": round((fatt - costo) / costo * 100, 1) if costo > 0 else None,
+            "ordini": c['ordini'],
+        })
+
+    return {
+        "nome": nome,
+        "periodo": {"start": start, "end": end},
+        "giacenza": prodotto.get('quantita', 0) if prodotto else 0,
+        "quantita_minima": prodotto.get('quantita_minima', 0) if prodotto else 0,
+        "serie_mensile": serie,
+        "lotti": lotti,
+        "top_clienti": clienti_out,
+        "fornitori": [{"fornitore": f['_id'], "quantita": round(f['quantita'], 2),
+                       "spesa": round(f['spesa'], 2),
+                       "prezzo_medio": round(f['spesa'] / f['quantita'], 4) if f['quantita'] > 0 else 0}
+                      for f in fornitori if f['_id']],
+    }
+
+
+# ═══════════════ ACQUISTI FORNITORI ═══════════════
+
+@router.get("/analisi/acquisti")
+async def analisi_acquisti(
+    start_date: Optional[str] = None, end_date: Optional[str] = None,
+    fornitore: Optional[str] = None, prodotto: Optional[str] = None, limit: int = 300
+):
+    start, end, prev_start, prev_end = await resolve_period(start_date, end_date)
+    excl = await esclusi_filter()
+
+    base = {**excl}
+    if fornitore:
+        base["fornitore_nome"] = {"$regex": fornitore, "$options": "i"}
+    if prodotto:
+        base["prodotto_nome"] = {"$regex": prodotto, "$options": "i"}
+
+    def by(field, s, e):
+        return [
+            {"$match": {**base, "data": {"$gte": s, "$lte": e}}},
+            {"$group": {
+                "_id": f"${field}",
+                "quantita": {"$sum": "$quantita"},
+                "spesa": {"$sum": "$totale"},
+                "qty_v": {"$sum": {"$cond": [{"$and": [{"$gt": ["$totale", 0]}, {"$gt": ["$quantita", 0]}]},
+                                             "$quantita", 0]}},
+                "spesa_v": {"$sum": {"$cond": [{"$and": [{"$gt": ["$totale", 0]}, {"$gt": ["$quantita", 0]}]},
+                                               "$totale", 0]}},
+                "righe": {"$sum": 1},
+                "altro": {"$addToSet": "$prodotto_nome" if field == "fornitore_nome" else "$fornitore_nome"},
+                "resi": {"$sum": {"$cond": [{"$lt": ["$quantita", 0]}, {"$abs": "$totale"}, 0]}},
+            }},
+            {"$project": {"quantita": 1, "spesa": 1, "righe": 1, "resi": 1, "qty_v": 1, "spesa_v": 1,
+                          "n_altro": {"$size": "$altro"}}},
+        ]
+
+    def _prezzo_medio(d):
+        """Prezzo unitario ponderato escludendo le righe senza importo (dati incompleti)."""
+        if d.get('qty_v', 0) > 0:
+            return d['spesa_v'] / d['qty_v']
+        return d['spesa'] / d['quantita'] if d.get('quantita') else 0
+
+    forn_curr = await db.ordini.aggregate(by("fornitore_nome", start, end)).to_list(5000)
+    forn_prev = await db.ordini.aggregate(by("fornitore_nome", prev_start, prev_end)).to_list(5000)
+    prev_map = {f['_id']: f['spesa'] for f in forn_prev}
+    prod_curr = await db.ordini.aggregate(by("prodotto_nome", start, end)).to_list(20000)
+
+    fornitori = []
+    for f in forn_curr:
+        if not f['_id']:
+            continue
+        prev_spesa = prev_map.get(f['_id'], 0)
+        fornitori.append({
+            "fornitore": f['_id'],
+            "spesa": round(f['spesa'], 2),
+            "quantita": round(f['quantita'], 2),
+            "prezzo_medio": round(_prezzo_medio(f), 4),
+            "n_prodotti": f.get('n_altro', 0),
+            "righe": f.get('righe', 0),
+            "resi": round(f.get('resi', 0), 2),
+            "spesa_prec": round(prev_spesa, 2),
+            "var_pct": round((f['spesa'] - prev_spesa) / prev_spesa * 100, 1) if prev_spesa > 0 else None,
+        })
+    fornitori.sort(key=lambda x: x['spesa'], reverse=True)
+
+    prodotti = []
+    for p in prod_curr:
+        if not p['_id']:
+            continue
+        prodotti.append({
+            "prodotto": p['_id'],
+            "spesa": round(p['spesa'], 2),
+            "quantita": round(p['quantita'], 2),
+            "prezzo_medio": round(_prezzo_medio(p), 4),
+            "n_fornitori": p.get('n_altro', 0),
+            "resi": round(p.get('resi', 0), 2),
+        })
+    prodotti.sort(key=lambda x: x['spesa'], reverse=True)
+
+    trend_pipeline = [
+        {"$match": {**base, "data": {"$gte": start, "$lte": end}}},
+        {"$group": {"_id": {"$substr": ["$data", 0, 7]}, "spesa": {"$sum": "$totale"},
+                    "quantita": {"$sum": "$quantita"}}},
+        {"$sort": {"_id": 1}},
+    ]
+    trend = await db.ordini.aggregate(trend_pipeline).to_list(200)
+
+    # Margine reale generato dai lotti acquistati nel periodo (collegamento FIFO)
+    lotti_match = {"data_acquisto": {"$gte": start, "$lte": end}}
+    if fornitore:
+        lotti_match["fornitore"] = {"$regex": fornitore, "$options": "i"}
+    if prodotto:
+        lotti_match["prodotto"] = {"$regex": prodotto, "$options": "i"}
+
+    async def margini_per(campo):
+        rows = await db.lotti.aggregate([
+            {"$match": lotti_match},
+            {"$group": {"_id": f"${campo}", "ricavo": {"$sum": "$ricavo"},
+                        "qty_venduta": {"$sum": "$quantita_venduta"},
+                        "costo_venduto": {"$sum": {"$multiply": ["$quantita_venduta", "$prezzo_acquisto"]}}}}
+        ]).to_list(20000)
+        return {r['_id']: r for r in rows if r['_id']}
+
+    marg_forn = await margini_per("fornitore")
+    marg_prod = await margini_per("prodotto")
+
+    def arricchisci(riga, chiave, mappa):
+        m = mappa.get(riga[chiave])
+        if not m:
+            riga.update({"qty_venduta": 0, "ricavo": 0, "margine": None, "margine_pct": None,
+                         "prezzo_vendita": None})
+            return riga
+        costo = m['costo_venduto'] or 0
+        riga.update({
+            "qty_venduta": round(m['qty_venduta'], 2),
+            "ricavo": round(m['ricavo'], 2),
+            "margine": round(m['ricavo'] - costo, 2) if costo > 0 else None,
+            "margine_pct": round((m['ricavo'] - costo) / costo * 100, 1) if costo > 0 else None,
+            "prezzo_vendita": round(m['ricavo'] / m['qty_venduta'], 4) if m['qty_venduta'] else None,
+        })
+        return riga
+
+    fornitori = [arricchisci(f, 'fornitore', marg_forn) for f in fornitori]
+    prodotti = [arricchisci(p, 'prodotto', marg_prod) for p in prodotti]
+
+    tot_spesa = sum(f['spesa'] for f in fornitori)
+    tot_prev = sum(prev_map.values())
+
+    return {
+        "periodo": {"start": start, "end": end, "prev_start": prev_start, "prev_end": prev_end},
+        "kpi": {
+            "spesa": round(tot_spesa, 2),
+            "spesa_prec": round(tot_prev, 2),
+            "var_pct": round((tot_spesa - tot_prev) / tot_prev * 100, 1) if tot_prev > 0 else None,
+            "quantita": round(sum(f['quantita'] for f in fornitori), 2),
+            "n_fornitori": len(fornitori),
+            "n_prodotti": len(prodotti),
+            "resi": round(sum(f['resi'] for f in fornitori), 2),
+        },
+        "fornitori": fornitori[:limit],
+        "prodotti": prodotti[:limit],
+        "trend": [{"mese": t['_id'], "spesa": round(t['spesa'], 2), "quantita": round(t['quantita'], 2)}
+                  for t in trend],
+    }
+
+
+@router.get("/analisi/confronto-fornitori")
+async def analisi_confronto_fornitori(
+    prodotto: str, start_date: Optional[str] = None, end_date: Optional[str] = None
+):
+    if not prodotto:
+        raise HTTPException(status_code=400, detail="Prodotto richiesto")
+    start, end, _, _ = await resolve_period(start_date, end_date)
+
+    pipeline = [
+        {"$match": {"prodotto_nome": prodotto, "quantita": {"$gt": 0},
+                    "data": {"$gte": start, "$lte": end}}},
+        {"$sort": {"data": -1}},
+        {"$group": {
+            "_id": "$fornitore_nome",
+            "quantita": {"$sum": "$quantita"},
+            "spesa": {"$sum": "$totale"},
+            "ultimo_prezzo": {"$first": "$prezzo_unitario"},
+            "ultima_data": {"$first": "$data"},
+            "ordini": {"$sum": 1},
+        }},
+    ]
+    rows = await db.ordini.aggregate(pipeline).to_list(200)
+    fornitori = [{
+        "fornitore": r['_id'],
+        "quantita": round(r['quantita'], 2),
+        "spesa": round(r['spesa'], 2),
+        "prezzo_medio": round(r['spesa'] / r['quantita'], 4) if r['quantita'] > 0 else 0,
+        "ultimo_prezzo": round(r.get('ultimo_prezzo', 0) or 0, 4),
+        "ultima_data": r.get('ultima_data'),
+        "ordini": r['ordini'],
+    } for r in rows if r['_id']]
+    fornitori.sort(key=lambda x: x['prezzo_medio'])
+
+    # revenue side for reference
+    vend = await db.vendite.aggregate([
+        {"$match": {"prodotto_nome": prodotto, "data": {"$gte": start, "$lte": end},
+                    "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+        {"$group": {"_id": None, "qty": {"$sum": {"$abs": "$quantita"}}, "tot": {"$sum": {"$abs": "$totale"}}}}
+    ]).to_list(1)
+    prezzo_vendita = (vend[0]['tot'] / vend[0]['qty']) if vend and vend[0]['qty'] > 0 else 0
+
+    risparmio = None
+    if len(fornitori) > 1:
+        best, worst = fornitori[0], fornitori[-1]
+        qty_tot = sum(f['quantita'] for f in fornitori)
+        risparmio = {
+            "migliore": best['fornitore'], "prezzo_migliore": best['prezzo_medio'],
+            "peggiore": worst['fornitore'], "prezzo_peggiore": worst['prezzo_medio'],
+            "risparmio_potenziale": round((worst['prezzo_medio'] - best['prezzo_medio']) * qty_tot, 2),
+        }
+
+    return {
+        "prodotto": prodotto,
+        "periodo": {"start": start, "end": end},
+        "prezzo_vendita_medio": round(prezzo_vendita, 4),
+        "fornitori": fornitori,
+        "confronto": risparmio,
+    }
+
+
+@router.get("/analisi/opzioni")
+async def analisi_opzioni(q: str = "", tipo: str = "fornitori", limit: int = 25):
+    coll = {"fornitori": db.fornitori, "clienti": db.clienti, "prodotti": db.prodotti}.get(tipo, db.prodotti)
+    query = {"nome": {"$regex": q, "$options": "i"}} if q else {}
+    rows = await coll.find(query, {"_id": 0, "nome": 1}).sort("nome", 1).limit(limit).to_list(limit)
+    return {"nomi": [r['nome'] for r in rows if r.get('nome')]}

@@ -236,7 +236,7 @@ export default function UploadCSV() {
                           : "bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/50"
                       )}
                     >
-                      + Aggiungi ai dati esistenti
+                      + Aggiorna periodo del file
                     </button>
                     <button
                       onClick={() => setUploadMode('full')}
@@ -251,6 +251,11 @@ export default function UploadCSV() {
                       Sostituisci tutto
                     </button>
                   </div>
+                  {uploadMode === 'incremental' && (
+                    <p className="text-xs text-green-400/80 mt-1 text-center max-w-md">
+                      Le righe delle date presenti nel file vengono sostituite con quelle del file: eventuali correzioni di prodotto, prezzo o quantità si allineano senza creare doppioni. Le altre date restano intatte.
+                    </p>
+                  )}
                   {uploadMode === 'full' && (
                     <p className="text-xs text-amber-400 mt-1">⚠️ Questa modalità eliminerà tutte le vendite/ordini esistenti</p>
                   )}

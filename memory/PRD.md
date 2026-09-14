@@ -114,3 +114,14 @@
 - FORECAST AI PDF: rimosse colonne Min/Max EUR, aggiunte colonne fatturato reale ultimi 2 anni (Fatt. AAAA), header trend chiarito "Trend 25 vs 24" + nota esplicativa; KPI "mesi dati" ora valorizzato
 - UPLOAD: pulsante "Pulisci duplicati" (data-testid=pulisci-duplicati-btn) -> POST /api/pulisci-duplicati (dedup retroattivo su data+cliente/fornitore+prodotto)
 - Testing agent: 100% backend (5/5), 100% frontend (4/4 flussi)
+
+### 2026-09-14 (sessione 7) — Ottimizzazione riscritta
+- Pagina Ottimizzazione semplificata: NESSUN selettore di date, solo "Previsione prossimi 7/15/30/60/90 gg" da oggi.
+- Previsione = venduto reale nella STESSA finestra dell'anno precedente (oggi-365 → oggi-365+N).
+- ACQUISTI: ordini completi raggruppati per FORNITORE (tutti gli articoli dello stesso fornitore consumati nella finestra), con domanda prevista, giacenza, copertura, da ordinare, prezzo, prezzo medio mercato, prezzo vendita, margine, valore.
+- VENDITE: proposte d'ordine per CLIENTE (articoli comprati l'anno scorso in quei giorni) con stato "già ordinato / da proporre" e azione (CHIAMA ORA / CLIENTE FERMO / PROPONI / IN LINEA).
+- Sezione SUGGERIMENTI: rinegozia (margine <10%), giacenze da smaltire, scorte sovrabbondanti; per vendite: clienti fermi, referenze da riproporre, prezzi da ritoccare.
+- RIMOSSO su richiesta utente: ogni calcolo di "risparmio" (KPI, colonna, suggerimento cambio fornitore).
+- Click su articolo -> drawer con VENDITE COMPLESSIVE PER CLIENTE (finestra anno scorso + ultimi 12 mesi) e acquisti per fornitore. Nuovo endpoint GET /api/ottimizzazione/piano/articolo.
+- Endpoint: GET /api/ottimizzazione/piano?tipo=acquisti|vendite&giorni=N (nessun parametro data).
+- Testato con curl (entrambi i tipi) + screenshot (tab acquisti, tab vendite, drawer).

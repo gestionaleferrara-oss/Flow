@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, X, AlertTriangle } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, X, AlertTriangle, BarChart3 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';

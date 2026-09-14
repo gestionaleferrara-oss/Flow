@@ -64,6 +64,9 @@ async def pulisci_duplicati():
 
     # Recompute stock so giacenze stay consistent after removing duplicates
     await recompute_all_quantities()
+    # Ricostruisci i lotti FIFO (costi/margini reali) dopo la pulizia
+    from routes.fifo import rebuild_fifo
+    await rebuild_fifo()
 
     return {
         "success": True,
@@ -113,12 +116,37 @@ async def upload_csv(file: UploadFile = File(...)):
 
         await _flush_and_update(cache)
         await recompute_all_quantities()
+        from routes.fifo import rebuild_fifo
+        await rebuild_fifo()
         return {"success": True, "message": "File elaborato con successo", "stats": stats}
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error processing file: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _date_del_file(rows, col_mapping) -> list:
+    """Date (YYYY-MM-DD) presenti nel file caricato."""
+    from utils import parse_italian_date
+    col = col_mapping.get('data') or 'Data'
+    date = set()
+    for r in rows:
+        d = parse_italian_date(r.get(col, ''))
+        if d:
+            date.add(d)
+    return sorted(date)
+
+
+async def _sostituisci_date(date: list) -> dict:
+    """Import 'sostituisci periodo': elimina le righe delle date coperte dal file
+    prima di reinserirle, cosi' le correzioni (prodotto, prezzo, quantita') non creano doppioni."""
+    if not date:
+        return {"date_sostituite": 0, "vendite_rimosse": 0, "ordini_rimossi": 0}
+    v = await db.vendite.delete_many({"data": {"$in": date}})
+    o = await db.ordini.delete_many({"data": {"$in": date}})
+    return {"date_sostituite": len(date), "dal": date[0], "al": date[-1],
+            "vendite_rimosse": v.deleted_count, "ordini_rimossi": o.deleted_count}
 
 
 async def _upsert_vendite_batch(batch):
@@ -172,6 +200,12 @@ async def upload_multiple_files(files: List[UploadFile] = File(...), mode: Optio
             content = await file.read()
             rows, headers = _parse_file(content, filename)
             col_mapping = auto_detect_columns(headers)
+            if mode != 'full':
+                # sostituisci le date coperte dal file (gestione correzioni)
+                sost = await _sostituisci_date(_date_del_file(rows, col_mapping))
+                total_stats.setdefault('sostituzione', {"vendite_rimosse": 0, "ordini_rimossi": 0, "date_sostituite": 0})
+                for k in ('vendite_rimosse', 'ordini_rimossi', 'date_sostituite'):
+                    total_stats['sostituzione'][k] = total_stats['sostituzione'].get(k, 0) + sost.get(k, 0)
             for row in rows:
                 try:
                     await process_csv_row(row, total_stats, col_mapping, cache)
@@ -194,6 +228,8 @@ async def upload_multiple_files(files: List[UploadFile] = File(...), mode: Optio
     else:
         await _flush_and_update_incremental(cache)
     await recompute_all_quantities()
+    from routes.fifo import rebuild_fifo
+    await rebuild_fifo()
     return {"success": True, "message": f"Elaborati {total_stats['files_processed']} file con successo", "stats": total_stats}
 
 
@@ -223,6 +259,9 @@ async def upload_incremental(file: UploadFile = File(...)):
         cache = await _build_cache_with_quantities()
         BATCH_SIZE = 500
 
+        # Import 'sostituisci periodo': ripulisco le date coperte dal file
+        stats['sostituzione'] = await _sostituisci_date(_date_del_file(rows, col_mapping))
+
         for row in rows:
             try:
                 await process_csv_row(row, stats, col_mapping, cache)
@@ -238,6 +277,8 @@ async def upload_incremental(file: UploadFile = File(...)):
 
         await _flush_and_update_incremental(cache)
         await recompute_all_quantities()
+        from routes.fifo import rebuild_fifo
+        await rebuild_fifo()
         
         return {
             "success": True,

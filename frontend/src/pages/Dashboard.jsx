@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ExclusionDialog } from '@/components/ExclusionDialog';
+import { AgentMarkdown } from '@/components/AgentMarkdown';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -147,7 +148,10 @@ export default function Dashboard() {
     setAiChatHistory(prev => [...prev, { role: 'user', content: userMessage }]);
     
     try {
-      const response = await axios.post(`${API}/ai-chat`, { message: userMessage });
+      const response = await axios.post(`${API}/ai-agent/chat`, {
+        message: userMessage,
+        session_id: localStorage.getItem('flow_agent_session') || 'dashboard-quick-chat',
+      });
       if (response.data.success) {
         setAiChatHistory(prev => [...prev, { role: 'assistant', content: response.data.response }]);
       }
@@ -1817,7 +1821,11 @@ export default function Dashboard() {
                               "max-w-[85%] px-2.5 py-1.5 rounded-lg text-xs",
                               msg.role === 'user' ? "bg-blue-500/20 text-blue-200" : "bg-white/[0.03] text-slate-300 border border-white/[0.06]"
                             )}>
-                              <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                              <div className="leading-relaxed break-words">
+                                {msg.role === 'assistant'
+                                  ? <AgentMarkdown content={msg.content} />
+                                  : <span className="whitespace-pre-wrap">{msg.content}</span>}
+                              </div>
                             </div>
                           </div>
                         ))

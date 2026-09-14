@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home, Upload, Package, Users, Truck, ShoppingCart,
-  BarChart3, Newspaper, Sparkles, Zap, X, ChevronRight
+  BarChart3, Newspaper, Sparkles, Zap, X, ChevronRight, PieChart, Target
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,11 +16,14 @@ const navigation = [
   { name: 'Fornitori', href: '/fornitori', icon: Truck },
   { name: 'Acquisti', href: '/ordini', icon: ShoppingCart },
   { name: 'Statistiche', href: '/statistiche', icon: BarChart3 },
+  { name: 'Analisi', href: '/analisi', icon: PieChart },
+  { name: 'Ottimizzazione', href: '/ottimizzazione', icon: Target },
   { name: 'Notizie', href: '/notizie', icon: Newspaper },
 ];
 
 // AI submenu items
 const aiItems = [
+  { name: 'Assistente AI', href: '/assistente' },
   { name: 'Forecast AI', href: '/forecast' },
   { name: 'Report AI', href: '/report-ai' },
 ];
@@ -36,6 +39,9 @@ const prefetchMap = {
   '/fornitori': () => import('@/pages/Fornitori'),
   '/ordini': () => import('@/pages/Ordini'),
   '/statistiche': () => import('@/pages/Statistiche'),
+  '/analisi': () => import('@/pages/Analisi'),
+  '/ottimizzazione': () => import('@/pages/Ottimizzazione'),
+  '/assistente': () => import('@/pages/Assistente'),
   '/report-ai': () => import('@/pages/ReportAI'),
   '/notizie': () => import('@/pages/Notizie'),
 };
@@ -186,7 +192,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
               data-testid="nav-ai"
               className={cn(
                 'flex items-center justify-center w-full h-full rounded-xl transition-colors duration-150',
-                showAiMenu || location.pathname === '/forecast' || location.pathname === '/report-ai'
+                showAiMenu || location.pathname === '/forecast' || location.pathname === '/report-ai' || location.pathname === '/assistente'
                   ? 'text-purple-400' 
                   : 'text-slate-500 hover:text-slate-200'
               )}

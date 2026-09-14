@@ -708,3 +708,31 @@ input:focus, select:focus, textarea:focus {
 .ticker-scroll:hover {
   animation-play-state: paused;
 }
+
+/* AI agent markdown rendering */
+.agent-markdown p { margin: 0 0 0.5rem; }
+.agent-markdown p:last-child { margin-bottom: 0; }
+.agent-markdown strong { color: #fff; font-weight: 600; }
+.agent-markdown ul, .agent-markdown ol { margin: 0.35rem 0 0.6rem 1.1rem; list-style: disc; }
+.agent-markdown ol { list-style: decimal; }
+.agent-markdown li { margin: 0.15rem 0; }
+.agent-markdown h1, .agent-markdown h2, .agent-markdown h3 {
+  font-size: 0.95rem; font-weight: 600; color: #e2e8f0; margin: 0.75rem 0 0.35rem;
+}
+.agent-markdown hr { border-color: rgba(255,255,255,0.08); margin: 0.75rem 0; }
+.agent-markdown code {
+  background: rgba(255,255,255,0.06); padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.8rem;
+}
+.agent-markdown table {
+  width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.78rem;
+  display: block; overflow-x: auto; max-width: 100%;
+}
+.agent-markdown thead tr { background: rgba(255,255,255,0.03); }
+.agent-markdown tbody tr:hover { background: rgba(34,211,238,0.04); }
+.agent-markdown th {
+  text-align: left; padding: 0.35rem 0.5rem; color: #94a3b8; font-weight: 600;
+  border-bottom: 1px solid rgba(255,255,255,0.1); white-space: nowrap;
+}
+.agent-markdown td {
+  padding: 0.35rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.04); color: #cbd5e1;
+}

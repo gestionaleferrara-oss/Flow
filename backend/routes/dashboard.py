@@ -271,10 +271,11 @@ async def get_management_alerts():
 
 @router.get("/margine-vendite")
 async def get_margine_vendite():
-    """Calculate profit margin on sales where we know purchase price"""
+    """Margine reale sulle vendite del mese usando il costo FIFO lotto per lotto."""
     EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
-    
-    # Get reference date from latest sale
+    from routes.esclusioni import get_prodotti_esclusi
+    prod_esclusi = await get_prodotti_esclusi()
+
     latest_sale = await db.vendite.find_one({}, {"_id": 0, "data": 1}, sort=[("data", -1)])
     if latest_sale and latest_sale.get('data'):
         try:
@@ -283,94 +284,55 @@ async def get_margine_vendite():
             reference_date = datetime.now()
     else:
         reference_date = datetime.now()
-    
+
     current_month_start = reference_date.replace(day=1).strftime("%Y-%m-%d")
-    
-    # Get current month sales
-    vendite = await db.vendite.find({"data": {"$gte": current_month_start}}, {"_id": 0}).to_list(100000)
-    vendite = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
-    
-    # Build a map of last purchase price per product
-    prodotti_nomi = list(set(v.get('prodotto_nome', '') for v in vendite if v.get('prodotto_nome')))
-    prezzi_acquisto = {}
-    
-    for nome in prodotti_nomi:
-        ultimo_ordine = await db.ordini.find_one(
-            {"prodotto_nome": nome, "prezzo_unitario": {"$gt": 0}},
-            {"_id": 0, "prezzo_unitario": 1},
-            sort=[("data", -1)]
-        )
-        if ultimo_ordine:
-            prezzo = ultimo_ordine.get('prezzo_unitario', 0)
-            # Filter out anomalous prices (likely data entry errors)
-            if 0 < prezzo < 500:  # Reasonable price range
-                prezzi_acquisto[nome] = prezzo
-    
-    # Calculate margin for each sale
-    totale_fatturato = 0
-    totale_costo = 0
-    prodotti_con_margine = 0
+    match = {"data": {"$gte": current_month_start}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}
+    if prod_esclusi:
+        match["prodotto_nome"] = {"$nin": prod_esclusi}
+
+    pipeline = [
+        {"$match": match},
+        {"$group": {
+            "_id": "$prodotto_nome",
+            "fatturato": {"$sum": {"$abs": "$totale"}},
+            "quantita": {"$sum": {"$abs": "$quantita"}},
+            "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
+            "qty_tracciata": {"$sum": {"$cond": [{"$eq": ["$fifo_tracciato", True]}, {"$abs": "$quantita"}, 0]}},
+        }},
+    ]
+    rows = await db.vendite.aggregate(pipeline).to_list(20000)
+
+    totale_fatturato = totale_costo = 0.0
     margini_prodotto = []
-    
-    prodotti_vendite = {}
-    for v in vendite:
-        nome = v.get('prodotto_nome', '')
-        prezzo_vendita = v.get('prezzo_unitario', 0)
-        quantita = abs(v.get('quantita', 0))
-        totale_vendita = abs(v.get('totale', 0))
-        
-        if nome in prezzi_acquisto and prezzo_vendita > 0:
-            prezzo_acquisto = prezzi_acquisto[nome]
-            
-            # Skip if sale price is unreasonably different from purchase price
-            if prezzo_vendita > prezzo_acquisto * 5 or prezzo_vendita < prezzo_acquisto * 0.2:
-                continue
-            
-            if nome not in prodotti_vendite:
-                prodotti_vendite[nome] = {
-                    'fatturato': 0, 'costo': 0, 'quantita': 0,
-                    'prezzo_vendita': prezzo_vendita, 'prezzo_acquisto': prezzo_acquisto
-                }
-            
-            prodotti_vendite[nome]['fatturato'] += totale_vendita
-            prodotti_vendite[nome]['costo'] += prezzo_acquisto * quantita
-            prodotti_vendite[nome]['quantita'] += quantita
-    
-    for nome, dati in prodotti_vendite.items():
-        if dati['fatturato'] > 0 and dati['costo'] > 0:
-            margine_pct = ((dati['fatturato'] - dati['costo']) / dati['costo']) * 100
-            profitto = dati['fatturato'] - dati['costo']
-            
-            # Only include products with reasonable margins (-50% to +200%)
-            if -50 < margine_pct < 200:
-                totale_fatturato += dati['fatturato']
-                totale_costo += dati['costo']
-                prodotti_con_margine += 1
-                
-                margini_prodotto.append({
-                    'prodotto': nome,
-                    'fatturato': round(dati['fatturato'], 2),
-                    'costo': round(dati['costo'], 2),
-                    'profitto': round(profitto, 2),
-                    'margine_pct': round(margine_pct, 1),
-                    'prezzo_vendita': round(dati['prezzo_vendita'], 2),
-                    'prezzo_acquisto': round(dati['prezzo_acquisto'], 2)
-                })
-    
-    # Sort by profit
+    for r in rows:
+        nome, fatt, qty, costo = r['_id'], r['fatturato'], r['quantita'], r['costo']
+        if not nome or costo <= 0 or fatt <= 0 or qty <= 0:
+            continue
+        margine_pct = (fatt - costo) / costo * 100
+        totale_fatturato += fatt
+        totale_costo += costo
+        margini_prodotto.append({
+            'prodotto': nome,
+            'fatturato': round(fatt, 2),
+            'costo': round(costo, 2),
+            'profitto': round(fatt - costo, 2),
+            'margine_pct': round(margine_pct, 1),
+            'prezzo_vendita': round(fatt / qty, 2),
+            'prezzo_acquisto': round(costo / qty, 2),
+            'copertura_lotti_pct': round(r.get('qty_tracciata', 0) / qty * 100, 0),
+        })
+
     margini_prodotto.sort(key=lambda x: x['profitto'], reverse=True)
-    
-    # Calculate averages
     margine_medio_pct = ((totale_fatturato - totale_costo) / totale_costo * 100) if totale_costo > 0 else 0
-    profitto_totale = totale_fatturato - totale_costo
-    
+
     return {
         "mese_riferimento": current_month_start[:7],
+        "metodo": "FIFO (costo reale del lotto)",
         "margine_medio_pct": round(margine_medio_pct, 1),
-        "profitto_totale": round(profitto_totale, 2),
+        "profitto_totale": round(totale_fatturato - totale_costo, 2),
         "totale_fatturato": round(totale_fatturato, 2),
         "totale_costo": round(totale_costo, 2),
-        "prodotti_con_margine": prodotti_con_margine,
+        "prodotti_con_margine": len(margini_prodotto),
         "top_margini": margini_prodotto[:10],
         "worst_margini": sorted(margini_prodotto, key=lambda x: x['margine_pct'])[:5]
     }
@@ -471,33 +433,29 @@ async def get_sales_insight():
         nome = nc['_id']
         insights.append({"tipo": "new_client", "icona": "\U0001F195", "titolo": "Nuovo Cliente Acquisito", "valore": nome[:25] + ('...' if len(nome) > 25 else ''), "dettaglio": f"\u20ac{nc['totale_mese']:,.0f} dal {nc['prima_vendita']}", "colore": "blue"})
 
-    # 6. Best margin (from prodotti with prezzo_medio + current month sales)
-    # Use fatturato/quantita for actual selling price in the period
-    prodotti_con_prezzo = await db.prodotti.find({"prezzo_medio": {"$gt": 0}}, {"_id": 0, "nome": 1, "prezzo_medio": 1}).to_list(5000)
-    prezzo_acquisto_map = {p['nome']: p['prezzo_medio'] for p in prodotti_con_prezzo if p['nome'] not in esclusi_set}
-
+    # 6. Best margin — costo reale FIFO delle vendite del mese
     margine_pipeline = [
-        {"$match": {"data": {"$gte": current_month_start}, "prodotto_nome": {"$in": list(prezzo_acquisto_map.keys())}}},
-        {"$group": {"_id": "$prodotto_nome", "fatturato": {"$sum": {"$abs": "$totale"}}, "quantita": {"$sum": {"$abs": "$quantita"}}}}
+        {"$match": {"data": {"$gte": current_month_start}, "costo_fifo": {"$gt": 0}, **excl_prod}},
+        {"$group": {"_id": "$prodotto_nome", "fatturato": {"$sum": {"$abs": "$totale"}},
+                    "quantita": {"$sum": {"$abs": "$quantita"}}, "costo": {"$sum": "$costo_fifo"}}}
     ]
-    margini_agg = await db.vendite.aggregate(margine_pipeline).to_list(5000)
+    margini_agg = await db.vendite.aggregate(margine_pipeline).to_list(20000)
     best_margin = None
     for m in margini_agg:
         nome = m['_id']
-        pa = prezzo_acquisto_map.get(nome, 0)
-        fatt = m['fatturato']
-        qty = m['quantita']
-        # Calculate actual selling price from period data
-        pv = fatt / qty if qty > 0 else 0
-        # Require reasonable margin (max 300%) and minimum fatturato
-        if pa > 0 and pv > pa and fatt > 100:
-            margine_pct = ((pv - pa) / pa) * 100
-            # Skip unrealistic margins (likely data errors)
-            if margine_pct > 300:
-                continue
-            score = margine_pct * min(fatt, 1000)
-            if not best_margin or score > best_margin[5]:
-                best_margin = (nome, margine_pct, pv, pa, fatt, score)
+        if not nome or nome in esclusi_set:
+            continue
+        fatt, qty, costo = m['fatturato'], m['quantita'], m['costo']
+        if costo <= 0 or qty <= 0 or fatt <= 100:
+            continue
+        pv = fatt / qty
+        pa = costo / qty
+        margine_pct = (fatt - costo) / costo * 100
+        if margine_pct <= 0 or margine_pct > 300:
+            continue
+        score = margine_pct * min(fatt, 1000)
+        if not best_margin or score > best_margin[5]:
+            best_margin = (nome, margine_pct, pv, pa, fatt, score)
     if best_margin:
         insights.append({"tipo": "best_margin", "icona": "\U0001F4B0", "titolo": "Margine Migliore", "valore": best_margin[0][:20] + ('...' if len(best_margin[0]) > 20 else ''), "dettaglio": f"+{best_margin[1]:.0f}% (€{best_margin[2]:.2f} vs €{best_margin[3]:.2f})", "colore": "emerald"})
 

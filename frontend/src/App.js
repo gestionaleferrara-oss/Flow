@@ -26,6 +26,9 @@ const Ordini = lazy(() => import("@/pages/Ordini"));
 const Statistiche = lazy(() => import("@/pages/Statistiche"));
 const Notizie = lazy(() => import("@/pages/Notizie"));
 const ReportAI = lazy(() => import("@/pages/ReportAI"));
+const Analisi = lazy(() => import("@/pages/Analisi"));
+const Ottimizzazione = lazy(() => import("@/pages/Ottimizzazione"));
+const Assistente = lazy(() => import("@/pages/Assistente"));
 
 function App() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -60,6 +63,9 @@ function App() {
               <Route path="/statistiche" element={<Statistiche />} />
               <Route path="/notizie" element={<Notizie />} />
               <Route path="/report-ai" element={<ReportAI />} />
+              <Route path="/analisi" element={<Analisi />} />
+              <Route path="/ottimizzazione" element={<Ottimizzazione />} />
+              <Route path="/assistente" element={<Assistente />} />
             </Routes>
           </Suspense>
         </main>
