@@ -256,16 +256,16 @@ function ProposteCliente({ o, idx, onArticolo }) {
   );
 }
 
-function Suggerimenti({ lista }) {
-  if (!lista?.length) return null;
+function Suggerimenti({ lista, children }) {
+  if (!lista?.length && !children) return null;
   return (
     <div className="mt-8" data-testid="suggerimenti">
       <div className="flex items-center gap-2 mb-3">
         <Lightbulb className="w-4 h-4 text-amber-300" />
         <h2 className="text-base font-semibold text-white">Suggerimenti</h2>
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
-        {lista.map((s, i) => (
+      <div className="grid gap-3 lg:grid-cols-2 items-start">
+        {(lista || []).map((s, i) => (
           <div key={s.id} className="rounded-xl border border-white/[0.07] bg-white/[0.015] overflow-hidden"
             data-testid={`suggerimento-${s.id}`}>
             <div className="px-4 py-3 border-b border-white/[0.06] flex items-start justify-between gap-3">
@@ -288,6 +288,7 @@ function Suggerimenti({ lista }) {
             </div>
           </div>
         ))}
+        {children}
       </div>
     </div>
   );
@@ -297,8 +298,8 @@ function TopProdotti({ lista, periodo, onProdotto }) {
   if (!lista?.length) return null;
   const max = lista[0].quantita || 1;
   return (
-    <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.03] overflow-hidden mb-6" data-testid="top-prodotti">
-      <div className="px-4 py-3.5 border-b border-white/[0.06] flex items-start gap-2.5">
+    <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.03] overflow-hidden" data-testid="top-prodotti">
+      <div className="px-4 py-3 border-b border-white/[0.06] flex items-start gap-2.5">
         <Trophy className="w-4 h-4 text-violet-300 mt-0.5 shrink-0" />
         <div>
           <h2 className="text-sm font-semibold text-white">Prodotti più consumati</h2>
@@ -417,33 +418,32 @@ export default function Ottimizzazione() {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3 items-start">
-            <div className="lg:col-span-2">
-              <p className="text-xs text-slate-500 mb-3">
-                {acquisti
-                  ? 'Un blocco per fornitore: ordine completo con tutti gli articoli che si consumano nella finestra. Clicca una riga per lo storico.'
-                  : `Un blocco per cliente: cosa proporre in base a quanto comprato l'anno scorso. In giallo le referenze che NON ha ancora ordinato negli ultimi ${giorni} giorni (${dmy(per.recenti_start)} → ${dmy(per.recenti_end)}), in grigio quelle già ordinate.`}
-              </p>
-              <div className="space-y-3">
-                {(piano.ordini || []).map((o, i) => acquisti ? (
-                  <OrdineAcquisto key={o.fornitore} o={o} idx={i}
-                    onArticolo={(a) => setDettaglio({ prodotto: a.prodotto, titolo: a.prodotto })} />
-                ) : (
-                  <ProposteCliente key={o.cliente} o={o} idx={i}
-                    onArticolo={(a) => setDettaglio({ cliente: o.cliente, prodotto: a.prodotto, titolo: `${a.prodotto} — ${o.cliente}` })} />
-                ))}
-                {!(piano.ordini || []).length && (
-                  <div className="rounded-xl border border-white/[0.07] bg-white/[0.015] px-4 py-8 text-center text-sm text-slate-500">
-                    Nessuna azione necessaria in questa finestra
-                  </div>
-                )}
-              </div>
+          <div>
+            <p className="text-xs text-slate-500 mb-3">
+              {acquisti
+                ? 'Un blocco per fornitore: ordine completo con tutti gli articoli che si consumano nella finestra. Clicca una riga per lo storico.'
+                : `Un blocco per cliente: cosa proporre in base a quanto comprato l'anno scorso. In giallo le referenze che NON ha ancora ordinato negli ultimi ${giorni} giorni (${dmy(per.recenti_start)} → ${dmy(per.recenti_end)}), in grigio quelle già ordinate.`}
+            </p>
+            <div className="space-y-3">
+              {(piano.ordini || []).map((o, i) => acquisti ? (
+                <OrdineAcquisto key={o.fornitore} o={o} idx={i}
+                  onArticolo={(a) => setDettaglio({ prodotto: a.prodotto, titolo: a.prodotto })} />
+              ) : (
+                <ProposteCliente key={o.cliente} o={o} idx={i}
+                  onArticolo={(a) => setDettaglio({ cliente: o.cliente, prodotto: a.prodotto, titolo: `${a.prodotto} — ${o.cliente}` })} />
+              ))}
+              {!(piano.ordini || []).length && (
+                <div className="rounded-xl border border-white/[0.07] bg-white/[0.015] px-4 py-8 text-center text-sm text-slate-500">
+                  Nessuna azione necessaria in questa finestra
+                </div>
+              )}
             </div>
-            <TopProdotti lista={piano.top_prodotti} periodo={per}
-              onProdotto={(p) => setDettaglio({ prodotto: p.prodotto, titolo: p.prodotto })} />
           </div>
 
-          <Suggerimenti lista={piano.suggerimenti} />
+          <Suggerimenti lista={piano.suggerimenti}>
+            <TopProdotti lista={piano.top_prodotti} periodo={per}
+              onProdotto={(p) => setDettaglio({ prodotto: p.prodotto, titolo: p.prodotto })} />
+          </Suggerimenti>
         </>
       )}
 
