@@ -220,7 +220,7 @@ async def _piano_vendite(periodo: Dict, limit: int) -> Dict:
     base_v = await _base_vendite()
     ly_fs, ly_fe = periodo['storico_start'], periodo['storico_end']
     oggi = _d(datetime.now())
-    recenti_start = _d(datetime.now() - timedelta(days=60))
+    recenti_start = _d(datetime.now() - timedelta(days=periodo['giorni']))
     sem_start = _d(datetime.now() - timedelta(days=180))
 
     storico = await db.vendite.aggregate([
@@ -272,7 +272,7 @@ async def _piano_vendite(periodo: Dict, limit: int) -> Dict:
 
     proposte = []
     for c, d in per_cliente.items():
-        d['articoli'].sort(key=lambda a: -a['valore_atteso'])
+        d['articoli'].sort(key=lambda a: (a['gia_ordinato'], -a['valore_atteso']))
         mancanti = [a for a in d['articoli'] if not a['gia_ordinato']]
         m = marg_map.get(c, {})
         mpct = ((m.get('fatt', 0) - m.get('costo', 0)) / m['costo'] * 100) if m.get('costo', 0) > 0 else None
@@ -315,7 +315,7 @@ async def _piano_vendite(periodo: Dict, limit: int) -> Dict:
     top = sorted(top_map.values(), key=lambda t: -t['quantita'])[:20]
 
     return {
-        "tipo": "vendite", "periodo": periodo,
+        "tipo": "vendite", "periodo": {**periodo, "recenti_start": recenti_start, "recenti_end": oggi},
         "top_prodotti": [{**t, "quantita": round(t['quantita'], 1),
                           "fatturato": round(t['fatturato'], 2)} for t in top],
         "totali": {

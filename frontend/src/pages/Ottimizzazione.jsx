@@ -178,6 +178,8 @@ function OrdineAcquisto({ o, idx, onArticolo }) {
 
 function ProposteCliente({ o, idx, onArticolo }) {
   const [open, setOpen] = useState(false);
+  const [soloDaProporre, setSoloDaProporre] = useState(false);
+  const articoli = soloDaProporre ? o.articoli.filter((a) => !a.gia_ordinato) : o.articoli;
   return (
     <div className="rounded-xl border border-white/[0.07] bg-white/[0.015] overflow-hidden" data-testid={`proposta-cliente-${idx}`}>
       <button onClick={() => setOpen(!open)} data-testid={`proposta-cliente-${idx}-toggle`}
@@ -192,7 +194,9 @@ function ProposteCliente({ o, idx, onArticolo }) {
               AZIONI[o.azione] || 'bg-white/[0.05] text-slate-400 border-white/10')}>{o.azione}</span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            {o.prodotti_n} referenze attese · {o.prodotti_mancanti} non ancora riordinate · ultimo ordine {dmy(o.ultimo_ordine)}
+            {o.prodotti_n} referenze attese ·{' '}
+            <span className="text-amber-300 font-medium">{o.prodotti_mancanti} da proporre</span>
+            {' '}· ultimo ordine {dmy(o.ultimo_ordine)}
           </p>
         </div>
         <div className="text-right shrink-0">
@@ -202,7 +206,23 @@ function ProposteCliente({ o, idx, onArticolo }) {
         <ChevronDown className={cn('w-4 h-4 text-slate-500 transition-transform', open && 'rotate-180')} />
       </button>
       {open && (
-        <div className="overflow-x-auto border-t border-white/[0.06]">
+        <div className="border-t border-white/[0.06]">
+          <div className="flex items-center gap-3 px-3 py-2 text-[11px] text-slate-400 flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-amber-400/80" /> da proporre (non ancora ordinato)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-slate-600" /> già ordinato
+            </span>
+            <button onClick={() => setSoloDaProporre(!soloDaProporre)}
+              data-testid={`proposta-cliente-${idx}-filtro`}
+              className={cn('ml-auto px-2.5 py-1 rounded-md border text-[11px] font-medium transition-colors',
+                soloDaProporre ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                  : 'bg-white/[0.02] border-white/[0.08] text-slate-400 hover:text-slate-200')}>
+              {soloDaProporre ? 'Mostra tutte' : 'Solo da proporre'}
+            </button>
+          </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr>
@@ -213,18 +233,24 @@ function ProposteCliente({ o, idx, onArticolo }) {
               </tr>
             </thead>
             <tbody>
-              {o.articoli.map((a, i) => (
+              {articoli.map((a, i) => (
                 <tr key={a.prodotto} onClick={() => onArticolo(a)}
-                  className="border-t border-white/[0.04] cursor-pointer hover:bg-emerald-500/[0.06] transition-colors"
+                  className={cn('border-t border-white/[0.04] cursor-pointer transition-colors',
+                    a.gia_ordinato ? 'opacity-45 hover:bg-white/[0.03]' : 'bg-amber-500/[0.05] hover:bg-amber-500/[0.12]')}
                   data-testid={`proposta-cliente-${idx}-row-${i}`}>
-                  <td className="px-3 py-2 text-slate-200 max-w-[300px] truncate">{a.prodotto}</td>
+                  <td className={cn('px-3 py-2 max-w-[300px] truncate border-l-2',
+                    a.gia_ordinato ? 'border-l-slate-600 text-slate-400' : 'border-l-amber-400 text-white font-medium')}>
+                    {a.prodotto}
+                  </td>
                   <td className="px-3 py-2 text-right text-white font-semibold tabular-nums">{num(a.quantita_attesa)}</td>
                   <td className="px-3 py-2 text-right text-slate-300 tabular-nums">{a.prezzo_atteso ? `€${a.prezzo_atteso.toFixed(2)}` : '—'}</td>
-                  <td className="px-3 py-2 text-right text-emerald-300 font-semibold tabular-nums">{formatCurrency(a.valore_atteso)}</td>
+                  <td className={cn('px-3 py-2 text-right font-semibold tabular-nums',
+                    a.gia_ordinato ? 'text-slate-400' : 'text-amber-300')}>{formatCurrency(a.valore_atteso)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
@@ -386,7 +412,7 @@ export default function Ottimizzazione() {
                   <Kpi label="Clienti da contattare" value={`${t.da_chiamare || 0} di ${t.clienti || 0}`} color="text-cyan-300" />
                   <Kpi label="Fatturato atteso" value={formatCurrency(t.valore_atteso)} color="text-white" />
                   <Kpi label="Margine previsto" value={formatCurrency(t.margine_previsto)} color="text-violet-300" />
-                  <Kpi label="Referenze non riordinate" value={formatCurrency(t.valore_mancante)} color="text-emerald-300" />
+                  <Kpi label="Referenze da proporre" value={formatCurrency(t.valore_mancante)} color="text-amber-300" />
                 </>
               )}
             </div>
@@ -397,7 +423,7 @@ export default function Ottimizzazione() {
               <p className="text-xs text-slate-500 mb-3">
                 {acquisti
                   ? 'Un blocco per fornitore: ordine completo con tutti gli articoli che si consumano nella finestra. Clicca una riga per lo storico.'
-                  : 'Un blocco per cliente: cosa proporre in base a quanto comprato l\'anno scorso. Clicca una riga per lo storico.'}
+                  : `Un blocco per cliente: cosa proporre in base a quanto comprato l'anno scorso. In giallo le referenze che NON ha ancora ordinato negli ultimi ${giorni} giorni (${dmy(per.recenti_start)} → ${dmy(per.recenti_end)}), in grigio quelle già ordinate.`}
               </p>
               <div className="space-y-3">
                 {(piano.ordini || []).map((o, i) => acquisti ? (
