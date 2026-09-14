@@ -480,3 +480,84 @@ async def analisi_opzioni(q: str = "", tipo: str = "fornitori", limit: int = 25)
     query = {"nome": {"$regex": q, "$options": "i"}} if q else {}
     rows = await coll.find(query, {"_id": 0, "nome": 1}).sort("nome", 1).limit(limit).to_list(limit)
     return {"nomi": [r['nome'] for r in rows if r.get('nome')]}
+
+
+@router.get("/analisi/previsione-prodotto")
+async def previsione_prodotto(prodotto: str, giorni: int = 30):
+    """Previsione dei prossimi N giorni per un prodotto, sulla base dello stesso
+    intervallo dell'anno precedente, con i clienti che lo hanno comprato."""
+    giorni = max(min(giorni, 180), 7)
+    oggi = datetime.now()
+    fs, fe = oggi, oggi + timedelta(days=giorni - 1)
+    ly_fs, ly_fe = fs - timedelta(days=365), fe - timedelta(days=365)
+    f = "%Y-%m-%d"
+    periodo = {"futuro_start": fs.strftime(f), "futuro_end": fe.strftime(f),
+               "storico_start": ly_fs.strftime(f), "storico_end": ly_fe.strftime(f), "giorni": giorni}
+
+    match = {"prodotto_nome": prodotto, "cliente_nome": {"$nin": EXCLUDED_CLIENTS},
+             "data": {"$gte": periodo['storico_start'], "$lte": periodo['storico_end']}}
+    clienti = await db.vendite.aggregate([
+        {"$match": match},
+        {"$group": {"_id": "$cliente_nome", "quantita": {"$sum": {"$abs": "$quantita"}},
+                    "fatturato": {"$sum": {"$abs": "$totale"}},
+                    "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
+                    "righe": {"$sum": 1}, "ultimo": {"$max": "$data"}}},
+        {"$sort": {"fatturato": -1}},
+    ]).to_list(2000)
+
+    recenti_start = (oggi - timedelta(days=giorni)).strftime(f)
+    recenti = await db.vendite.aggregate([
+        {"$match": {"prodotto_nome": prodotto, "cliente_nome": {"$nin": EXCLUDED_CLIENTS},
+                    "data": {"$gte": recenti_start, "$lte": oggi.strftime(f)}}},
+        {"$group": {"_id": "$cliente_nome", "quantita": {"$sum": {"$abs": "$quantita"}}}},
+    ]).to_list(2000)
+    gia_ordinato = {r['_id']: r['quantita'] for r in recenti}
+
+    ultimo_ordine = await db.vendite.aggregate([
+        {"$match": {"prodotto_nome": prodotto, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}},
+        {"$group": {"_id": "$cliente_nome", "ultimo": {"$max": "$data"}}},
+    ]).to_list(5000)
+    ultimo_map = {r['_id']: r['ultimo'] for r in ultimo_ordine}
+
+    qty = sum(c['quantita'] for c in clienti)
+    fatt = sum(c['fatturato'] for c in clienti)
+    costo = sum(c['costo'] for c in clienti)
+
+    prod = await db.prodotti.find_one({"nome": prodotto}, {"_id": 0, "quantita": 1})
+    giacenza = (prod or {}).get('quantita', 0) or 0
+
+    ultimo_acq = await db.ordini.aggregate([
+        {"$match": {"prodotto_nome": prodotto, "quantita": {"$gt": 0}, "totale": {"$gt": 0}}},
+        {"$group": {"_id": "$fornitore_nome", "qty": {"$sum": "$quantita"},
+                    "spesa": {"$sum": "$totale"}, "ultima": {"$max": "$data"}}},
+        {"$sort": {"ultima": -1}},
+    ]).to_list(200)
+    fornitore = ultimo_acq[0] if ultimo_acq else None
+
+    return {
+        "prodotto": prodotto, "periodo": periodo,
+        "kpi": {
+            "quantita_attesa": round(qty, 1),
+            "fatturato_atteso": round(fatt, 2),
+            "prezzo_medio": round(fatt / qty, 4) if qty else None,
+            "margine_atteso": round(fatt - costo, 2) if costo else None,
+            "margine_pct": round((fatt - costo) / costo * 100, 1) if costo > 0 else None,
+            "clienti_attesi": len(clienti),
+            "giacenza": round(giacenza, 1),
+            "da_ordinare": round(max(qty - giacenza, 0), 1),
+            "copertura_giorni": round(giacenza / (qty / giorni)) if qty > 0 else None,
+            "fornitore_consigliato": fornitore['_id'] if fornitore else None,
+            "prezzo_acquisto": round(fornitore['spesa'] / fornitore['qty'], 4)
+            if fornitore and fornitore['qty'] else None,
+        },
+        "clienti": [{
+            "cliente": c['_id'],
+            "quantita_attesa": round(c['quantita'], 1),
+            "fatturato_atteso": round(c['fatturato'], 2),
+            "prezzo_medio": round(c['fatturato'] / c['quantita'], 4) if c['quantita'] else None,
+            "margine_pct": round((c['fatturato'] - c['costo']) / c['costo'] * 100, 1) if c['costo'] > 0 else None,
+            "righe": c['righe'],
+            "ultimo_acquisto": ultimo_map.get(c['_id']),
+            "gia_ordinato": round(gia_ordinato.get(c['_id'], 0), 1),
+        } for c in clienti[:100]],
+    }

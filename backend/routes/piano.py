@@ -376,7 +376,7 @@ def _suggerimenti_vendite(proposte: List[Dict], marg_med: float) -> List[Dict]:
 
 # ─────────────────────────── DETTAGLIO ARTICOLO ───────────────────────────
 def _eur(v) -> str:
-    return f"{(v or 0):,.2f} EUR".replace(",", "@").replace(".", ",").replace("@", ".")
+    return f"\u20ac {(v or 0):,.2f}".replace(",", "@").replace(".", ",").replace("@", ".")
 
 
 def _qt(v) -> str:

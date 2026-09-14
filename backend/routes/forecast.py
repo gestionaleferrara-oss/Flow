@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 import os
 import uuid
@@ -497,7 +497,7 @@ IMPORTANTE: Usa SOLO i numeri dei dati forniti. Sii specifico e operativo."""
 @router.post("/forecast/export-pdf")
 async def export_forecast_pdf(data: dict):
     from fastapi.responses import Response
-    from routes.pdf_helper import FlowPDF, clean_text, C_BLUE, C_EMERALD, C_VIOLET, C_AMBER, C_RED, C_SLATE
+    from routes.pdf_helper import FlowPDF, clean_text, eur, it_num, C_BLUE, C_EMERALD, C_VIOLET, C_AMBER, C_RED
     try:
         nome     = clean_text(str(data.get('nome','N/D')))
         tipo     = str(data.get('tipo','prodotto'))
@@ -519,9 +519,9 @@ async def export_forecast_pdf(data: dict):
         pdf.add_page()
 
         pdf.kpi_row([
-            ("MEDIA MENSILE STORICA",  f"EUR {media_m:,.2f}",   C_BLUE,    f"{stats.get('num_mesi_dati',0)} mesi dati"),
-            ("PREVISIONE TRIMESTRALE", f"EUR {tot_prev:,.2f}",   C_EMERALD, "prossimi 3 mesi"),
-            ("MEDIA MENSILE PREVISTA", f"EUR {media_prev:,.2f}", C_VIOLET,  None),
+            ("MEDIA MENSILE STORICA",  eur(media_m),   C_BLUE,    f"{stats.get('num_mesi_dati',0)} mesi dati"),
+            ("PREVISIONE TRIMESTRALE", eur(tot_prev),   C_EMERALD, "prossimi 3 mesi"),
+            ("MEDIA MENSILE PREVISTA", eur(media_prev), C_VIOLET,  None),
             ("VARIAZ. VS STORICO",     f"{var:+.1f}%",
              C_EMERALD if var >= 0 else C_RED, None),
         ])
@@ -546,15 +546,15 @@ async def export_forecast_pdf(data: dict):
             trend_str = f"{p.get('trend',0):+.1f}%" if p.get('anno_precedente') else "n/d"
             rows_p.append([
                 clean_text(p.get('mese_nome','')),
-                f"{p.get('previsione',0):,.2f}",
-                f"{p.get('val_recente',0):,.2f}" if p.get('anno_recente') else "-",
-                f"{p.get('val_precedente',0):,.2f}" if p.get('anno_precedente') else "-",
+                f"{it_num(p.get('previsione',0), 2)}",
+                f"{it_num(p.get('val_recente',0), 2)}" if p.get('anno_recente') else "-",
+                f"{it_num(p.get('val_precedente',0), 2)}" if p.get('anno_precedente') else "-",
                 trend_str,
                 p.get('confidenza','N/D'),
                 str(p.get('anni_dati',0))
             ])
         pdf.smart_table(
-            ["Mese","Previsione EUR",col_rec,col_prec,col_trend,"Confidenza","Dati"],
+            ["Mese","Previsione €",col_rec,col_prec,col_trend,"Confidenza","Dati"],
             [32, 32, 30, 30, 26, 26, 14],
             rows_p,
             ['L','R','R','R','R','C','C']
@@ -568,7 +568,8 @@ async def export_forecast_pdf(data: dict):
         if storico:
             pdf.section_title("Storico mensile — ultimi 12 mesi", C_BLUE, top_gap=3)
             pairs = [(s['mese'], s['valore']) for s in storico]
-            pdf.monthly_chart(pairs, 'EUR ')
+            pdf.smart_table(['Mese', 'Previsione'], [120, 70],
+                            [[m, eur(v)] for m, v in pairs], aligns=['L', 'R'])
 
         # Per-product forecast table (global only)
         if previsioni_prodotti:
@@ -588,13 +589,13 @@ async def export_forecast_pdf(data: dict):
             for p in previsioni_prodotti:
                 rows_pp.append([
                     clean_text(str(p.get('prodotto',''))[:40]),
-                    f"{p.get('val_recente',0):,.2f}",
-                    f"{p.get('val_precedente',0):,.2f}" if p.get('anno_precedente') else "-",
-                    f"{p.get('previsione',0):,.2f}",
+                    f"{it_num(p.get('val_recente',0), 2)}",
+                    f"{it_num(p.get('val_precedente',0), 2)}" if p.get('anno_precedente') else "-",
+                    f"{it_num(p.get('previsione',0), 2)}",
                     f"{p.get('trend',0):+.1f}%" if p.get('anno_precedente') else "n/d"
                 ])
             pdf.smart_table(
-                ["Prodotto", c_rec, c_prec, "Previsione EUR", "Trend"],
+                ["Prodotto", c_rec, c_prec, "Previsione €", "Trend"],
                 [78, 28, 28, 32, 22],
                 rows_pp,
                 ['L','R','R','R','R']

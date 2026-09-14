@@ -5,6 +5,7 @@ import os
 import random
 
 from database import db, logger
+from routes.pdf_helper import it_num
 from routes.prodotti import get_prodotti_stats
 
 router = APIRouter()
@@ -1132,7 +1133,7 @@ Formatta il report in markdown."""
 @router.post("/ai-reports/export-pdf")
 async def export_report_pdf(data: dict):
     from fastapi.responses import Response
-    from routes.pdf_helper import FlowPDF, clean_text, C_BLUE, C_EMERALD, C_VIOLET, C_AMBER, C_RED, C_SLATE
+    from routes.pdf_helper import FlowPDF, eur, FONT, C_BLUE, C_EMERALD, C_VIOLET, C_AMBER, C_RED, C_SLATE
     try:
         tipo       = str(data.get('tipo','Report')).upper()
         p_inizio   = str(data.get('periodo_inizio',''))
@@ -1150,7 +1151,7 @@ async def export_report_pdf(data: dict):
         pdf.add_page()
 
         kpis = [
-            ("FATTURATO PERIODO",  f"EUR {fatturato:,.2f}", C_BLUE,   f"{p_inizio} / {p_fine}"),
+            ("FATTURATO PERIODO",  eur(fatturato), C_BLUE,   f"{p_inizio} / {p_fine}"),
             ("TRANSAZIONI",        f"{num_vendite:,}",       C_EMERALD, None),
             ("CLIENTI INATTIVI",   f"{c_inattivi}",
              C_AMBER if c_inattivi > 0 else C_EMERALD, "da ricontattare"),
@@ -1164,7 +1165,7 @@ async def export_report_pdf(data: dict):
         pdf.ai_text_block(contenuto)
 
         pdf.ln(6)
-        pdf.set_font('Helvetica','I',7.5); pdf.set_text_color(*C_SLATE)
+        pdf.set_font(FONT,'I',7.5); pdf.set_text_color(*C_SLATE)
         pdf.cell(0,5,f"Report generato il {created_at}  |  Flow Business Analytics  |  Confidenziale",align='C')
 
         pdf_bytes = pdf.output()
@@ -1290,7 +1291,7 @@ async def ai_chat(data: dict):
             top_prods = sorted(prodotti_fornitore.items(), key=lambda x: x[1]['totale'], reverse=True)[:5]
             prods_str = ', '.join([f"{p[0]} ({p[1]['qty']:.0f}u €{p[1]['totale']:.0f})" for p in top_prods])
             totale_fornitore = sum(p[1]['totale'] for p in top_prods)
-            fornitori_dettaglio.append(f"- {fornitore} (€{totale_fornitore:,.0f}): {prods_str}")
+            fornitori_dettaglio.append(f"- {fornitore} (€{it_num(totale_fornitore, 0)}): {prods_str}")
             
             # Also add to fornitori_ordini for backward compatibility
             fornitori_ordini.append({
@@ -1333,7 +1334,7 @@ async def ai_chat(data: dict):
             top_prods = sorted(prodotti_cliente.items(), key=lambda x: x[1]['totale'], reverse=True)[:5]
             prods_str = ', '.join([f"{p[0]} ({p[1]['qty']:.0f}u €{p[1]['totale']:.0f})" for p in top_prods])
             totale_cliente = sum(p[1]['totale'] for p in top_prods)
-            recent_sales_context.append(f"- {cliente} (€{totale_cliente:,.0f}): {prods_str}")
+            recent_sales_context.append(f"- {cliente} (€{it_num(totale_cliente, 0)}): {prods_str}")
         
         # 6. Get ALL clients for fuzzy matching
         all_clienti_db = await db.clienti.find({}, {"_id": 0, "nome": 1}).to_list(1000)
@@ -1355,18 +1356,18 @@ async def ai_chat(data: dict):
 DATI AZIENDA ORTOFRUTTICOLA - Aggiornati al {reference_date.strftime("%Y-%m-%d")}
 
 === RIEPILOGO GENERALE ===
-- Fatturato ultimi 90 giorni: €{fatturato_mese:,.2f}
-- Valore totale magazzino: €{valore_totale_magazzino:,.2f}
+- Fatturato ultimi 90 giorni: €{it_num(fatturato_mese, 2)}
+- Valore totale magazzino: €{it_num(valore_totale_magazzino, 2)}
 - Prodotti a catalogo: {len(prodotti_list)}
 - Prodotti sotto scorta: {len(low_stock_products)}
 - Fornitori attivi: {len(fornitori)}
 - Clienti attivi (90gg): {len(top_clienti)}
 
 === TOP 15 PRODOTTI PIU' VENDUTI (90gg) ===
-{chr(10).join([f"- {p['_id']}: €{p['fatturato']:,.2f} | {p['quantita']:.0f} unità | {p['ordini']} ordini" for p in top_vendite[:15]])}
+{chr(10).join([f"- {p['_id']}: €{it_num(p['fatturato'], 2)} | {p['quantita']:.0f} unità | {p['ordini']} ordini" for p in top_vendite[:15]])}
 
 === TOP 10 CLIENTI (90gg) ===
-{chr(10).join([f"- {c['_id']}: €{c['fatturato']:,.2f} | {c['ordini']} ordini" for c in top_clienti[:10]])}
+{chr(10).join([f"- {c['_id']}: €{it_num(c['fatturato'], 2)} | {c['ordini']} ordini" for c in top_clienti[:10]])}
 
 === VENDITE ULTIME 2 SETTIMANE PER CLIENTE (dettaglio prodotti) ===
 {chr(10).join(recent_sales_context) if recent_sales_context else "Nessuna vendita nelle ultime 2 settimane"}

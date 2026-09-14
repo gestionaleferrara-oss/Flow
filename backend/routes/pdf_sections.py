@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 from database import db
-from routes.pdf_helper import C_BLUE, C_NAVY, C_RED, C_SLATE, clean_text
+from routes.pdf_helper import C_BLUE, C_NAVY, C_RED, C_SLATE, FONT, clean_text
 
 EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
 
@@ -15,7 +15,7 @@ def it_num(v, dec=0) -> str:
 
 
 def it_eur(v, dec=0) -> str:
-    return f"{it_num(v, dec)} EUR"
+    return f"\u20ac {it_num(v, dec)}"
 
 
 def _meno_un_anno(d: datetime) -> datetime:
@@ -162,9 +162,10 @@ def concentrazione(valori: List[float], soglia: float = 0.8):
 
 def blocco_sintesi(pdf, testo: str, titolo: str = "Sintesi"):
     pdf.section_title(titolo, C_BLUE, top_gap=2)
-    pdf.set_font('Helvetica', '', 9)
+    pdf.set_font(FONT, '', 9)
     pdf.set_text_color(40, 50, 70)
-    pdf.multi_cell(190, 5, clean_text(testo))
+    pdf.set_x(14)
+    pdf.multi_cell(182, 5.1, clean_text(testo), align='L')
     pdf.ln(3)
 
 
@@ -173,9 +174,10 @@ def blocco_considerazioni(pdf, testo: str):
         return
     pdf.ensure_space(32)
     pdf.section_title("Considerazioni finali", C_NAVY)
-    pdf.set_font('Helvetica', '', 9)
+    pdf.set_font(FONT, '', 9)
     pdf.set_text_color(40, 50, 70)
-    pdf.multi_cell(190, 5, clean_text(testo))
+    pdf.set_x(14)
+    pdf.multi_cell(182, 5.1, clean_text(testo), align='L')
     pdf.ln(2)
 
 
@@ -294,3 +296,65 @@ def testo_sintesi_acquisti(periodo_label: str, tot: Dict, a0: Dict, a1: Dict, co
     if extra:
         frasi.append(extra)
     return " ".join(frasi)
+
+
+# ═══════════════ GRAFICI ═══════════════
+
+MESI_IT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+
+
+def _label_mese(ym: str) -> str:
+    try:
+        a, m = ym.split('-')
+        return f"{MESI_IT[int(m) - 1]} {a[2:]}"
+    except (ValueError, IndexError):
+        return ym
+
+
+async def _serie_mensile(coll, match_base: Dict, start: str, end: str, campo: str) -> Dict[str, float]:
+    match = {**match_base, "data": {"$gte": start, "$lte": end}}
+    if coll == 'vendite':
+        match["cliente_nome"] = {"$nin": EXCLUDED_CLIENTS}
+        somma = {"$sum": {"$abs": f"${campo}"}}
+    else:
+        somma = {"$sum": f"${campo}"}
+    rows = await db[coll].aggregate([
+        {"$match": match},
+        {"$group": {"_id": {"$substr": ["$data", 0, 7]}, "tot": somma}},
+        {"$sort": {"_id": 1}},
+    ]).to_list(500)
+    return {r['_id']: r['tot'] or 0 for r in rows if r['_id']}
+
+
+async def blocco_grafici(pdf, match_base: Dict, start: str, end: str, tipo: str = 'vendite',
+                         top: Optional[List] = None, titolo_top: str = ''):
+    """Confronto mensile con l'anno precedente + classifica (top = [(nome, valore)])."""
+    from routes.pdf_helper import C_AMBER, C_BLUE, C_EMERALD, C_MUTED
+
+    coll = 'ordini' if tipo == 'acquisti' else 'vendite'
+    campo = 'totale'
+    p0, p1 = periodi_anno_su_anno(start, end)
+    attuale = await _serie_mensile(coll, match_base, p1[0], p1[1], campo)
+    prec = await _serie_mensile(coll, match_base, p0[0], p0[1], campo)
+
+    if attuale:
+        chiavi = sorted(attuale.keys())[-12:]
+        # mese equivalente dell'anno precedente
+        def anno_prec(ym):
+            a, m = ym.split('-')
+            return f"{int(a) - 1:04d}-{m}"
+        serie_a = [attuale.get(k, 0) for k in chiavi]
+        serie_b = [prec.get(anno_prec(k), 0) for k in chiavi]
+        pdf.section_title(("Andamento mensile: spesa acquisti" if tipo == 'acquisti'
+                           else "Andamento mensile: fatturato") + " vs anno precedente",
+                          C_BLUE, top_gap=2)
+        pdf.compare_chart([_label_mese(k) for k in chiavi], serie_a, serie_b,
+                          legend_a='Periodo selezionato', legend_b='Stesso mese anno prec.',
+                          color_a=C_BLUE, color_b=C_MUTED, unit=' \u20ac')
+        pdf.chart_caption("Valori in euro. La linea tratteggiata grigia e' lo stesso mese dell'anno precedente.")
+
+    if top:
+        pdf.section_title(titolo_top or ("Top fornitori per spesa" if tipo == 'acquisti'
+                                         else "Top prodotti per fatturato"),
+                          C_EMERALD if tipo == 'vendite' else C_AMBER)
+        pdf.bar_ranking(top[:12], color=C_EMERALD if tipo == 'vendite' else C_AMBER, unit=' \u20ac')

@@ -399,7 +399,8 @@ async def t_genera_pdf_report(args):
     if not testo.strip():
         return {"errore": "Serve il testo dell'analisi da riportare nel PDF"}
     rid = await salva_report(titolo, args.get('sottotitolo') or '', testo,
-                             args.get('kpi'), args.get('tabelle'), args.get('note') or '')
+                             args.get('kpi'), args.get('tabelle'), args.get('note') or '',
+                             args.get('grafici'))
     return {"success": True, "titolo": titolo, "url": f"/api/ai/report/{rid}.pdf",
             "istruzioni": ("Mostra all'utente il link markdown copiando ESATTAMENTE il campo url "
                            "(inizia con /api/...). NON aggiungere alcun dominio.")}
@@ -541,6 +542,16 @@ TOOLS = [
                         "colonne": {"type": "array", "items": {"type": "string"}},
                         "righe": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}},
                         "nota": {"type": "string"}}}},
+        "grafici": {"type": "array", "description": "Serie di dati aggiuntive rese come tabella (es. andamento mensile, confronto con l'anno precedente)",
+                    "items": {"type": "object", "properties": {
+                        "tipo": {"type": "string", "enum": ["colonne", "confronto", "barre", "quote"]},
+                        "titolo": {"type": "string"},
+                        "etichette": {"type": "array", "items": {"type": "string"}, "description": "Es. ['Apr','Mag','Giu'] o nomi prodotto"},
+                        "valori": {"type": "array", "items": {"type": "number"}},
+                        "valori2": {"type": "array", "items": {"type": "number"}, "description": "Serie di confronto (anno precedente)"},
+                        "legenda": {"type": "string"}, "legenda2": {"type": "string"},
+                        "unita": {"type": "string", "description": "Es. ' EUR' o ' pz'"},
+                        "nota": {"type": "string"}}}},
         "note": {"type": "string"}}, ["titolo", "testo"]),
     _fn("get_giacenze", "Giacenze di magazzino, quantità minime e scadenze.", {
         "prodotto": {"type": "string"}, "solo_sotto_scorta": {"type": "boolean"},
@@ -587,7 +598,7 @@ REGOLE:
 8. Nei dati acquisti le quantità negative sono resi al fornitore.
 9. Formatta i risultati con elenchi puntati o tabelle markdown compatte, importi in € con separatore migliaia.
 10. Quando l'utente chiede un PDF, un rendiconto o un documento, usa `genera_pdf` e restituisci il link in markdown usando ESATTAMENTE il valore del campo `url` restituito dallo strumento, senza aggiungere domini o inventare indirizzi: [Scarica il PDF](/api/...). Il rendiconto serve a dimostrare il venduto e calcolare la provvigione (default 3% del margine).
-11. Se l'utente chiede il PDF di un'analisi che hai appena fatto in chat (es. "fammi il pdf di questo report", "mettilo in pdf"), usa SEMPRE `genera_pdf_report` passando il testo completo dell'analisi, i KPI e le tabelle con i numeri reali già calcolati. NON usare `genera_pdf` in questo caso: produrrebbe un report standard senza la tua analisi.
+11. Se l'utente chiede il PDF di un'analisi che hai appena fatto in chat (es. "fammi il pdf di questo report", "mettilo in pdf"), usa SEMPRE `genera_pdf_report`. Il PDF deve aprirsi con i numeri: passa sempre 2-4 KPI, poi le tabelle di dettaglio con i dati reali (andamento mensile, classifica prodotti, clienti) e infine il testo con la lettura dei dati. Nessun grafico: solo KPI, tabelle e testo. NON usare `genera_pdf` in questo caso.
 12. Non generare mai PDF o analisi su periodi futuri senza dati: se la data di fine e' successiva a oggi, usa come fine la data di oggi (o l'ultima data con dati da `panoramica`) e dillo all'utente.
 """
 

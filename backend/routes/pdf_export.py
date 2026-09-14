@@ -3,10 +3,10 @@ from fastapi.responses import Response
 from typing import Optional
 from datetime import datetime, timedelta
 
-from database import db, logger
-from routes.pdf_helper import (
-    FlowPDF, clean_text,
-    C_BLUE, C_EMERALD, C_VIOLET, C_AMBER, C_RED, C_NAVY, C_SLATE
+from database import db
+from routes.pdf_helper import (eur, it_num,
+    
+    FlowPDF, C_BLUE, C_EMERALD, C_VIOLET, C_AMBER, C_RED, C_NAVY, C_SLATE
 )
 
 router = APIRouter()
@@ -105,7 +105,7 @@ async def _vendite_pdf(query, start_date, end_date):
     for nome, d in sorted(prod.items(), key=lambda x: x[1]['fat'], reverse=True)[:15]:
         item = [nome, d['fat'], d['qty'],
                 f"{prod_m[nome]['m']:.0f}%" if nome in prod_m else 'N/D',
-                f"{prod_m[nome]['p']:,.0f}"  if nome in prod_m else 'N/D']
+                f"{it_num(prod_m[nome]['p'], 0)}"  if nome in prod_m else 'N/D']
         top_prod.append(item)
 
     # Clients
@@ -135,29 +135,30 @@ async def _vendite_pdf(query, start_date, end_date):
 
     # KPI row 1
     pdf.kpi_row([
-        ("FATTURATO TOTALE",  f"EUR {fatturato:,.2f}", C_BLUE,    None),
+        ("FATTURATO TOTALE",  eur(fatturato), C_BLUE,    None),
         ("TRANSAZIONI",       f"{num_tx:,}",            C_EMERALD, f"{len(vendite):,} righe"),
         ("CLIENTI ATTIVI",    f"{len(clienti_set):,}",  C_VIOLET,  None),
-        ("SCONTRINO MEDIO",   f"EUR {scontrino:,.2f}",  C_AMBER,   None),
+        ("SCONTRINO MEDIO",   eur(scontrino),  C_AMBER,   None),
     ])
     # KPI row 2
     if margine_medio > 0:
         pdf.kpi_row([
             ("MARGINE MEDIO",   f"{margine_medio:.1f}%",
              C_EMERALD if margine_medio >= 15 else C_AMBER, "pesato sul fatturato"),
-            ("PROFITTO STIMATO", f"EUR {profitto_tot:,.2f}", C_EMERALD,  None),
+            ("PROFITTO STIMATO", eur(profitto_tot), C_EMERALD,  None),
             ("PRODOTTI VENDUTI", f"{len(prod):,}",            C_BLUE,    None),
-            ("COSTO STIMATO",    f"EUR {fatturato-profitto_tot:,.2f}", C_SLATE, None),
+            ("COSTO STIMATO",    eur(fatturato-profitto_tot), C_SLATE, None),
         ])
 
     # Monthly trend (visual chart — no useless % column)
     if mensile_sorted:
         pdf.section_title("Andamento mensile fatturato", C_BLUE, top_gap=3)
-        pdf.monthly_chart(mensile_sorted, 'EUR ')
+        pdf.smart_table(['Mese', 'Totale'], [120, 70],
+                        [[m, eur(v)] for m, v in mensile_sorted], aligns=['L', 'R'])
 
     # Top products
     pdf.section_title("Top 15 Prodotti per fatturato", C_BLUE, top_gap=3)
-    cols_p   = ["Prodotto", "Fatturato EUR", "Qty", "Margine", "Profitto EUR"]
+    cols_p   = ["Prodotto", "Fatturato €", "Qty", "Margine", "Profitto €"]
     widths_p = [85, 38, 22, 24, 21]
     aligns_p = ['L','R','R','R','R']
 
@@ -166,20 +167,20 @@ async def _vendite_pdf(query, start_date, end_date):
 
     pdf.smart_table(
         cols_p, widths_p,
-        [[r[0][:32], f"{r[1]:,.2f}", f"{r[2]:,.0f}", r[3], r[4]] for r in top_prod],
+        [[r[0][:32], f"{it_num(r[1], 2)}", f"{it_num(r[2], 0)}", r[3], r[4]] for r in top_prod],
         aligns_p,
         col_colors={3: margine_c}
     )
 
     # Top clients
     pdf.section_title("Top 15 Clienti per fatturato", C_EMERALD, top_gap=3)
-    cols_c   = ["Cliente", "Fatturato EUR", "Visite", "% su tot."]
+    cols_c   = ["Cliente", "Fatturato €", "Visite", "% su tot."]
     widths_c = [95, 45, 25, 25]
     aligns_c = ['L','R','C','R']
     rows_c   = []
     for nome, rev, visite in top_cli:
         pct = rev / fatturato * 100 if fatturato > 0 else 0
-        rows_c.append([nome[:35], f"{rev:,.2f}", str(visite), f"{pct:.1f}%"])
+        rows_c.append([nome[:35], f"{it_num(rev, 2)}", str(visite), f"{pct:.1f}%"])
     pdf.smart_table(cols_c, widths_c, rows_c, aligns_c)
 
     pdf_bytes = pdf.output()
@@ -226,32 +227,33 @@ async def _acquisti_pdf(query, start_date, end_date):
     pdf.add_page()
 
     pdf.kpi_row([
-        ("TOTALE ACQUISTATO", f"EUR {speso:,.2f}",   C_VIOLET, None),
+        ("TOTALE ACQUISTATO", eur(speso),   C_VIOLET, None),
         ("NUMERO ORDINI",     f"{n_ord:,}",            C_BLUE,   None),
         ("FORNITORI ATTIVI",  f"{len(forn_s):,}",      C_EMERALD, None),
-        ("ORDINE MEDIO",      f"EUR {ord_medio:,.2f}", C_AMBER,  None),
+        ("ORDINE MEDIO",      eur(ord_medio), C_AMBER,  None),
     ])
 
     if mensile_sorted:
         pdf.section_title("Andamento mensile acquisti", C_VIOLET, top_gap=3)
-        pdf.monthly_chart(mensile_sorted, 'EUR ')
+        pdf.smart_table(['Mese', 'Totale'], [120, 70],
+                        [[m, eur(v)] for m, v in mensile_sorted], aligns=['L', 'R'])
 
     pdf.section_title("Top 15 Fornitori", C_VIOLET, top_gap=3)
     rows_f = []
     for nome, d in top_forn:
         pct = d['tot'] / speso * 100 if speso > 0 else 0
-        rows_f.append([nome[:35], f"{d['tot']:,.2f}", str(d['n']), f"{pct:.1f}%"])
+        rows_f.append([nome[:35], f"{it_num(d['tot'], 2)}", str(d['n']), f"{pct:.1f}%"])
     pdf.smart_table(
-        ["Fornitore", "Spesa EUR", "Ordini", "% su tot."],
+        ["Fornitore", "Spesa €", "Ordini", "% su tot."],
         [95, 45, 25, 25],
         rows_f, ['L','R','C','R']
     )
 
     pdf.section_title("Top 15 Prodotti acquistati", C_BLUE, top_gap=3)
-    rows_pa = [[n[:38], f"{d['tot']:,.2f}", f"{d['qty']:,.0f}"]
+    rows_pa = [[n[:38], f"{it_num(d['tot'], 2)}", f"{it_num(d['qty'], 0)}"]
                for n, d in top_prod_acq]
     pdf.smart_table(
-        ["Prodotto", "Spesa EUR", "Qty"],
+        ["Prodotto", "Spesa €", "Qty"],
         [120, 45, 25],
         rows_pa, ['L','R','R']
     )

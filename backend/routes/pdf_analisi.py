@@ -10,8 +10,8 @@ from database import db
 from routes.analisi import (EXCLUDED_CLIENTS, analisi_acquisti, analisi_vendite_prodotti,
                             esclusi_filter, resolve_period)
 from routes.pdf_helper import (C_AMBER, C_BLUE, C_EMERALD, C_NAVY, C_RED, C_SLATE, C_VIOLET,
-                               FlowPDF, clean_text)
-from routes.pdf_sections import (blocco_confronto, blocco_considerazioni, blocco_prezzi_aumento,
+                               FONT, FlowPDF, clean_text, eur, it_num)
+from routes.pdf_sections import (blocco_confronto, blocco_prezzi_aumento,
                                  blocco_sintesi, concentrazione, kpi_acquisti, kpi_vendite,
                                  periodi_anno_su_anno, prezzi_in_aumento, righe_confronto_acquisti,
                                  righe_confronto_vendite, testo_sintesi_acquisti, testo_sintesi_vendite, it_eur)
@@ -23,7 +23,7 @@ PROVVIGIONE_DEFAULT = 3.0
 
 
 def _eur(v) -> str:
-    return f"{(v or 0):,.2f}"
+    return it_num(v)
 
 
 def _short(text, n):
@@ -112,10 +112,10 @@ async def export_rendiconto(
         pdf.add_page()
 
         pdf.kpi_row([
-            ("FATTURATO VENDUTO", f"EUR {_eur(tot_fatt)}", C_BLUE, f"{len(righe):,} scarichi"),
-            ("COSTO MERCE (LOTTI)", f"EUR {_eur(tot_costo)}", C_SLATE, f"{tot_qty:,.0f} pezzi"),
-            ("MARGINE GENERATO", f"EUR {_eur(margine)}", C_EMERALD, f"{margine_pct:.1f}% sul costo"),
-            ("PROVVIGIONE DOVUTA", f"EUR {_eur(provvigione)}", C_VIOLET, f"{provvigione_pct:g}% del margine"),
+            ("FATTURATO VENDUTO", eur(tot_fatt), C_BLUE, f"{len(righe):,} scarichi"),
+            ("COSTO MERCE (LOTTI)", eur(tot_costo), C_SLATE, f"{it_num(tot_qty, 0)} pezzi"),
+            ("MARGINE GENERATO", eur(margine), C_EMERALD, f"{margine_pct:.1f}% sul costo"),
+            ("PROVVIGIONE DOVUTA", eur(provvigione), C_VIOLET, f"{provvigione_pct:g}% del margine"),
         ])
         pdf.kpi_row([
             ("PRODOTTI VENDUTI", f"{len(prodotti)}", C_BLUE, None),
@@ -147,7 +147,7 @@ async def export_rendiconto(
         for nome, d in prod_sorted[:max_prodotti]:
             marg = d['fatt'] - d['costo']
             rows.append([
-                _short(nome, 44), f"{d['qty']:,.0f}",
+                _short(nome, 44), f"{it_num(d['qty'], 0)}",
                 _eur(d['fatt'] / d['qty']) if d['qty'] else '-',
                 _eur(d['costo'] / d['qty']) if (d['costo'] and d['qty']) else '-',
                 _eur(d['fatt']), _eur(marg),
@@ -158,7 +158,7 @@ async def export_rendiconto(
             r_qty = sum(d['qty'] for _, d in resto)
             r_fatt = sum(d['fatt'] for _, d in resto)
             r_costo = sum(d['costo'] for _, d in resto)
-            rows.append([f"Altri {len(resto)} prodotti", f"{r_qty:,.0f}", '-', '-',
+            rows.append([f"Altri {len(resto)} prodotti", f"{it_num(r_qty, 0)}", '-', '-',
                          _eur(r_fatt), _eur(r_fatt - r_costo),
                          f"{(r_fatt - r_costo) / r_costo * 100:.1f}%" if r_costo > 0 else '-'])
         pdf.smart_table(
@@ -178,7 +178,7 @@ async def export_rendiconto(
                 _dm(lot.get('data_acquisto')),
                 _short(lot.get('fornitore', '-'), 24),
                 _eur(lot.get('prezzo_acquisto', 0)) + ('*' if lot.get('prezzo_stimato') else ''),
-                f"{u['qty']:,.0f}", _eur(u['fatt']), _eur(marg),
+                f"{it_num(u['qty'], 0)}", _eur(u['fatt']), _eur(marg),
                 f"{marg / u['costo'] * 100:.1f}%" if u['costo'] > 0 else '-',
                 _dm(lot.get('data_esaurimento')) if lot.get('data_esaurimento') else 'in corso',
             ])
@@ -187,7 +187,7 @@ async def export_rendiconto(
             r_qty = sum(u['qty'] for _, u in resto_l)
             r_fatt = sum(u['fatt'] for _, u in resto_l)
             r_costo = sum(u['costo'] for _, u in resto_l)
-            lrows.append([f"Altri {len(resto_l)} lotti", '-', '-', '-', f"{r_qty:,.0f}",
+            lrows.append([f"Altri {len(resto_l)} lotti", '-', '-', '-', f"{it_num(r_qty, 0)}",
                           _eur(r_fatt), _eur(r_fatt - r_costo),
                           f"{(r_fatt - r_costo) / r_costo * 100:.1f}%" if r_costo > 0 else '-', '-'])
         pdf.smart_table(
@@ -206,7 +206,7 @@ async def export_rendiconto(
         for nome, d in cli_sorted[:max_clienti]:
             marg = d['fatt'] - d['costo']
             crows.append([
-                _short(nome, 52), f"{d['qty']:,.0f}", _eur(d['fatt']), _eur(d['costo']), _eur(marg),
+                _short(nome, 52), f"{it_num(d['qty'], 0)}", _eur(d['fatt']), _eur(d['costo']), _eur(marg),
                 f"{marg / d['costo'] * 100:.1f}%" if d['costo'] > 0 else '-',
             ])
         resto_c = cli_sorted[max_clienti:]
@@ -214,7 +214,7 @@ async def export_rendiconto(
             r_qty = sum(d['qty'] for _, d in resto_c)
             r_fatt = sum(d['fatt'] for _, d in resto_c)
             r_costo = sum(d['costo'] for _, d in resto_c)
-            crows.append([f"Altri {len(resto_c)} clienti", f"{r_qty:,.0f}", _eur(r_fatt), _eur(r_costo),
+            crows.append([f"Altri {len(resto_c)} clienti", f"{it_num(r_qty, 0)}", _eur(r_fatt), _eur(r_costo),
                           _eur(r_fatt - r_costo),
                           f"{(r_fatt - r_costo) / r_costo * 100:.1f}%" if r_costo > 0 else '-'])
         pdf.smart_table(['Cliente', 'Qta', 'Fatturato', 'Costo lotti', 'Margine', 'Marg. %'],
@@ -233,7 +233,7 @@ async def export_rendiconto(
                 lot = lotti_map.get(r.get('lotto_id'), {})
                 drows.append([
                     _dm(r.get('data')), _short(r.get('cliente_nome', ''), 32),
-                    _short(r.get('prodotto_nome', ''), 34), f"{qty:,.0f}",
+                    _short(r.get('prodotto_nome', ''), 34), f"{it_num(qty, 0)}",
                     _eur(fatt / qty) if qty else '-',
                     _eur(costo / qty) if (costo and qty) else '-',
                     _eur(fatt - costo),
@@ -250,22 +250,23 @@ async def export_rendiconto(
         # ── Attestazione ──
         pdf.ensure_space(40)
         pdf.section_title("Riepilogo finale", C_EMERALD)
-        pdf.set_font('Helvetica', '', 9)
+        pdf.set_font(FONT, '', 9)
         pdf.set_text_color(40, 50, 70)
         testo = (
             f"Nel periodo {periodo_label} sono stati registrati {len(righe):,} scarichi di vendita per "
-            f"{tot_qty:,.0f} pezzi, corrispondenti a un fatturato di EUR {_eur(tot_fatt)}. "
+            f"{it_num(tot_qty, 0)} pezzi, corrispondenti a un fatturato di € {_eur(tot_fatt)}. "
             f"Il costo della merce, ricostruito collegando ogni scarico al relativo lotto di acquisto "
-            f"(metodo FIFO), e' pari a EUR {_eur(tot_costo)}, con un margine generato di "
-            f"EUR {_eur(margine)} ({margine_pct:.1f}% sul costo). "
+            f"(metodo FIFO), e' pari a € {_eur(tot_costo)}, con un margine generato di "
+            f"€ {_eur(margine)} ({margine_pct:.1f}% sul costo). "
             f"La provvigione calcolata al {provvigione_pct:g}% del margine generato e' pari a "
-            f"EUR {_eur(provvigione)}."
+            f"€ {_eur(provvigione)}."
         )
-        pdf.multi_cell(190, 5, clean_text(testo))
+        pdf.set_x(14)
+        pdf.multi_cell(182, 5.1, clean_text(testo), align='L')
         pdf.ln(4)
-        pdf.set_font('Helvetica', 'B', 10)
+        pdf.set_font(FONT, 'B', 10)
         pdf.set_text_color(*C_VIOLET)
-        pdf.cell(0, 7, clean_text(f"PROVVIGIONE DOVUTA: EUR {_eur(provvigione)}"), ln=True)
+        pdf.cell(0, 7, clean_text(f"PROVVIGIONE DOVUTA: € {_eur(provvigione)}"), ln=True)
 
         out = pdf.output()
         fname = f"rendiconto_{start}_{end}.pdf"
@@ -353,16 +354,16 @@ async def export_rendiconto_acquisti(
         pdf = FlowPDF("RENDICONTO ACQUISTI E LOTTI", sub)
         pdf.add_page()
         pdf.kpi_row([
-            ("SPESA ACQUISTI", f"EUR {_eur(tot_spesa)}", C_AMBER, f"{len(lotti)} lotti"),
-            ("VENDUTO DAI LOTTI", f"EUR {_eur(tot_ricavo)}", C_BLUE,
-             f"{tot_venduta:,.0f} di {tot_qty:,.0f} pezzi"),
-            ("MARGINE GENERATO", f"EUR {_eur(margine)}", C_EMERALD, f"{margine_pct:.1f}% sul costo"),
-            ("PROVVIGIONE DOVUTA", f"EUR {_eur(provvigione)}", C_VIOLET, f"{provvigione_pct:g}% del margine"),
+            ("SPESA ACQUISTI", eur(tot_spesa), C_AMBER, f"{len(lotti)} lotti"),
+            ("VENDUTO DAI LOTTI", eur(tot_ricavo), C_BLUE,
+             f"{it_num(tot_venduta, 0)} di {it_num(tot_qty, 0)} pezzi"),
+            ("MARGINE GENERATO", eur(margine), C_EMERALD, f"{margine_pct:.1f}% sul costo"),
+            ("PROVVIGIONE DOVUTA", eur(provvigione), C_VIOLET, f"{provvigione_pct:g}% del margine"),
         ])
         pdf.kpi_row([
             ("FORNITORI", f"{len(fornitori)}", C_BLUE, None),
             ("LOTTI ESAURITI", f"{esauriti}/{len(lotti)}", C_EMERALD, "completamente venduti"),
-            ("GIACENZA RESIDUA", f"EUR {_eur(tot_residuo)}", C_AMBER, "a costo di acquisto"),
+            ("GIACENZA RESIDUA", eur(tot_residuo), C_AMBER, "a costo di acquisto"),
             ("SMALTIMENTO MEDIO", f"{smaltimento:.0f} giorni" if smaltimento is not None else "-",
              C_SLATE, "dall'acquisto all'esaurimento"),
         ])
@@ -402,9 +403,9 @@ async def export_rendiconto_acquisti(
         for nome, d in f_sorted[:max_fornitori]:
             marg = d['ricavo'] - d['costo_venduto']
             frows.append([
-                _short(nome, 40), f"{d['lotti']}", f"{d['qta']:,.0f}",
+                _short(nome, 40), f"{d['lotti']}", f"{it_num(d['qta'], 0)}",
                 _eur(d['spesa'] / d['qta']) if d['qta'] else '-',
-                f"{d['venduta']:,.0f}",
+                f"{it_num(d['venduta'], 0)}",
                 _eur(d['ricavo'] / d['venduta']) if d['venduta'] else '-',
                 _eur(d['ricavo']), _eur(marg),
                 f"{marg / d['costo_venduto'] * 100:.1f}%" if d['costo_venduto'] > 0 else '-',
@@ -423,9 +424,9 @@ async def export_rendiconto_acquisti(
             g = giorni(lot)
             lrows.append([
                 _short(lot.get('prodotto', '-'), 30), _dm(lot.get('data_acquisto')),
-                _short(lot.get('fornitore', '-'), 20), f"{lot.get('quantita', 0):,.0f}",
+                _short(lot.get('fornitore', '-'), 20), f"{it_num(lot.get('quantita', 0), 0)}",
                 _eur(lot.get('prezzo_acquisto', 0)) + ('*' if lot.get('prezzo_stimato') else ''),
-                f"{lot.get('quantita_venduta', 0):,.0f}",
+                f"{it_num(lot.get('quantita_venduta', 0), 0)}",
                 _eur(lot.get('prezzo_vendita_medio')) if lot.get('prezzo_vendita_medio') else '-',
                 f"{lot['margine_pct']:.1f}%" if lot.get('margine_pct') is not None else '-',
                 _dm(lot.get('data_esaurimento')) if lot.get('data_esaurimento') else 'in corso',
@@ -441,21 +442,22 @@ async def export_rendiconto_acquisti(
 
         pdf.ensure_space(40)
         pdf.section_title("Riepilogo finale", C_EMERALD)
-        pdf.set_font('Helvetica', '', 9)
+        pdf.set_font(FONT, '', 9)
         pdf.set_text_color(40, 50, 70)
         testo = (
-            f"Nel periodo {periodo_label} sono stati acquistati {len(lotti)} lotti per {tot_qty:,.0f} pezzi, "
-            f"con una spesa di EUR {_eur(tot_spesa)}. Di questi risultano venduti {tot_venduta:,.0f} pezzi, "
-            f"che hanno generato un ricavo di EUR {_eur(tot_ricavo)} a fronte di un costo merce di "
-            f"EUR {_eur(tot_costo_venduto)}, per un margine di EUR {_eur(margine)} ({margine_pct:.1f}%). "
-            f"La provvigione al {provvigione_pct:g}% del margine generato e' pari a EUR {_eur(provvigione)}. "
-            f"Rimane una giacenza residua di EUR {_eur(tot_residuo)} valorizzata al costo di acquisto."
+            f"Nel periodo {periodo_label} sono stati acquistati {len(lotti)} lotti per {it_num(tot_qty, 0)} pezzi, "
+            f"con una spesa di € {_eur(tot_spesa)}. Di questi risultano venduti {it_num(tot_venduta, 0)} pezzi, "
+            f"che hanno generato un ricavo di € {_eur(tot_ricavo)} a fronte di un costo merce di "
+            f"€ {_eur(tot_costo_venduto)}, per un margine di € {_eur(margine)} ({margine_pct:.1f}%). "
+            f"La provvigione al {provvigione_pct:g}% del margine generato e' pari a € {_eur(provvigione)}. "
+            f"Rimane una giacenza residua di € {_eur(tot_residuo)} valorizzata al costo di acquisto."
         )
-        pdf.multi_cell(190, 5, clean_text(testo))
+        pdf.set_x(14)
+        pdf.multi_cell(182, 5.1, clean_text(testo), align='L')
         pdf.ln(4)
-        pdf.set_font('Helvetica', 'B', 10)
+        pdf.set_font(FONT, 'B', 10)
         pdf.set_text_color(*C_VIOLET)
-        pdf.cell(0, 7, clean_text(f"PROVVIGIONE DOVUTA: EUR {_eur(provvigione)}"), ln=True)
+        pdf.cell(0, 7, clean_text(f"PROVVIGIONE DOVUTA: € {_eur(provvigione)}"), ln=True)
 
         out = pdf.output()
         return Response(bytes(out), media_type="application/pdf",
@@ -490,13 +492,13 @@ async def export_analisi_pdf(
             pdf = FlowPDF("ANALISI ACQUISTI FORNITORI", sub)
             pdf.add_page()
             pdf.kpi_row([
-                ("SPESA ACQUISTI", f"EUR {_eur(k['spesa'])}", C_AMBER,
-                 f"prec. EUR {_eur(k['spesa_prec'])}"),
+                ("SPESA ACQUISTI", eur(k['spesa']), C_AMBER,
+                 f"prec. € {_eur(k['spesa_prec'])}"),
                 ("VARIAZIONE", f"{k['var_pct']:+.1f}%" if k['var_pct'] is not None else "-",
                  C_EMERALD if (k['var_pct'] or 0) >= 0 else C_RED,
                  f"vs {_dm(per['prev_start'])}-{_dm(per['prev_end'])}"),
                 ("FORNITORI", f"{k['n_fornitori']}", C_BLUE, f"{k['n_prodotti']} prodotti"),
-                ("RESI A FORNITORE", f"EUR {_eur(k['resi'])}", C_VIOLET, None),
+                ("RESI A FORNITORE", eur(k['resi']), C_VIOLET, None),
             ])
 
             ord_match = {}
@@ -518,7 +520,7 @@ async def export_analisi_pdf(
             blocco_prezzi_aumento(pdf, prezzi_su)
 
             pdf.section_title("Acquisti per fornitore", C_AMBER, top_gap=2)
-            rows = [[_short(f['fornitore'], 46), _eur(f['spesa']), f"{f['quantita']:,.0f}",                     _eur(f['prezzo_medio']),
+            rows = [[_short(f['fornitore'], 46), _eur(f['spesa']), f"{it_num(f['quantita'], 0)}",                     _eur(f['prezzo_medio']),
                      _eur(f['prezzo_vendita']) if f.get('prezzo_vendita') else '-',
                      f"{f['margine_pct']:.1f}%" if f.get('margine_pct') is not None else '-',
                      f"{f['var_pct']:+.1f}%" if f['var_pct'] is not None else '-']
@@ -548,9 +550,9 @@ async def export_analisi_pdf(
                 costo = v.get('costo', 0) or 0
                 marg = ((v.get('fatt', 0) - costo) / costo * 100) if costo > 0 else None
                 prows.append([
-                    _short(p['prodotto'], 46), _eur(p['spesa']), f"{p['quantita']:,.0f}",
+                    _short(p['prodotto'], 46), _eur(p['spesa']), f"{it_num(p['quantita'], 0)}",
                     _eur(p['prezzo_medio']), _eur(pv) if pv else '-',
-                    f"{v['qty']:,.0f}" if v.get('qty') else '-',
+                    f"{it_num(v['qty'], 0)}" if v.get('qty') else '-',
                     f"{marg:.1f}%" if marg is not None else '-',
                     f"{p['n_fornitori']}",
                 ])
@@ -563,7 +565,9 @@ async def export_analisi_pdf(
 
             if data['trend']:
                 pdf.section_title("Spesa mensile", C_VIOLET)
-                pdf.monthly_chart([(t['mese'], t['spesa']) for t in data['trend']])
+                pdf.smart_table(['Mese', 'Spesa'], [120, 70],
+                                [[t['mese'], eur(t['spesa'])] for t in data['trend']],
+                                aligns=['L', 'R'])
 
             fname = f"analisi_acquisti_{per['start']}_{per['end']}.pdf"
         else:
@@ -574,13 +578,13 @@ async def export_analisi_pdf(
                           f"Periodo: {_dm(per['start'])} - {_dm(per['end'])}  |  Margini da lotti FIFO")
             pdf.add_page()
             pdf.kpi_row([
-                ("FATTURATO", f"EUR {_eur(k['fatturato'])}", C_BLUE, f"prec. EUR {_eur(k['fatturato_prec'])}"),
+                ("FATTURATO", eur(k['fatturato']), C_BLUE, f"prec. € {_eur(k['fatturato_prec'])}"),
                 ("VARIAZIONE", f"{k['var_pct']:+.1f}%" if k['var_pct'] is not None else "-",
                  C_EMERALD if (k['var_pct'] or 0) >= 0 else C_RED,
                  f"vs {_dm(per['prev_start'])}-{_dm(per['prev_end'])}"),
                 ("MARGINE MEDIO", f"{k['margine_medio_pct']:.1f}%" if k['margine_medio_pct'] is not None else "-",
                  C_EMERALD, "costo reale lotti"),
-                ("PROFITTO STIMATO", f"EUR {_eur(k['profitto_stimato'])}", C_VIOLET,
+                ("PROFITTO STIMATO", eur(k['profitto_stimato']), C_VIOLET,
                  f"{k['n_prodotti']} prodotti"),
             ])
 
@@ -602,7 +606,7 @@ async def export_analisi_pdf(
             pdf.section_title("Vendite per prodotto (ordinate per margine %)", C_BLUE, top_gap=2)
             prodotti_ord = sorted(data['prodotti'],
                                   key=lambda p: -(p['margine_pct'] if p['margine_pct'] is not None else -9999))
-            rows = [[_short(p['prodotto'], 44), f"{p['quantita']:,.0f}", _eur(p['prezzo_medio']),
+            rows = [[_short(p['prodotto'], 44), f"{it_num(p['quantita'], 0)}", _eur(p['prezzo_medio']),
                      _eur(p['costo_unitario']) if p['costo_unitario'] else '-',
                      _eur(p['fatturato']),
                      f"{p['margine_pct']:.1f}%" if p['margine_pct'] is not None else '-',
@@ -687,10 +691,10 @@ async def export_listino(
         pdf = FlowPDF(titolo, f"{intestazione}  |  Periodo: {_dm(start)} - {_dm(end)}")
         pdf.add_page()
         pdf.kpi_row([
-            ("FATTURATO PERIODO", f"EUR {_eur(tot_fatt)}", C_BLUE, f"{len(rows_agg)} voci"),
-            ("QUANTITA", f"{tot_qty:,.0f}", C_VIOLET, "pezzi"),
-            ("COSTO LOTTI (FIFO)", f"EUR {_eur(tot_costo)}", C_SLATE, None),
-            ("MARGINE", f"EUR {_eur(margine)}", C_EMERALD,
+            ("FATTURATO PERIODO", eur(tot_fatt), C_BLUE, f"{len(rows_agg)} voci"),
+            ("QUANTITA", f"{it_num(tot_qty, 0)}", C_VIOLET, "pezzi"),
+            ("COSTO LOTTI (FIFO)", eur(tot_costo), C_SLATE, None),
+            ("MARGINE", eur(margine), C_EMERALD,
              f"{margine / tot_costo * 100:.1f}% sul costo" if tot_costo > 0 else None),
         ])
 
@@ -722,7 +726,7 @@ async def export_listino(
         for r in rows_agg[:limit]:
             marg = r['fatt'] - r['costo']
             table_rows.append([
-                _short(r['_id'], 50), f"{r['qty']:,.0f}",
+                _short(r['_id'], 50), f"{it_num(r['qty'], 0)}",
                 _eur(r['fatt'] / r['qty']) if r['qty'] else '-',
                 _eur(r.get('ultimo_prezzo', 0)),
                 _eur(r['costo'] / r['qty']) if (r['costo'] and r['qty']) else '-',

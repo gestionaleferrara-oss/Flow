@@ -135,3 +135,20 @@
 - Verificato: chat -> report pistacchio -> PDF 4 pagine con KPI, tabelle prodotti/mensile/top clienti e testo dell'analisi.
 - NOTA: durante i test il budget dell'Emergent LLM Key e' esaurito (RateLimitError budget exceeded) -> l'utente deve ricaricare da Profile > Manage plan > Universal Key > Add Balance.
 - NUOVO (sessione 7b): Archivio report AI. Pulsante "Report salvati" nell'Assistente (data-testid=agent-report-salvati-btn) -> drawer con elenco, apertura PDF e cancellazione. Endpoint GET /api/ai/reports, DELETE /api/ai/reports/{id}.
+
+### 2026-09-14 (sessione 7c) — Restyling completo dei PDF
+- Nuova base grafica in `routes/pdf_helper.py`: font IBM Plex Sans embeddato (`backend/assets/fonts/Plex-*.ttf`, istanze statiche generate con fontTools), fondo chiaro, impaginazione editoriale, tabelle senza griglia con zebra, KPI a schede con barra accento, footer con filetto.
+- LOGO "FLOW" RIMOSSO dall'intestazione (richiesta utente): resta titolo + sottotitolo + numero pagina + filetto accento.
+- Valute in formato italiano con simbolo €: nuove helper `eur()` e `it_num()` in pdf_helper, applicate a pdf_analisi, pdf_sections, pdf_export, forecast, dashboard, ottimizzazione, piano.
+- Nuovi grafici riutilizzabili: `line_chart` (andamento con area + serie tratteggiata anno prec.), `compare_chart` (alias su line_chart), `bar_ranking`, `column_chart`, `share_bar`, `chart_caption`.
+- `blocco_grafici()` in pdf_sections: andamento mensile vs anno precedente + classifica top 10, inserito in analisi vendite, analisi acquisti e rendiconto.
+- PDF report AI: ora apre con KPI + GRAFICI (il tool `genera_pdf_report` accetta `grafici`: colonne/confronto/barre/quote), poi tabelle, e il testo dell'analisi va in coda ("Lettura dei dati e raccomandazioni").
+- Fix: celle tabella riducono il corpo prima di troncare (numeri non più tagliati), paragrafi allineati a sinistra, elenchi con "-" non più interpretati come titoli.
+- Nota: chiamate AI lunghe superano il timeout dell'ingress -> testare via http://localhost:8001.
+
+### 2026-09-14 (sessione 7d) — PDF senza grafici + Previsione prodotto
+- RICHIESTA UTENTE: nessun grafico nei PDF. Rimossi tutti i call site (`blocco_grafici`, `monthly_chart`); le serie sono ora TABELLE (andamento mensile, spesa mensile, classifiche). I metodi grafici restano in pdf_helper ma non sono usati.
+- Tool AI `genera_pdf_report`: il campo `grafici` viene reso come tabella (`_grafico_come_tabella`), prompt aggiornato ("nessun grafico: solo KPI, tabelle e testo").
+- NUOVO endpoint GET /api/analisi/previsione-prodotto?prodotto=&giorni=30|60|90 -> KPI (quantita/fatturato/margine attesi, giacenza, da ordinare, copertura, fornitore consigliato + prezzo) e lista clienti attesi (qta, prezzo medio, margine, già ordinato negli ultimi N gg, ultimo acquisto).
+- Frontend Analisi: link discreto "Previsione su un prodotto" (data-testid=apri-previsione-prodotto) a destra dei tab -> drawer con autocomplete prodotto, chip 30/60/90 gg, 8 KPI e tabella clienti.
+- Lint: ripulite import non usate (ruff F401/F821 = clean su tutti i file toccati).
