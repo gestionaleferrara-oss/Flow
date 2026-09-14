@@ -137,7 +137,7 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
 
     ordini = []
     for o in ordini_map.values():
-        o['articoli'].sort(key=lambda x: -x['valore'])
+        o['articoli'].sort(key=lambda x: -x['da_ordinare'])
         spesa_anno = sum(v['spesa'] for p in acq_map.values() for f, v in p.items() if f == o['fornitore'])
         margine_pct = (o['margine_eur'] / o['valore'] * 100) if o['valore'] else None
         ordini.append({
@@ -272,7 +272,7 @@ async def _piano_vendite(periodo: Dict, limit: int) -> Dict:
 
     proposte = []
     for c, d in per_cliente.items():
-        d['articoli'].sort(key=lambda a: (a['gia_ordinato'], -a['valore_atteso']))
+        d['articoli'].sort(key=lambda a: -a['quantita_attesa'])
         mancanti = [a for a in d['articoli'] if not a['gia_ordinato']]
         m = marg_map.get(c, {})
         mpct = ((m.get('fatt', 0) - m.get('costo', 0)) / m['costo'] * 100) if m.get('costo', 0) > 0 else None
