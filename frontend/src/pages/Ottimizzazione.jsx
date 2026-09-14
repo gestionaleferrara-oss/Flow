@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
   ShoppingCart, TrendingUp, ChevronDown, X as XIcon, Target, Truck, Users,
-  Lightbulb, CalendarClock,
+  Lightbulb, CalendarClock, Trophy,
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -116,7 +116,7 @@ function Kpi({ label, value, color }) {
 }
 
 function OrdineAcquisto({ o, idx, onArticolo }) {
-  const [open, setOpen] = useState(idx < 2);
+  const [open, setOpen] = useState(false);
   return (
     <div className="rounded-xl border border-white/[0.07] bg-white/[0.015] overflow-hidden" data-testid={`ordine-acquisto-${idx}`}>
       <button onClick={() => setOpen(!open)} data-testid={`ordine-acquisto-${idx}-toggle`}
@@ -177,7 +177,7 @@ function OrdineAcquisto({ o, idx, onArticolo }) {
 }
 
 function ProposteCliente({ o, idx, onArticolo }) {
-  const [open, setOpen] = useState(idx < 2);
+  const [open, setOpen] = useState(false);
   return (
     <div className="rounded-xl border border-white/[0.07] bg-white/[0.015] overflow-hidden" data-testid={`proposta-cliente-${idx}`}>
       <button onClick={() => setOpen(!open)} data-testid={`proposta-cliente-${idx}-toggle`}
@@ -206,7 +206,7 @@ function ProposteCliente({ o, idx, onArticolo }) {
           <table className="w-full text-sm">
             <thead>
               <tr>
-                {['Articolo', 'Qtà attesa', 'Prezzo', 'Valore', 'Stato'].map((c, i) => (
+                {['Articolo', 'Qtà attesa', 'Prezzo', 'Valore'].map((c, i) => (
                   <th key={c} className={cn('px-3 py-2 text-[11px] uppercase tracking-wider text-slate-500 whitespace-nowrap',
                     i === 0 ? 'text-left' : 'text-right')}>{c}</th>
                 ))}
@@ -221,13 +221,6 @@ function ProposteCliente({ o, idx, onArticolo }) {
                   <td className="px-3 py-2 text-right text-white font-semibold tabular-nums">{num(a.quantita_attesa)}</td>
                   <td className="px-3 py-2 text-right text-slate-300 tabular-nums">{a.prezzo_atteso ? `€${a.prezzo_atteso.toFixed(2)}` : '—'}</td>
                   <td className="px-3 py-2 text-right text-emerald-300 font-semibold tabular-nums">{formatCurrency(a.valore_atteso)}</td>
-                  <td className="px-3 py-2 text-right">
-                    <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-md border whitespace-nowrap',
-                      a.gia_ordinato ? 'bg-white/[0.05] text-slate-400 border-white/10'
-                        : 'bg-amber-500/15 text-amber-300 border-amber-500/30')}>
-                      {a.gia_ordinato ? 'già ordinato' : 'da proporre'}
-                    </span>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -269,6 +262,42 @@ function Suggerimenti({ lista }) {
               ))}
             </div>
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TopProdotti({ lista, periodo, onProdotto }) {
+  if (!lista?.length) return null;
+  const max = lista[0].quantita || 1;
+  return (
+    <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.03] overflow-hidden mb-6" data-testid="top-prodotti">
+      <div className="px-4 py-3.5 border-b border-white/[0.06] flex items-start gap-2.5">
+        <Trophy className="w-4 h-4 text-violet-300 mt-0.5 shrink-0" />
+        <div>
+          <h2 className="text-sm font-semibold text-white">Prodotti più consumati</h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Classifica per quantità venduta dal {dmy(periodo.storico_start)} al {dmy(periodo.storico_end)} (anno scorso)
+          </p>
+        </div>
+      </div>
+      <div className="divide-y divide-white/[0.04] max-h-[420px] overflow-y-auto">
+        {lista.map((p, i) => (
+          <button key={p.prodotto} onClick={() => onProdotto(p)} data-testid={`top-prodotto-${i}`}
+            className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-violet-500/[0.06] transition-colors">
+            <span className="w-6 text-xs font-bold text-violet-300/80 tabular-nums shrink-0">{i + 1}</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-slate-200 truncate">{p.prodotto}</div>
+              <div className="mt-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                <div className="h-full rounded-full bg-violet-400/70" style={{ width: `${(p.quantita / max) * 100}%` }} />
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-sm font-bold text-white tabular-nums">{num(p.quantita)} <span className="text-[10px] font-normal text-slate-500">pz</span></div>
+              <div className="text-[11px] text-slate-500 tabular-nums">{formatCurrency(p.fatturato)}</div>
+            </div>
+          </button>
         ))}
       </div>
     </div>
@@ -363,25 +392,30 @@ export default function Ottimizzazione() {
             </div>
           </div>
 
-          <p className="text-xs text-slate-500 mb-3">
-            {acquisti
-              ? 'Un blocco per fornitore: ordine completo con tutti gli articoli che si consumano nella finestra. Clicca una riga per lo storico.'
-              : 'Un blocco per cliente: cosa proporre e cosa ha già riordinato. Clicca una riga per lo storico.'}
-          </p>
-
-          <div className="space-y-3">
-            {(piano.ordini || []).map((o, i) => acquisti ? (
-              <OrdineAcquisto key={o.fornitore} o={o} idx={i}
-                onArticolo={(a) => setDettaglio({ prodotto: a.prodotto, titolo: a.prodotto })} />
-            ) : (
-              <ProposteCliente key={o.cliente} o={o} idx={i}
-                onArticolo={(a) => setDettaglio({ cliente: o.cliente, prodotto: a.prodotto, titolo: `${a.prodotto} — ${o.cliente}` })} />
-            ))}
-            {!(piano.ordini || []).length && (
-              <div className="rounded-xl border border-white/[0.07] bg-white/[0.015] px-4 py-8 text-center text-sm text-slate-500">
-                Nessuna azione necessaria in questa finestra
+          <div className="grid gap-6 lg:grid-cols-3 items-start">
+            <div className="lg:col-span-2">
+              <p className="text-xs text-slate-500 mb-3">
+                {acquisti
+                  ? 'Un blocco per fornitore: ordine completo con tutti gli articoli che si consumano nella finestra. Clicca una riga per lo storico.'
+                  : 'Un blocco per cliente: cosa proporre in base a quanto comprato l\'anno scorso. Clicca una riga per lo storico.'}
+              </p>
+              <div className="space-y-3">
+                {(piano.ordini || []).map((o, i) => acquisti ? (
+                  <OrdineAcquisto key={o.fornitore} o={o} idx={i}
+                    onArticolo={(a) => setDettaglio({ prodotto: a.prodotto, titolo: a.prodotto })} />
+                ) : (
+                  <ProposteCliente key={o.cliente} o={o} idx={i}
+                    onArticolo={(a) => setDettaglio({ cliente: o.cliente, prodotto: a.prodotto, titolo: `${a.prodotto} — ${o.cliente}` })} />
+                ))}
+                {!(piano.ordini || []).length && (
+                  <div className="rounded-xl border border-white/[0.07] bg-white/[0.015] px-4 py-8 text-center text-sm text-slate-500">
+                    Nessuna azione necessaria in questa finestra
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+            <TopProdotti lista={piano.top_prodotti} periodo={per}
+              onProdotto={(p) => setDettaglio({ prodotto: p.prodotto, titolo: p.prodotto })} />
           </div>
 
           <Suggerimenti lista={piano.suggerimenti} />

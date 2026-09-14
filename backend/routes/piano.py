@@ -63,26 +63,29 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
     ]).to_list(20000)
     dom_map = {r['_id']: r for r in domanda if r['_id'] and r['qty'] > 0}
 
-    acquisti = await db.ordini.aggregate([
-        {"$match": {"data": {"$gte": anno_start, "$lte": oggi}, "quantita": {"$gt": 0},
-                    "totale": {"$gt": 0}}},
-        {"$group": {"_id": {"p": "$prodotto_nome", "f": "$fornitore_nome"},
-                    "qty": {"$sum": "$quantita"}, "tot": {"$sum": "$totale"},
-                    "ultima": {"$max": "$data"}}},
-    ]).to_list(200000)
-    acq_map: Dict[str, Dict[str, Dict]] = {}
-    for a in acquisti:
-        p, f = a['_id'].get('p'), a['_id'].get('f')
-        if p and f and a['qty'] > 0:
-            acq_map.setdefault(p, {})[f] = {"prezzo": a['tot'] / a['qty'], "qty": a['qty'],
+    # Prezzi fornitore nella stessa finestra dell'anno scorso (fallback: ultimi 12 mesi)
+    async def acq_per_fornitore(s, e):
+        rows = await db.ordini.aggregate([
+            {"$match": {"data": {"$gte": s, "$lte": e}, "quantita": {"$gt": 0},
+                        "totale": {"$gt": 0}}},
+            {"$group": {"_id": {"p": "$prodotto_nome", "f": "$fornitore_nome"},
+                        "qty": {"$sum": "$quantita"}, "tot": {"$sum": "$totale"},
+                        "ultima": {"$max": "$data"}}},
+        ]).to_list(200000)
+        out: Dict[str, Dict[str, Dict]] = {}
+        for a in rows:
+            p, f = a['_id'].get('p'), a['_id'].get('f')
+            if p and f and a['qty'] > 0:
+                out.setdefault(p, {})[f] = {"prezzo": a['tot'] / a['qty'], "qty": a['qty'],
                                             "spesa": a['tot'], "ultima": a['ultima']}
+        return out
 
-    vendite_90 = await db.vendite.aggregate([
-        {"$match": {**base_v, "data": {"$gte": _d(datetime.now() - timedelta(days=90)), "$lte": oggi}}},
-        {"$group": {"_id": "$prodotto_nome", "qty": {"$sum": {"$abs": "$quantita"}},
-                    "fatt": {"$sum": {"$abs": "$totale"}}}},
-    ]).to_list(20000)
-    pv_map = {r['_id']: r['fatt'] / r['qty'] for r in vendite_90 if r['_id'] and r['qty']}
+    acq_ly = await acq_per_fornitore(ly_fs, ly_fe)
+    acq_anno = await acq_per_fornitore(anno_start, oggi)
+    acq_map = {**acq_anno, **acq_ly}
+
+    # Prezzo di vendita atteso: stessa finestra anno scorso
+    pv_map = {n: (d['fatt'] / d['qty']) for n, d in dom_map.items() if d['qty']}
 
     giacenze = {p['nome']: (p.get('quantita', 0) or 0) for p in
                 await db.prodotti.find({}, {"_id": 0, "nome": 1, "quantita": 1}).to_list(20000)}
@@ -147,9 +150,13 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
     ordini.sort(key=lambda o: -o['valore'])
 
     suggerimenti = _suggerimenti_acquisti(articoli, giacenze, acq_map, giorni)
+    top = sorted(articoli, key=lambda a: -a['domanda_prevista'])[:20]
 
     return {
         "tipo": "acquisti", "periodo": periodo,
+        "top_prodotti": [{"prodotto": a['prodotto'], "quantita": a['domanda_prevista'],
+                          "fatturato": a['fatturato_atteso'], "clienti": a['clienti_attesi'],
+                          "giacenza": a['giacenza']} for a in top],
         "totali": {
             "fornitori": len(ordini),
             "prodotti": len(da_ordinare_lista),
@@ -298,8 +305,19 @@ async def _piano_vendite(periodo: Dict, limit: int) -> Dict:
 
     suggerimenti = _suggerimenti_vendite(proposte, marg_med)
 
+    top_map: Dict[str, Dict] = {}
+    for r in storico:
+        p = r['_id']['p']
+        if not p:
+            continue
+        t = top_map.setdefault(p, {"prodotto": p, "quantita": 0.0, "fatturato": 0.0, "clienti": 0})
+        t['quantita'] += r['qty']; t['fatturato'] += r['fatt']; t['clienti'] += 1
+    top = sorted(top_map.values(), key=lambda t: -t['quantita'])[:20]
+
     return {
         "tipo": "vendite", "periodo": periodo,
+        "top_prodotti": [{**t, "quantita": round(t['quantita'], 1),
+                          "fatturato": round(t['fatturato'], 2)} for t in top],
         "totali": {
             "clienti": len(proposte),
             "valore_atteso": round(sum(p['valore_atteso'] for p in proposte), 2),
