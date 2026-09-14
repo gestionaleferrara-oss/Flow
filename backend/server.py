@@ -347,6 +347,7 @@ from routes.pdf_analisi import router as pdf_analisi_router
 from routes.ottimizzazione import router as ottimizzazione_router
 from routes.ottimizzazione_detail import router as ottimizzazione_detail_router
 from routes.piano import router as piano_router
+from routes.pdf_ai_report import router as pdf_ai_report_router
 from routes.ai_agent import router as ai_agent_router
 
 api_router.include_router(upload_router)
@@ -364,6 +365,7 @@ api_router.include_router(pdf_analisi_router)
 api_router.include_router(ottimizzazione_router)
 api_router.include_router(ottimizzazione_detail_router)
 api_router.include_router(piano_router)
+api_router.include_router(pdf_ai_report_router)
 api_router.include_router(ai_agent_router)
 
 app.include_router(api_router)

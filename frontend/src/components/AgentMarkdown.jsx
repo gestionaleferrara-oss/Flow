@@ -6,7 +6,8 @@ import { Download } from 'lucide-react';
 const components = {
   a: ({ href, children, ...props }) => {
     const url = href?.startsWith('/api') ? `${process.env.REACT_APP_BACKEND_URL}${href}` : href;
-    const isPdf = href?.includes('/api/analisi/export');
+    const isPdf = href?.includes('.pdf') || href?.includes('/export/pdf')
+      || href?.includes('/api/analisi/export') || href?.includes('/api/ai/report');
     return (
       <a
         {...props}

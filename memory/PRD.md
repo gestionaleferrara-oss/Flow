@@ -125,3 +125,12 @@
 - Click su articolo -> drawer con VENDITE COMPLESSIVE PER CLIENTE (finestra anno scorso + ultimi 12 mesi) e acquisti per fornitore. Nuovo endpoint GET /api/ottimizzazione/piano/articolo.
 - Endpoint: GET /api/ottimizzazione/piano?tipo=acquisti|vendite&giorni=N (nessun parametro data).
 - Testato con curl (entrambi i tipi) + screenshot (tab acquisti, tab vendite, drawer).
+
+### 2026-09-14 (sessione 7b) — PDF del report AI
+- PROBLEMA: chiedendo in chat "fammi il pdf di questo report", l'AI chiamava `genera_pdf` (report standard) su un periodo FUTURO -> PDF senza dati e senza l'analisi scritta in chat.
+- NUOVO: `routes/pdf_ai_report.py` + endpoint GET /api/ai/report/{id}.pdf: rende il testo dell'analisi scritta dall'AI, fino a 4 KPI e N tabelle (dati reali) con FlowPDF. Documenti salvati in collection `ai_report_pdf`.
+- NUOVO tool AI `genera_pdf_report` (titolo, sottotitolo, testo, kpi, tabelle, note) + regole 11 e 12 nel system prompt (usa questo tool per i PDF di analisi fatte in chat; mai periodi futuri: clamp a oggi).
+- FIX: `genera_pdf` ora tronca start/end date a oggi; clean_text applicato a colonne/righe/KPI (il simbolo EUR rompeva FPDF -> 500).
+- FIX: AgentMarkdown riconosce come PDF anche i link /api/ai/report/*.pdf (pulsante download).
+- Verificato: chat -> report pistacchio -> PDF 4 pagine con KPI, tabelle prodotti/mensile/top clienti e testo dell'analisi.
+- NOTA: durante i test il budget dell'Emergent LLM Key e' esaurito (RateLimitError budget exceeded) -> l'utente deve ricaricare da Profile > Manage plan > Universal Key > Add Balance.

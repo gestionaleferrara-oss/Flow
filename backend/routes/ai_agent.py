@@ -347,10 +347,11 @@ async def t_genera_pdf(args):
     from urllib.parse import urlencode
     tipo = (args.get('tipo') or 'rendiconto').lower()
     params = {}
+    oggi = datetime.now().strftime("%Y-%m-%d")
     if args.get('start_date'):
-        params['start_date'] = args['start_date']
+        params['start_date'] = min(args['start_date'], oggi)
     if args.get('end_date'):
-        params['end_date'] = args['end_date']
+        params['end_date'] = min(args['end_date'], oggi)
     if tipo == 'rendiconto':
         params['provvigione_pct'] = args.get('provvigione_pct') or 3
         params['dettaglio'] = str(bool(args.get('dettaglio', False))).lower()
@@ -391,6 +392,19 @@ async def t_genera_pdf(args):
                            "(inizia con /api/...). NON aggiungere alcun dominio o host.")}
 
 
+async def t_genera_pdf_report(args):
+    from routes.pdf_ai_report import salva_report
+    titolo = (args.get('titolo') or 'Report Flow AI')[:90]
+    testo = args.get('testo') or ''
+    if not testo.strip():
+        return {"errore": "Serve il testo dell'analisi da riportare nel PDF"}
+    rid = await salva_report(titolo, args.get('sottotitolo') or '', testo,
+                             args.get('kpi'), args.get('tabelle'), args.get('note') or '')
+    return {"success": True, "titolo": titolo, "url": f"/api/ai/report/{rid}.pdf",
+            "istruzioni": ("Mostra all'utente il link markdown copiando ESATTAMENTE il campo url "
+                           "(inizia con /api/...). NON aggiungere alcun dominio.")}
+
+
 async def t_lotto_vendite(args):
     from routes.fifo import fifo_lotto_vendite
     return await fifo_lotto_vendite(args['lotto_id'])
@@ -421,6 +435,7 @@ TOOL_IMPL = {
     "lotti_prodotto": t_lotti_prodotto,
     "lotto_vendite": t_lotto_vendite,
     "genera_pdf": t_genera_pdf,
+    "genera_pdf_report": t_genera_pdf_report,
     "ottimizzazione": t_ottimizzazione,
     "gestisci_esclusioni": t_gestisci_esclusioni,
     "aggiorna_prodotto": t_aggiorna_prodotto,
@@ -446,6 +461,7 @@ TOOL_LABELS = {
     "lotti_prodotto": "Lotti FIFO",
     "lotto_vendite": "Vendite del lotto",
     "genera_pdf": "Generazione PDF",
+    "genera_pdf_report": "PDF del report",
     "ottimizzazione": "Analisi di ottimizzazione",
     "ricalcola_lotti": "Ricalcolo lotti FIFO",
     "gestisci_esclusioni": "Gestione esclusioni",
@@ -512,6 +528,20 @@ TOOLS = [
         "cliente": {"type": "string"},
         "giorni_copertura": {"type": "integer"},
         "fornitore": {"type": "string"}, "prodotto": {"type": "string"}}, ["tipo"]),
+    _fn("genera_pdf_report", "PDF dell'analisi che hai appena scritto in chat: riporta il TUO testo, i KPI e le tabelle con i numeri reali che hai ottenuto dagli altri strumenti. Usalo SEMPRE quando l'utente chiede il PDF di un'analisi, di un ragionamento o di una risposta data in chat (es. 'fammi il pdf di questo report').", {
+        "titolo": {"type": "string", "description": "Titolo del report, es. 'Analisi pistacchio 2026'"},
+        "sottotitolo": {"type": "string", "description": "Periodo o filtri applicati"},
+        "testo": {"type": "string", "description": "Il testo completo dell'analisi: sezioni, elenchi con '-', numeri reali. Righe in MAIUSCOLO come titoli di sezione."},
+        "kpi": {"type": "array", "description": "Massimo 4 KPI principali",
+                "items": {"type": "object", "properties": {
+                    "label": {"type": "string"}, "valore": {"type": "string"}, "nota": {"type": "string"}}}},
+        "tabelle": {"type": "array", "description": "Tabelle con i dati reali usati nell'analisi",
+                    "items": {"type": "object", "properties": {
+                        "titolo": {"type": "string"},
+                        "colonne": {"type": "array", "items": {"type": "string"}},
+                        "righe": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}},
+                        "nota": {"type": "string"}}}},
+        "note": {"type": "string"}}, ["titolo", "testo"]),
     _fn("get_giacenze", "Giacenze di magazzino, quantità minime e scadenze.", {
         "prodotto": {"type": "string"}, "solo_sotto_scorta": {"type": "boolean"},
         "solo_esaurite": {"type": "boolean"}, "limit": {"type": "integer"}}),
@@ -557,6 +587,8 @@ REGOLE:
 8. Nei dati acquisti le quantità negative sono resi al fornitore.
 9. Formatta i risultati con elenchi puntati o tabelle markdown compatte, importi in € con separatore migliaia.
 10. Quando l'utente chiede un PDF, un rendiconto o un documento, usa `genera_pdf` e restituisci il link in markdown usando ESATTAMENTE il valore del campo `url` restituito dallo strumento, senza aggiungere domini o inventare indirizzi: [Scarica il PDF](/api/...). Il rendiconto serve a dimostrare il venduto e calcolare la provvigione (default 3% del margine).
+11. Se l'utente chiede il PDF di un'analisi che hai appena fatto in chat (es. "fammi il pdf di questo report", "mettilo in pdf"), usa SEMPRE `genera_pdf_report` passando il testo completo dell'analisi, i KPI e le tabelle con i numeri reali già calcolati. NON usare `genera_pdf` in questo caso: produrrebbe un report standard senza la tua analisi.
+12. Non generare mai PDF o analisi su periodi futuri senza dati: se la data di fine e' successiva a oggi, usa come fine la data di oggi (o l'ultima data con dati da `panoramica`) e dillo all'utente.
 """
 
 
