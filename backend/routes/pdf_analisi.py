@@ -718,12 +718,26 @@ async def export_listino(
         rows_agg.sort(key=key)
 
         ordine_label = {"margine": "margine %", "prezzo": "prezzo applicato"}.get(ordina, "quantita")
+
+        # frequenza delle visite: giorni distinti con vendite nel periodo
+        giorni_visita = sorted({r['data'] for r in await db.vendite.find(
+            match, {"_id": 0, "data": 1}).to_list(50000) if r.get('data')})
+        n_visite = len(giorni_visita)
+        if n_visite >= 2:
+            d0 = datetime.strptime(giorni_visita[0], "%Y-%m-%d")
+            d1 = datetime.strptime(giorni_visita[-1], "%Y-%m-%d")
+            freq = f"ogni {round((d1 - d0).days / (n_visite - 1))} gg"
+            freq_nota = f"{n_visite} visite nel periodo"
+        else:
+            freq = "/" if n_visite else "-"
+            freq_nota = f"{n_visite} visita nel periodo" if n_visite else "nessuna visita"
+
         pdf = FlowPDF(titolo, f"{intestazione}  |  Periodo: {_dm(start)} - {_dm(end)}")
         pdf.add_page()
         pdf.kpi_row([
             ("FATTURATO PERIODO", eur(tot_fatt), C_BLUE, f"{len(rows_agg)} voci"),
             ("QUANTITA", f"{it_num(tot_qty, 0)}", C_VIOLET, "pezzi"),
-            ("COSTO LOTTI (FIFO)", eur(tot_costo), C_SLATE, None),
+            ("FREQUENZA VISITE", freq, C_SLATE, freq_nota),
             ("MARGINE", eur(margine), C_EMERALD,
              f"{margine / tot_costo * 100:.1f}% sul costo" if tot_costo > 0 else None),
         ])
