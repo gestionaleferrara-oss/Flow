@@ -152,3 +152,19 @@
 - NUOVO endpoint GET /api/analisi/previsione-prodotto?prodotto=&giorni=30|60|90 -> KPI (quantita/fatturato/margine attesi, giacenza, da ordinare, copertura, fornitore consigliato + prezzo) e lista clienti attesi (qta, prezzo medio, margine, già ordinato negli ultimi N gg, ultimo acquisto).
 - Frontend Analisi: link discreto "Previsione su un prodotto" (data-testid=apri-previsione-prodotto) a destra dei tab -> drawer con autocomplete prodotto, chip 30/60/90 gg, 8 KPI e tabella clienti.
 - Lint: ripulite import non usate (ruff F401/F821 = clean su tutti i file toccati).
+
+### 2026-09-14 (sessione 7e) — Previsione multi-selezione in Ottimizzazione
+- Il pannello previsione e' stato SPOSTATO da Analisi a Ottimizzazione (`components/PrevisioneRicerca.jsx`), come campo di ricerca con autocomplete sopra i piani d'azione.
+- Funziona su PRODOTTO, CLIENTE e FORNITORE (chip di tipo), con MULTI-SELEZIONE a chip (piu' prodotti/clienti/fornitori insieme, aggregati).
+- I giorni vengono dal selettore principale della pagina (7/15/30/60/90) tramite prop `giorni`: nessun selettore duplicato.
+- Tabelle: prodotto -> clienti che compreranno + riepilogo per prodotto (se >1); cliente -> cosa proporre; fornitore -> ordine consigliato.
+- Backend: GET /api/analisi/previsione?tipo=&nomi=&nomi=&giorni= (param ripetuto `nomi`, `nome` legacy) e GET /api/analisi/previsione/pdf con gli stessi parametri (PDF senza grafici: KPI + selezione + tabelle).
+- Pulsante PDF nel pannello (data-testid=previsione-export-pdf) che apre l'export in nuova scheda.
+
+### 2026-09-14/15 (sessione 7f) — Considerazioni nei PDF, piano PDF professionale
+- NUOVO `routes/ai_insight.py`: `considerazioni()` + `blocco_considerazioni_ai(pdf, contesto, chiave)` — genera 4-6 punti con numeri concreti via Emergent LLM Key (claude-sonnet-4-6), cache su collection `report_insight`, fallback silenzioso se LLM non disponibile. MAI menzionare che il testo e' AI (sezione "Considerazioni").
+- Considerazioni aggiunte a: analisi vendite, analisi acquisti, rendiconto vendite, rendiconto acquisti, listino, previsione (prodotto/cliente/fornitore), ottimizzazione, statistiche vendite/acquisti. Forecast e dashboard: rinominata la sezione "Analisi AI" in "Considerazioni".
+- Analisi PDF vendite: RIMOSSO il confronto con l'anno precedente (KPI VARIAZIONE, colonna Var. %, blocco confronto, frasi YoY nella sintesi).
+- Previsione per fornitore: niente calcolo risparmio; ruolo primario/secondario/occasionale in base alla quota di acquisti; colonna "Quota" RIMOSSA da UI e PDF su richiesta utente.
+- Intestazioni tabella nei PDF: font auto-ridotto prima del troncamento (niente sovrapposizioni). Note lunghe accorciate, tabelle limitate con riga "Altri N ...".
+- NUOVO endpoint GET /api/ottimizzazione/piano/pdf?tipo=acquisti|vendite&giorni=N: piano strutturato come previsione, con quantita' in pezzi (domanda prevista, giacenza, da ordinare), prezzi acq/vendita, margine, totale per fornitore/cliente, punti di attenzione e considerazioni. Pulsante "PDF del piano" nella pagina Ottimizzazione (data-testid=piano-export-pdf).

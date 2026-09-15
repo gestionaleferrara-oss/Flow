@@ -1161,7 +1161,7 @@ async def export_report_pdf(data: dict):
                           C_EMERALD if variazione >= 0 else C_RED, "vs periodo prec."))
         pdf.kpi_row(kpis)
 
-        pdf.section_title("Analisi AI — Contenuto completo", C_VIOLET, top_gap=3)
+        pdf.section_title("Considerazioni", C_VIOLET, top_gap=3)
         pdf.ai_text_block(contenuto)
 
         pdf.ln(6)

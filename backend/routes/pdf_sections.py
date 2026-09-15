@@ -51,9 +51,20 @@ def label_esercizio(start: str, end: str) -> str:
     return label_periodo(start, end)
 
 
+def _match_vendite(match_base: Dict, start: str, end: str) -> Dict:
+    """Unisce i filtri del chiamante con l'esclusione dei clienti di servizio,
+    senza sovrascrivere un eventuale filtro su cliente_nome."""
+    match = {**match_base, "data": {"$gte": start, "$lte": end}}
+    cli = match.pop("cliente_nome", None)
+    conds = [{"cliente_nome": {"$nin": EXCLUDED_CLIENTS}}]
+    if cli is not None:
+        conds.append({"cliente_nome": cli})
+    match["$and"] = list(match.get("$and", [])) + conds
+    return match
+
+
 async def kpi_vendite(match_base: Dict, start: str, end: str) -> Dict:
-    match = {**match_base, "data": {"$gte": start, "$lte": end},
-             "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}
+    match = _match_vendite(match_base, start, end)
     rows = await db.vendite.aggregate([
         {"$match": match},
         {"$group": {"_id": None,
@@ -312,11 +323,11 @@ def _label_mese(ym: str) -> str:
 
 
 async def _serie_mensile(coll, match_base: Dict, start: str, end: str, campo: str) -> Dict[str, float]:
-    match = {**match_base, "data": {"$gte": start, "$lte": end}}
     if coll == 'vendite':
-        match["cliente_nome"] = {"$nin": EXCLUDED_CLIENTS}
+        match = _match_vendite(match_base, start, end)
         somma = {"$sum": {"$abs": f"${campo}"}}
     else:
+        match = {**match_base, "data": {"$gte": start, "$lte": end}}
         somma = {"$sum": f"${campo}"}
     rows = await db[coll].aggregate([
         {"$match": match},

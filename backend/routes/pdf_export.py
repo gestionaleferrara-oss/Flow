@@ -183,6 +183,12 @@ async def _vendite_pdf(query, start_date, end_date):
         rows_c.append([nome[:35], f"{it_num(rev, 2)}", str(visite), f"{pct:.1f}%"])
     pdf.smart_table(cols_c, widths_c, rows_c, aligns_c)
 
+    from routes.ai_insight import blocco_considerazioni_ai
+    ctx = (f"Report vendite {start_date} - {end_date}. Fatturato € {it_num(fatturato, 2)}.\n"
+           "Top clienti: " + "; ".join(f"{n} € {it_num(rev, 0)} ({visite} visite)"
+                                       for n, rev, visite in top_cli[:8]))
+    await blocco_considerazioni_ai(pdf, ctx, f"stat-vendite-{start_date}-{end_date}")
+
     pdf_bytes = pdf.output()
     fn = f"report_vendite_{start_date}_{end_date}.pdf"
     return Response(bytes(pdf_bytes), media_type="application/pdf",
@@ -257,6 +263,12 @@ async def _acquisti_pdf(query, start_date, end_date):
         [120, 45, 25],
         rows_pa, ['L','R','R']
     )
+
+    from routes.ai_insight import blocco_considerazioni_ai
+    ctx = (f"Report acquisti {start_date} - {end_date}.\n"
+           "Top prodotti acquistati (spesa, qta): "
+           + "; ".join(f"{n} € {it_num(d['tot'], 0)} {it_num(d['qty'], 0)} pz" for n, d in top_prod_acq[:8]))
+    await blocco_considerazioni_ai(pdf, ctx, f"stat-acquisti-{start_date}-{end_date}")
 
     pdf_bytes = pdf.output()
     fn = f"report_acquisti_{start_date}_{end_date}.pdf"

@@ -110,7 +110,8 @@ async def t_query_acquisti(args):
     limit = min(int(args.get('limit') or 20), 100)
     group_by = args.get('group_by') or 'fornitore'
     field = {"fornitore": "$fornitore_nome", "prodotto": "$prodotto_nome",
-             "mese": {"$substr": ["$data", 0, 7]}}.get(group_by)
+             "mese": {"$substr": ["$data", 0, 7]},
+             "prodotto_fornitore": {"p": "$prodotto_nome", "f": "$fornitore_nome"}}.get(group_by)
 
     totali = await db.ordini.aggregate([
         {"$match": match},
@@ -132,11 +133,31 @@ async def t_query_acquisti(args):
             {"$limit": limit},
         ]
         rows = await db.ordini.aggregate(pipeline).to_list(limit)
-        risultati = [{
-            group_by: r['_id'], "spesa": round(r['spesa'], 2), "quantita": round(r['quantita'], 2),
-            "prezzo_medio": round(r['spesa'] / r['quantita'], 4) if r['quantita'] else 0,
-            "righe": r['righe'],
-        } for r in rows]
+        if group_by == 'prodotto_fornitore':
+            qty_prod: dict = {}
+            for r in rows:
+                pn = r['_id'].get('p')
+                qty_prod[pn] = qty_prod.get(pn, 0) + max(r['quantita'], 0)
+            risultati = []
+            for r in rows:
+                pn, fn = r['_id'].get('p'), r['_id'].get('f')
+                quota = (max(r['quantita'], 0) / qty_prod[pn] * 100) if qty_prod.get(pn) else 0
+                risultati.append({
+                    "prodotto": pn, "fornitore": fn,
+                    "quantita_acquistata": round(r['quantita'], 2),
+                    "spesa": round(r['spesa'], 2),
+                    "prezzo_medio": round(r['spesa'] / r['quantita'], 4) if r['quantita'] else 0,
+                    "quota_pct": round(quota, 1),
+                    "ruolo": "primario" if quota >= 40 else ("secondario" if quota >= 10 else "occasionale"),
+                    "righe": r['righe'],
+                })
+            risultati.sort(key=lambda x: (x['prodotto'], -x['quantita_acquistata']))
+        else:
+            risultati = [{
+                group_by: r['_id'], "spesa": round(r['spesa'], 2), "quantita": round(r['quantita'], 2),
+                "prezzo_medio": round(r['spesa'] / r['quantita'], 4) if r['quantita'] else 0,
+                "righe": r['righe'],
+            } for r in rows]
 
     return {"periodo": {"start": start, "end": end},
             "totali": {"spesa": round(tot['spesa'], 2), "quantita": round(tot['quantita'], 2),
@@ -494,10 +515,10 @@ TOOLS = [
         "sort_by": {"type": "string", "enum": ["fatturato", "quantita"]},
         "limit": {"type": "integer"},
     }),
-    _fn("query_acquisti", "Interroga gli acquisti dai fornitori (collezione ordini). Quantità negative = resi al fornitore.", {
+    _fn("query_acquisti", "Interroga gli acquisti dai fornitori (collezione ordini). Quantità negative = resi al fornitore. Per i PREZZI DI ACQUISTO di uno o piu' prodotti usa SEMPRE group_by='prodotto_fornitore': restituisce prezzo medio, quantita', quota % e ruolo (primario/secondario/occasionale) per ogni fornitore. Il prezzo medio con group_by='prodotto' mescola fornitori diversi e NON e' attendibile.", {
         **DATE_PROPS,
         "fornitore": {"type": "string"}, "prodotto": {"type": "string"},
-        "group_by": {"type": "string", "enum": ["fornitore", "prodotto", "mese", "nessuno"]},
+        "group_by": {"type": "string", "enum": ["fornitore", "prodotto", "prodotto_fornitore", "mese", "nessuno"]},
         "limit": {"type": "integer"},
     }),
     _fn("confronto_fornitori", "Confronta il prezzo dello stesso prodotto tra i diversi fornitori, con risparmio potenziale.", {
@@ -599,7 +620,9 @@ REGOLE:
 9. Formatta i risultati con elenchi puntati o tabelle markdown compatte, importi in € con separatore migliaia.
 10. Quando l'utente chiede un PDF, un rendiconto o un documento, usa `genera_pdf` e restituisci il link in markdown usando ESATTAMENTE il valore del campo `url` restituito dallo strumento, senza aggiungere domini o inventare indirizzi: [Scarica il PDF](/api/...). Il rendiconto serve a dimostrare il venduto e calcolare la provvigione (default 3% del margine).
 11. Se l'utente chiede il PDF di un'analisi che hai appena fatto in chat (es. "fammi il pdf di questo report", "mettilo in pdf"), usa SEMPRE `genera_pdf_report`. Il PDF deve aprirsi con i numeri: passa sempre 2-4 KPI, poi le tabelle di dettaglio con i dati reali (andamento mensile, classifica prodotti, clienti) e infine il testo con la lettura dei dati. Nessun grafico: solo KPI, tabelle e testo. NON usare `genera_pdf` in questo caso.
-12. Non generare mai PDF o analisi su periodi futuri senza dati: se la data di fine e' successiva a oggi, usa come fine la data di oggi (o l'ultima data con dati da `panoramica`) e dillo all'utente.
+12. PREZZI DI ACQUISTO: non usare mai il prezzo medio per prodotto (mescola fornitori diversi). Usa `query_acquisti` con group_by='prodotto_fornitore' e riporta SEMPRE, per ogni fornitore, quanto e' stato acquistato (quantita' e spesa), il prezzo medio e il ruolo (primario/secondario/occasionale).
+13. CONFRONTI E VARIAZIONI: metti sempre il periodo piu' RECENTE in `valori` e quello PRECEDENTE in `valori2`. Prima di scrivere una variazione verifica il segno: se il valore recente e' minore del precedente la variazione e' NEGATIVA (es. 1.900 nel 2025 contro 2.100 nel 2024 = -9,5%).
+14. Non generare mai PDF o analisi su periodi futuri senza dati: se la data di fine e' successiva a oggi, usa come fine la data di oggi (o l'ultima data con dati da `panoramica`) e dillo all'utente.
 """
 
 

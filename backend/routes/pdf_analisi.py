@@ -11,6 +11,7 @@ from routes.analisi import (EXCLUDED_CLIENTS, analisi_acquisti, analisi_vendite_
                             esclusi_filter, resolve_period)
 from routes.pdf_helper import (C_AMBER, C_BLUE, C_EMERALD, C_NAVY, C_RED, C_SLATE, C_VIOLET,
                                FONT, FlowPDF, clean_text, eur, it_num)
+from routes.ai_insight import blocco_considerazioni_ai
 from routes.pdf_sections import (blocco_confronto, blocco_prezzi_aumento,
                                  blocco_sintesi, concentrazione, kpi_acquisti, kpi_vendite,
                                  periodi_anno_su_anno, prezzi_in_aumento, righe_confronto_acquisti,
@@ -194,10 +195,7 @@ async def export_rendiconto(
             ['Prodotto', 'Acquisto', 'Fornitore', 'Prz. acq.', 'Qta scar.', 'Ricavo', 'Margine', 'Marg. %', 'Esaurito'],
             [44, 16, 38, 17, 17, 20, 18, 14, 16], lrows,
             aligns=['L', 'C', 'L', 'R', 'R', 'R', 'R', 'R', 'C'], col_colors={7: _margin_color})
-        pdf.note_text("Ogni scarico e' collegato al lotto di acquisto effettivamente consumato (metodo FIFO: primo "
-                      "entrato, primo uscito). La colonna 'Esaurito' indica la data in cui il lotto e' finito e le "
-                      "vendite sono passate al lotto successivo. (*) prezzo di acquisto stimato: la riga di acquisto "
-                      "originale non riportava il prezzo.")
+        pdf.note_text("Costi da lotti FIFO. 'Esaurito' = data in cui il lotto e' finito. (*) prezzo stimato.")
 
         # ── Clienti ──
         pdf.section_title("Venduto per cliente", C_VIOLET)
@@ -267,6 +265,21 @@ async def export_rendiconto(
         pdf.set_font(FONT, 'B', 10)
         pdf.set_text_color(*C_VIOLET)
         pdf.cell(0, 7, clean_text(f"PROVVIGIONE DOVUTA: € {_eur(provvigione)}"), ln=True)
+
+        top_p = sorted(prodotti.items(), key=lambda x: -x[1]['fatt'])[:8]
+        top_c = sorted(clienti.items(), key=lambda x: -x[1]['fatt'])[:8]
+        ctx = (f"Rendiconto vendite {periodo_label}. Fatturato € {_eur(tot_fatt)}, costo merce (FIFO) "
+               f"€ {_eur(tot_costo)}, margine € {_eur(margine)} ({margine_pct:.1f}% sul costo), "
+               f"{len(prodotti)} prodotti, {len(clienti)} clienti, {len(righe)} scarichi.\n"
+               "Top prodotti (fatturato, margine%): "
+               + "; ".join(f"{n} € {_eur(d['fatt'])} "
+                           f"{((d['fatt'] - d['costo']) / d['costo'] * 100) if d['costo'] > 0 else 0:.0f}%"
+                           for n, d in top_p) + "\n"
+               "Top clienti (fatturato, margine%): "
+               + "; ".join(f"{n} € {_eur(d['fatt'])} "
+                           f"{((d['fatt'] - d['costo']) / d['costo'] * 100) if d['costo'] > 0 else 0:.0f}%"
+                           for n, d in top_c))
+        await blocco_considerazioni_ai(pdf, ctx, f"rendiconto-{start}-{end}")
 
         out = pdf.output()
         fname = f"rendiconto_{start}_{end}.pdf"
@@ -413,9 +426,7 @@ async def export_rendiconto_acquisti(
         pdf.smart_table(['Fornitore', 'Lotti', 'Qta acq.', 'Prz. acq.', 'Qta vend.', 'Prz. vend.', 'Ricavo', 'Margine', 'Marg. %'],
                         [62, 11, 17, 17, 17, 17, 20, 18, 11], frows,
                         aligns=['L', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], col_colors={8: _margin_color})
-        pdf.note_text("Prz. acq. = spesa / quantita acquistata nel periodo. Prz. vend. = ricavo / quantita venduta "
-                      "dei lotti. Il ricavo e il margine si riferiscono a tutto il venduto di quei lotti, anche se "
-                      "avvenuto dopo la fine del periodo.")
+        pdf.note_text("Prz. acq. = spesa/qta acquistata. Prz. vend. = ricavo/qta venduta dei lotti.")
 
         pdf.section_title("Lotti acquistati (ordinati per margine %)", C_BLUE)
         l_sorted = sorted(lotti, key=lambda lot: -(lot['margine_pct'] if lot.get('margine_pct') is not None else -9999))
@@ -436,9 +447,7 @@ async def export_rendiconto_acquisti(
             ['Prodotto', 'Acquisto', 'Fornitore', 'Qta', 'Prz. acq.', 'Qta vend.', 'Prz. vend.', 'Marg. %', 'Esaurito', 'Giorni'],
             [42, 15, 32, 14, 17, 15, 17, 14, 15, 12], lrows,
             aligns=['L', 'C', 'L', 'R', 'R', 'R', 'R', 'R', 'C', 'R'], col_colors={7: _margin_color})
-        pdf.note_text("Ogni lotto e' una riga di acquisto; le quantita' vendute e il ricavo derivano dal collegamento "
-                      "FIFO con le vendite. 'Giorni' = tempo di smaltimento dall'acquisto all'esaurimento. "
-                      "(*) prezzo di acquisto stimato perche' assente nella riga originale.")
+        pdf.note_text("Ogni lotto e' una riga di acquisto. 'Giorni' = tempo di smaltimento. (*) prezzo stimato.")
 
         pdf.ensure_space(40)
         pdf.section_title("Riepilogo finale", C_EMERALD)
@@ -458,6 +467,15 @@ async def export_rendiconto_acquisti(
         pdf.set_font(FONT, 'B', 10)
         pdf.set_text_color(*C_VIOLET)
         pdf.cell(0, 7, clean_text(f"PROVVIGIONE DOVUTA: € {_eur(provvigione)}"), ln=True)
+
+        ctx = (f"Rendiconto acquisti {periodo_label}. Spesa € {_eur(tot_spesa)} su {it_num(tot_qty, 0)} pezzi e "
+               f"{len(lotti)} lotti, {len(fornitori)} fornitori; {esauriti} lotti esauriti, margine generato "
+               f"€ {_eur(margine)} ({margine_pct:.1f}% sul costo), giacenza residua € {_eur(tot_residuo)}.\n"
+               "Fornitori (spesa, margine del venduto): "
+               + "; ".join(f"{n} € {_eur(d['spesa'])} "
+                           f"{((d['ricavo'] - d['costo_venduto']) / d['costo_venduto'] * 100) if d['costo_venduto'] > 0 else 0:.0f}%"
+                           for n, d in sorted(fornitori.items(), key=lambda x: -x[1]['spesa'])[:8]))
+        await blocco_considerazioni_ai(pdf, ctx, f"rendiconto-acquisti-{start}-{end}")
 
         out = pdf.output()
         return Response(bytes(out), media_type="application/pdf",
@@ -559,9 +577,7 @@ async def export_analisi_pdf(
             pdf.smart_table(['Prodotto', 'Spesa acq.', 'Qta acq.', 'Prz. acq.', 'Prz. vendita', 'Qta vend.', 'Marg. %', 'Forn.'],
                             [64, 24, 19, 19, 22, 19, 13, 10], prows,
                             aligns=['L', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], col_colors={6: _margin_color})
-            pdf.note_text("Prz. acq. = spesa / quantita acquistata (media ponderata del periodo). Prz. vendita = "
-                          "fatturato / quantita venduta dello stesso prodotto nel periodo. Margine calcolato sul "
-                          "costo reale dei lotti venduti (FIFO).")
+            pdf.note_text("Prezzi medi ponderati del periodo; margine sul costo reale dei lotti (FIFO).")
 
             if data['trend']:
                 pdf.section_title("Spesa mensile", C_VIOLET)
@@ -569,6 +585,16 @@ async def export_analisi_pdf(
                                 [[t['mese'], eur(t['spesa'])] for t in data['trend']],
                                 aligns=['L', 'R'])
 
+            top_f = data['fornitori'][:8]
+            ctx = (f"Analisi acquisti fornitori {_dm(per['start'])}-{_dm(per['end'])}. "
+                   f"{len(data['fornitori'])} fornitori, {len(data['prodotti'])} prodotti.\n"
+                   "Fornitori (spesa, prezzo medio, margine%): "
+                   + "; ".join(f"{f['fornitore']} € {_eur(f['spesa'])} prz {_eur(f['prezzo_medio'])} "
+                               f"{(f.get('margine_pct') or 0):.0f}%" for f in top_f) + "\n"
+                   + ("Prezzi in aumento: " + "; ".join(
+                       f"{x['prodotto']} da {_eur(x['prezzo_vecchio'])} a {_eur(x['prezzo_nuovo'])} "
+                       f"({x['var_pct']:+.0f}%)" for x in prezzi_su[:8]) if prezzi_su else ""))
+            await blocco_considerazioni_ai(pdf, ctx, f"analisi-acquisti-{per['start']}-{per['end']}")
             fname = f"analisi_acquisti_{per['start']}_{per['end']}.pdf"
         else:
             data = await analisi_vendite_prodotti(start_date, end_date, prodotto, 500)
@@ -578,30 +604,24 @@ async def export_analisi_pdf(
                           f"Periodo: {_dm(per['start'])} - {_dm(per['end'])}  |  Margini da lotti FIFO")
             pdf.add_page()
             pdf.kpi_row([
-                ("FATTURATO", eur(k['fatturato']), C_BLUE, f"prec. € {_eur(k['fatturato_prec'])}"),
-                ("VARIAZIONE", f"{k['var_pct']:+.1f}%" if k['var_pct'] is not None else "-",
-                 C_EMERALD if (k['var_pct'] or 0) >= 0 else C_RED,
-                 f"vs {_dm(per['prev_start'])}-{_dm(per['prev_end'])}"),
+                ("FATTURATO", eur(k['fatturato']), C_BLUE, f"{it_num(k['quantita'], 0)} pezzi"),
                 ("MARGINE MEDIO", f"{k['margine_medio_pct']:.1f}%" if k['margine_medio_pct'] is not None else "-",
-                 C_EMERALD, "costo reale lotti"),
-                ("PROFITTO STIMATO", eur(k['profitto_stimato']), C_VIOLET,
-                 f"{k['n_prodotti']} prodotti"),
+                 C_EMERALD, "costo reale lotti (FIFO)"),
+                ("PROFITTO", eur(k['profitto_stimato']), C_VIOLET, f"{k['n_prodotti']} prodotti"),
+                ("PREZZO MEDIO", eur(k['fatturato'] / k['quantita']) if k.get('quantita') else '-',
+                 C_AMBER, "per pezzo venduto"),
             ])
 
-            excl_v = await esclusi_filter()
-            p0, p1 = periodi_anno_su_anno(per['start'], per['end'])
-            a0 = await kpi_vendite(excl_v, *p0)
-            a1 = await kpi_vendite(excl_v, *p1)
-            tot_v = {"fatturato": k['fatturato'], "quantita": k['quantita'],
-                     "costo": (k['fatturato'] - (k['profitto_stimato'] or 0)),
-                     "margine": k['profitto_stimato'] or 0, "margine_pct": k['margine_medio_pct'],
-                     "righe": sum(p['righe'] for p in data['prodotti']),
-                     "n_prodotti": k['n_prodotti'],
-                     "n_clienti": max((p['n_clienti'] for p in data['prodotti']), default=0)}
-            blocco_sintesi(pdf, testo_sintesi_vendite(
-                f"{_dm(per['start'])} - {_dm(per['end'])}", tot_v, a0, a1,
-                concentrazione([p['fatturato'] for p in data['prodotti']])))
-            blocco_confronto(pdf, righe_confronto_vendite(a0, a1))
+            n80, ntot, top5 = concentrazione([p['fatturato'] for p in data['prodotti']])
+            righe_tot = sum(p['righe'] for p in data['prodotti'])
+            sintesi = (f"{it_eur(k['fatturato'])} di venduto su {it_num(k['quantita'], 0)} pezzi, "
+                       f"{righe_tot} righe e {k['n_prodotti']} prodotti. "
+                       f"Margine {it_eur(k['profitto_stimato'])}"
+                       + (f" ({k['margine_medio_pct']:.1f}% sul costo dei lotti FIFO). "
+                          if k['margine_medio_pct'] is not None else ". ")
+                       + (f"I primi 5 prodotti valgono il {top5:.0f}% del fatturato, "
+                          f"{n80} su {ntot} ne coprono l'80%." if ntot else ""))
+            blocco_sintesi(pdf, sintesi)
 
             pdf.section_title("Vendite per prodotto (ordinate per margine %)", C_BLUE, top_gap=2)
             prodotti_ord = sorted(data['prodotti'],
@@ -609,14 +629,24 @@ async def export_analisi_pdf(
             rows = [[_short(p['prodotto'], 44), f"{it_num(p['quantita'], 0)}", _eur(p['prezzo_medio']),
                      _eur(p['costo_unitario']) if p['costo_unitario'] else '-',
                      _eur(p['fatturato']),
-                     f"{p['margine_pct']:.1f}%" if p['margine_pct'] is not None else '-',
-                     f"{p['var_fatturato_pct']:+.1f}%" if p['var_fatturato_pct'] is not None else '-']
+                     f"{p['margine_pct']:.1f}%" if p['margine_pct'] is not None else '-']
                     for p in prodotti_ord[:limit]]
-            pdf.smart_table(['Prodotto', 'Qta', 'Prz. vendita', 'Costo/u', 'Fatturato', 'Marg. %', 'Var. %'],
-                            [66, 16, 24, 22, 28, 18, 16], rows,
-                            aligns=['L', 'R', 'R', 'R', 'R', 'R', 'R'], col_colors={5: _margin_color})
-            pdf.note_text("Il costo unitario e' il costo reale del lotto di acquisto consumato dalle vendite del "
-                          "periodo (metodo FIFO). Margine = (fatturato - costo lotti) / costo lotti * 100.")
+            pdf.smart_table(['Prodotto', 'Qta', 'Prz. vendita', 'Costo/u', 'Fatturato', 'Marg. %'],
+                            [72, 18, 26, 24, 30, 20], rows,
+                            aligns=['L', 'R', 'R', 'R', 'R', 'R'], col_colors={5: _margin_color})
+            top = prodotti_ord[:10]
+            ctx = (f"Analisi vendite per prodotto {_dm(per['start'])}-{_dm(per['end'])}. "
+                   f"Fatturato € {_eur(k['fatturato'])}, {it_num(k['quantita'], 0)} pezzi, margine medio "
+                   f"{k['margine_medio_pct']:.1f}% sul costo lotti, profitto € {_eur(k['profitto_stimato'])}, "
+                   f"{k['n_prodotti']} prodotti; i primi 5 valgono il {top5:.0f}% del fatturato.\n"
+                   "Prodotti a margine piu' alto: "
+                   + "; ".join(f"{p['prodotto']} € {_eur(p['fatturato'])} "
+                               f"{(p['margine_pct'] or 0):.0f}% prezzo {_eur(p['prezzo_medio'])}"
+                               for p in top) + "\n"
+                   "Prodotti a margine piu' basso: "
+                   + "; ".join(f"{p['prodotto']} € {_eur(p['fatturato'])} {(p['margine_pct'] or 0):.0f}%"
+                               for p in prodotti_ord[-8:]))
+            await blocco_considerazioni_ai(pdf, ctx, f"analisi-vendite-{per['start']}-{per['end']}")
             fname = f"analisi_vendite_{per['start']}_{per['end']}.pdf"
 
         out = pdf.output()
@@ -738,8 +768,12 @@ async def export_listino(
             [col_label, 'Qta', 'Prz. medio', 'Ultimo prz.', 'Costo/u', 'Fatturato', 'Marg. %', 'Ultima vendita'],
             [66, 15, 20, 20, 19, 24, 14, 22], table_rows,
             aligns=['L', 'R', 'R', 'R', 'R', 'R', 'R', 'C'], col_colors={6: _margin_color})
-        pdf.note_text("Prezzo medio = fatturato / quantita del periodo (media ponderata). Costo/u = costo reale del "
-                      "lotto di acquisto consumato (FIFO). Margine = (fatturato - costo lotti) / costo lotti * 100.")
+        pdf.note_text("Prezzo medio ponderato del periodo, costo/u dai lotti FIFO.")
+
+        ctx = (f"Listino {cliente or prodotto} periodo {_dm(start)}-{_dm(end)}. "
+               f"{len(table_rows)} voci.\nRighe (voce, qta, prezzo medio, costo/u, fatturato, margine%): "
+               + "; ".join(" ".join(str(c) for c in r[:7]) for r in table_rows[:15]))
+        await blocco_considerazioni_ai(pdf, ctx, f"listino-{cliente or prodotto}-{start}-{end}")
 
         out = pdf.output()
         base = (cliente or prodotto or 'listino').replace(' ', '_')[:30]

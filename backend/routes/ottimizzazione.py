@@ -712,6 +712,15 @@ async def export_ottimizzazione_pdf(
                  ['R'] * (len(cols) - 2)
         pdf.smart_table(cols, widths, rows, aligns=aligns)
 
+    from routes.ai_insight import blocco_considerazioni_ai
+    righe_ctx = []
+    for titolo_s, _c, cols, _w, rows in sezioni:
+        if rows:
+            righe_ctx.append(f"{titolo_s}: " + " | ".join(
+                " ".join(str(c) for c in r) for r in rows[:6]))
+    ctx = (f"Ottimizzazione {tipo} periodo {per['start']} - {per['end']}.\n" + "\n".join(righe_ctx[:8]))
+    await blocco_considerazioni_ai(pdf, ctx, f"ottimizzazione-{tipo}-{per['start']}-{per['end']}")
+
     out = pdf.output()
     fname = f"ottimizzazione_{tipo}_{per['start']}_{per['end']}.pdf"
     return Response(bytes(out), media_type="application/pdf",

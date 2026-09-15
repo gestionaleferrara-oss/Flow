@@ -221,11 +221,18 @@ class FlowPDF(FPDF):
 
         def draw_header():
             y = self.get_y()
-            self.set_font(FONT, 'B', 7)
             self.set_text_color(*C_SLATE)
             self.set_x(ML)
             for col, w, a in zip(cols, widths, aligns):
-                self.cell(w, 6, clean_text(col).upper(), border=0, align=a)
+                txt = clean_text(col).upper()
+                size = 7
+                self.set_font(FONT, 'B', size)
+                while txt and self.get_string_width(txt) > w - 2 and size > 5.2:
+                    size -= 0.3
+                    self.set_font(FONT, 'B', size)
+                while txt and self.get_string_width(txt) > w - 2:
+                    txt = txt[:-2]
+                self.cell(w, 6, txt, border=0, align=a)
             self.ln(6)
             self.set_fill_color(*C_NAVY)
             self.rect(ML, y + 6, CONTENT_W, 0.45, 'F')

@@ -5,13 +5,15 @@ import {
 } from 'recharts';
 import {
   Package, Truck, ArrowUpRight, ArrowDownRight, X, ChevronUp, ChevronDown,
-  Search, Euro, Percent, TrendingDown, Scale, FileDown, FileText, Sparkles,
+  Search, Euro, Percent, TrendingDown, Scale, FileDown, FileText,
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
+import { SchedaProdotto } from '@/components/SchedaProdotto';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { LottiPanel } from '@/components/LottiPanel';
+import { toast } from 'sonner';
 import { formatCurrency, cn } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -198,7 +200,7 @@ function VenditeProdotti({ range, setPreset, preset, setRange }) {
               data-testid="analisi-vendite-search"
             />
           </div>
-          <ExportBar range={range} tipo="vendite" filtri={{ prodotto: search }} />
+          <ExportBar range={range} tipo="vendite" filtri={{ prodotto: search }} periodo={data?.periodo} />
         </div>
       </PeriodBar>
 
@@ -279,8 +281,10 @@ function VenditeProdotti({ range, setPreset, preset, setRange }) {
                   variant="outline" size="sm"
                   onClick={() => {
                     const p = new URLSearchParams({ prodotto: detail.nome });
-                    if (range[0]) p.append('start_date', range[0]);
-                    if (range[1]) p.append('end_date', range[1]);
+                    const s0 = range[0] || data?.periodo?.start;
+                    const e0 = range[1] || data?.periodo?.end;
+                    if (s0) p.append('start_date', s0);
+                    if (e0) p.append('end_date', e0);
                     window.open(`${API}/analisi/export/listino?${p}`, '_blank');
                   }}
                   data-testid="export-listino-prodotto"
@@ -354,7 +358,6 @@ function AcquistiFornitori({ range, setRange, preset, setPreset }) {
   const [sortF, setSortF] = useState({ field: 'spesa', dir: 'desc' });
   const [sortP, setSortP] = useState({ field: 'spesa', dir: 'desc' });
   const [confronto, setConfronto] = useState(null);
-  const [confrontoLoading, setConfrontoLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -371,16 +374,7 @@ function AcquistiFornitori({ range, setRange, preset, setPreset }) {
 
   useEffect(() => { const t = setTimeout(load, 300); return () => clearTimeout(t); }, [load]);
 
-  const openConfronto = async (nome) => {
-    setConfrontoLoading(true);
-    setConfronto({ prodotto: nome });
-    try {
-      const r = await axios.get(`${API}/analisi/confronto-fornitori`, {
-        params: { prodotto: nome, start_date: range[0] || undefined, end_date: range[1] || undefined },
-      });
-      setConfronto(r.data);
-    } catch (e) { console.error(e); } finally { setConfrontoLoading(false); }
-  };
+  const openConfronto = (nome) => setConfronto({ prodotto: nome });
 
   const sortRows = (rows, sort) => [...rows].sort((a, b) => {
     const va = a[sort.field], vb = b[sort.field];
@@ -400,7 +394,7 @@ function AcquistiFornitori({ range, setRange, preset, setPreset }) {
               <X className="w-4 h-4" />
             </Button>
           )}
-          <ExportBar range={range} tipo="acquisti" filtri={{ fornitore, prodotto }} />
+          <ExportBar range={range} tipo="acquisti" filtri={{ fornitore, prodotto }} periodo={data?.periodo} />
         </div>
       </PeriodBar>
 
@@ -527,33 +521,7 @@ function AcquistiFornitori({ range, setRange, preset, setPreset }) {
       )}
 
       {confronto && (
-        <DetailDrawer title={`Confronto fornitori — ${confronto.prodotto}`} onClose={() => setConfronto(null)} testid="confronto-fornitori-drawer">
-          {confrontoLoading || !confronto.fornitori ? <LoadingSpinner /> : (
-            <div className="space-y-5">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <Kpi label="Prezzo vendita medio" value={`€${confronto.prezzo_vendita_medio.toFixed(2)}`} accent="emerald" />
-                <Kpi label="Fornitori nel periodo" value={confronto.fornitori.length} accent="cyan" />
-                {confronto.confronto && (
-                  <Kpi label="Risparmio potenziale" value={formatCurrency(confronto.confronto.risparmio_potenziale)} accent="amber"
-                    sub={`comprando tutto da ${confronto.confronto.migliore}`} />
-                )}
-              </div>
-              <MiniTable
-                title="Prezzi per fornitore (dal più conveniente)"
-                cols={['Fornitore', 'Prezzo medio', 'Ultimo prezzo', 'Qtà', 'Spesa', 'Ultimo acquisto']}
-                rows={confronto.fornitori.map((f) => [
-                  f.fornitore, `€${f.prezzo_medio.toFixed(2)}`, `€${f.ultimo_prezzo.toFixed(2)}`,
-                  f.quantita.toLocaleString('it-IT'), formatCurrency(f.spesa), f.ultima_data,
-                ])}
-                testid="confronto-fornitori-table"
-              />
-              {confronto.fornitori.length === 0 && (
-                <p className="text-sm text-slate-500">Nessun acquisto di questo prodotto nel periodo selezionato.</p>
-              )}
-              <LottiPanel prodotto={confronto.prodotto} titolo="Lotti di acquisto del prodotto (FIFO)" />
-            </div>
-          )}
-        </DetailDrawer>
+        <SchedaProdotto prodotto={confronto.prodotto} onClose={() => setConfronto(null)} />
       )}
     </div>
   );
@@ -561,7 +529,7 @@ function AcquistiFornitori({ range, setRange, preset, setPreset }) {
 
 // ───────────────────────── SHARED UI ─────────────────────────
 
-function ExportBar({ range, tipo, filtri = {} }) {
+function ExportBar({ range, tipo, filtri = {}, periodo }) {
   const [pct, setPct] = useState(() => localStorage.getItem('flow_provvigione') || '3');
   const [dettaglio, setDettaglio] = useState(false);
   const [clienteListino, setClienteListino] = useState('');
@@ -570,14 +538,33 @@ function ExportBar({ range, tipo, filtri = {} }) {
 
   const qs = (extra = {}, useFiltri = true) => {
     const p = new URLSearchParams();
-    if (range[0]) p.append('start_date', range[0]);
-    if (range[1]) p.append('end_date', range[1]);
+    const s0 = range[0] || periodo?.start;
+    const e0 = range[1] || periodo?.end;
+    if (s0) p.append('start_date', s0);
+    if (e0) p.append('end_date', e0);
     if (useFiltri) Object.entries(filtri).forEach(([k, v]) => { if (v) p.append(k, v); });
     Object.entries(extra).forEach(([k, v]) => p.append(k, v));
     return p.toString();
   };
 
   const scarica = (path, extra, useFiltri = true) => window.open(`${API}${path}?${qs(extra, useFiltri)}`, '_blank');
+
+  // il testo digitato puo' essere parziale: risolve il nome esatto prima di generare il listino
+  const scaricaListino = async (campo, valore, extra = {}) => {
+    let nome = valore;
+    try {
+      const r = await axios.get(`${API}/analisi/opzioni`, {
+        params: { q: valore, tipo: campo === 'cliente' ? 'clienti' : 'prodotti', limit: 5 },
+      });
+      const nomi = r.data.nomi || [];
+      nome = nomi.find((n) => n.toLowerCase() === valore.toLowerCase()) || nomi[0] || valore;
+      if (!nomi.length) {
+        toast.error(`Nessun ${campo} trovato per "${valore}"`);
+        return;
+      }
+    } catch (e) { /* si prova con il testo digitato */ }
+    scarica('/analisi/export/listino', { [campo]: nome, ...extra }, false);
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -627,7 +614,7 @@ function ExportBar({ range, tipo, filtri = {} }) {
             <Button
               variant="outline" size="sm"
               disabled={!clienteListino}
-              onClick={() => scarica('/analisi/export/listino', { cliente: clienteListino, ordina: 'quantita' }, false)}
+              onClick={() => scaricaListino('cliente', clienteListino, { ordina: 'quantita' })}
               data-testid="export-listino-cliente"
             >
               <FileDown className="w-4 h-4 mr-1" /> Listino
@@ -653,9 +640,8 @@ function ExportBar({ range, tipo, filtri = {} }) {
             <Button
               variant="outline" size="sm"
               disabled={!prodottoListino}
-              onClick={() => scarica('/analisi/export/listino', {
-                prodotto: prodottoListino, ordina: ordinaMargine ? 'margine' : 'quantita',
-              }, false)}
+              onClick={() => scaricaListino('prodotto', prodottoListino,
+                { ordina: ordinaMargine ? 'margine' : 'quantita' })}
               data-testid="export-listino-prodotto-bar"
             >
               <FileDown className="w-4 h-4 mr-1" /> Listino
@@ -774,116 +760,12 @@ function DetailDrawer({ title, children, onClose, testid }) {
   );
 }
 
-// ───────────────────────── PREVISIONE PRODOTTO ─────────────────────────
-
-const GG_PREV = [30, 60, 90];
-
-function PrevisioneProdotto({ onClose }) {
-  const [prodotto, setProdotto] = useState('');
-  const [giorni, setGiorni] = useState(30);
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!prodotto || prodotto.length < 3) { setData(null); return; }
-    let vivo = true;
-    const t = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const r = await axios.get(`${API}/analisi/previsione-prodotto`, { params: { prodotto, giorni } });
-        if (vivo) setData(r.data);
-      } catch (e) { if (vivo) setData(null); } finally { if (vivo) setLoading(false); }
-    }, 350);
-    return () => { vivo = false; clearTimeout(t); };
-  }, [prodotto, giorni]);
-
-  const k = data?.kpi;
-  const per = data?.periodo;
-  const dmy = (s) => (s ? s.split('-').reverse().join('/') : '—');
-
-  return (
-    <DetailDrawer title="Previsione prodotto" onClose={onClose} testid="previsione-prodotto-drawer">
-      <div className="space-y-5">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[260px]">
-            <label className="block text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">Prodotto</label>
-            <Autocomplete placeholder="Cerca un prodotto…" value={prodotto} onChange={setProdotto}
-              tipo="prodotto" testid="previsione-prodotto-input" />
-          </div>
-          <div className="flex items-center gap-1.5">
-            {GG_PREV.map((g) => (
-              <button key={g} onClick={() => setGiorni(g)} data-testid={`previsione-giorni-${g}`}
-                className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-                  giorni === g ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300'
-                    : 'bg-white/[0.02] border-white/[0.07] text-slate-400 hover:text-slate-200')}>
-                {g} gg
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {!prodotto && (
-          <p className="text-sm text-slate-500" data-testid="previsione-empty">
-            Scegli un prodotto: la previsione usa il venduto reale dello stesso intervallo dell'anno scorso.
-          </p>
-        )}
-
-        {loading && <LoadingSpinner />}
-
-        {data && !loading && (
-          <>
-            <p className="text-xs text-slate-400" data-testid="previsione-periodi">
-              Previsione dal <span className="text-slate-200">{dmy(per.futuro_start)}</span> al{' '}
-              <span className="text-slate-200">{dmy(per.futuro_end)}</span>, calcolata sul venduto dal{' '}
-              {dmy(per.storico_start)} al {dmy(per.storico_end)} (anno scorso)
-            </p>
-
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { l: 'Quantità attesa', v: `${(k.quantita_attesa || 0).toLocaleString('it-IT')} pz`, c: 'text-cyan-300' },
-                { l: 'Fatturato atteso', v: formatCurrency(k.fatturato_atteso), c: 'text-white' },
-                { l: 'Margine previsto', v: k.margine_atteso !== null ? `${formatCurrency(k.margine_atteso)} (${k.margine_pct}%)` : '—', c: 'text-violet-300' },
-                { l: 'Clienti attesi', v: `${k.clienti_attesi}`, c: 'text-emerald-300' },
-                { l: 'Giacenza attuale', v: `${(k.giacenza || 0).toLocaleString('it-IT')} pz`, c: 'text-slate-200' },
-                { l: 'Da ordinare', v: `${(k.da_ordinare || 0).toLocaleString('it-IT')} pz`, c: k.da_ordinare > 0 ? 'text-amber-300' : 'text-slate-500' },
-                { l: 'Copertura', v: k.copertura_giorni !== null ? `${k.copertura_giorni} gg` : '—', c: 'text-slate-200' },
-                { l: 'Fornitore', v: k.fornitore_consigliato ? `${k.fornitore_consigliato.slice(0, 18)} · €${(k.prezzo_acquisto || 0).toFixed(2)}` : '—', c: 'text-slate-300' },
-              ].map((x) => (
-                <div key={x.l} className="rounded-xl border border-white/[0.07] bg-black/20 p-3">
-                  <div className="text-[11px] uppercase tracking-wider text-slate-500">{x.l}</div>
-                  <div className={cn('text-sm font-bold tabular-nums mt-1 truncate', x.c)}>{x.v}</div>
-                </div>
-              ))}
-            </div>
-
-            <MiniTable
-              title={`Clienti che lo compreranno (${data.clienti.length})`}
-              cols={['Cliente', 'Qtà attesa', 'Prezzo medio', 'Fatturato', 'Margine', 'Già ordinato', 'Ultimo acq.']}
-              rows={data.clienti.map((c) => [
-                c.cliente,
-                (c.quantita_attesa || 0).toLocaleString('it-IT'),
-                c.prezzo_medio ? `€${c.prezzo_medio.toFixed(2)}` : '—',
-                formatCurrency(c.fatturato_atteso),
-                c.margine_pct !== null ? `${c.margine_pct}%` : '—',
-                c.gia_ordinato > 0 ? `${c.gia_ordinato.toLocaleString('it-IT')} pz` : '—',
-                dmy(c.ultimo_acquisto),
-              ])}
-              testid="previsione-clienti-table"
-            />
-          </>
-        )}
-      </div>
-    </DetailDrawer>
-  );
-}
-
 // ───────────────────────── PAGE ─────────────────────────
 
 export default function Analisi() {
   const [tab, setTab] = useState('vendite');
   const [preset, setPreset] = useState('auto');
   const [range, setRange] = useState(presetRange('auto'));
-  const [previsione, setPrevisione] = useState(false);
 
   return (
     <PageWrapper>
@@ -907,17 +789,11 @@ export default function Analisi() {
           ))}
         </div>
 
-        <button onClick={() => setPrevisione(true)} data-testid="apri-previsione-prodotto"
-          className="ml-auto inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-300 transition-colors border-b border-dashed border-white/15 hover:border-cyan-400/40 pb-0.5">
-          <Sparkles className="w-3.5 h-3.5" /> Previsione su un prodotto
-        </button>
       </div>
 
       {tab === 'vendite'
         ? <VenditeProdotti range={range} setRange={setRange} preset={preset} setPreset={setPreset} />
         : <AcquistiFornitori range={range} setRange={setRange} preset={preset} setPreset={setPreset} />}
-
-      {previsione && <PrevisioneProdotto onClose={() => setPrevisione(false)} />}
     </PageWrapper>
   );
 }

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from statistics import median
 from typing import Dict, List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from database import db
 from routes.analisi import EXCLUDED_CLIENTS, esclusi_filter
@@ -90,6 +90,31 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
     giacenze = {p['nome']: (p.get('quantita', 0) or 0) for p in
                 await db.prodotti.find({}, {"_id": 0, "nome": 1, "quantita": 1}).to_list(20000)}
 
+    venduto_anno = {r['_id']: r['qty'] for r in await db.vendite.aggregate([
+        {"$match": {**base_v, "data": {"$gte": anno_start, "$lte": oggi}}},
+        {"$group": {"_id": "$prodotto_nome", "qty": {"$sum": {"$abs": "$quantita"}}}},
+    ]).to_list(20000) if r['_id']}
+
+    date_ordini = {r['_id']: sorted(r['date']) for r in await db.ordini.aggregate([
+        {"$match": {"data": {"$gte": anno_start, "$lte": oggi}, "quantita": {"$gt": 0}}},
+        {"$group": {"_id": "$prodotto_nome", "date": {"$addToSet": "$data"}}},
+    ]).to_list(20000) if r['_id']}
+
+    def _riordino(nome):
+        d = date_ordini.get(nome) or []
+        if len(d) < 2:
+            return None
+        da = datetime.strptime(d[0], "%Y-%m-%d")
+        a = datetime.strptime(d[-1], "%Y-%m-%d")
+        return round((a - da).days / (len(d) - 1))
+
+    def _rotazione(nome, giac):
+        venduto = venduto_anno.get(nome, 0)
+        if venduto <= 0:
+            return "bassa", None
+        mesi = giac / (venduto / 12)
+        return ("alta" if mesi < 1 else "media" if mesi <= 3 else "bassa"), round(mesi, 1)
+
     articoli: List[Dict] = []
     for nome, d in dom_map.items():
         dom = d['qty']
@@ -97,15 +122,26 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
         da_ordinare = max(dom - giac, 0)
         forns = acq_map.get(nome, {})
         prezzi = {f: v['prezzo'] for f, v in forns.items() if v['prezzo'] > 0}
-        best = min(prezzi, key=prezzi.get) if prezzi else None
+        # fornitore primario = quello da cui si acquista la quantita' maggiore
+        best = max(prezzi, key=lambda f: forns[f]['qty']) if prezzi else None
         p_best = prezzi[best] if best else None
         qty_tot = sum(v['qty'] for v in forns.values())
         p_medio = (sum(v['spesa'] for v in forns.values()) / qty_tot) if qty_tot else None
+        quota_best = (forns[best]['qty'] / qty_tot * 100) if (best and qty_tot) else None
         pv = pv_map.get(nome) or (d['fatt'] / dom if dom else 0)
         costo = p_best or p_medio or 0
         margine_pct = ((pv - costo) / costo * 100) if (costo and pv) else None
+        rotazione, rot_indice = _rotazione(nome, giac)
         articoli.append({
             "prodotto": nome,
+            "quota_fornitore_pct": round(quota_best, 1) if quota_best is not None else None,
+            "ruolo_fornitore": ("primario" if (quota_best or 0) >= 40 else
+                                "secondario" if (quota_best or 0) >= 10 else "occasionale")
+            if quota_best is not None else None,
+            "rotazione": rotazione,
+            "mesi_copertura": rot_indice,
+            "riordino_giorni": _riordino(nome),
+            "ordini_ultimo_anno": len(date_ordini.get(nome) or []),
             "fornitore": best or FORNITORE_IGNOTO,
             "fornitori_alternativi": len(prezzi),
             "domanda_prevista": round(dom, 1),
@@ -385,72 +421,233 @@ def _qt(v) -> str:
 
 @router.get("/ottimizzazione/piano/articolo")
 async def dettaglio_articolo(prodotto: str, giorni: int = 30, cliente: str = None):
-    """Vendite complessive per cliente su un articolo: finestra storica + ultimi 12 mesi."""
+    """Scheda approfondita del prodotto: confronto clienti anno su anno, andamento mensile,
+    fornitori con ruolo e prezzi, rotazione e riordino."""
     fs, fe, ly_fs, ly_fe, giorni = _finestra(giorni)
     base_v = await _base_vendite()
     oggi = _d(datetime.now())
     anno_start = _d(datetime.now() - timedelta(days=365))
+    rec_start = _d(datetime.now() - timedelta(days=giorni))
 
     async def per_cliente(s, e):
-        return await db.vendite.aggregate([
+        rows = await db.vendite.aggregate([
             {"$match": {**base_v, "prodotto_nome": prodotto, "data": {"$gte": s, "$lte": e}}},
             {"$group": {"_id": "$cliente_nome", "qty": {"$sum": {"$abs": "$quantita"}},
                         "fatt": {"$sum": {"$abs": "$totale"}},
                         "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
-                        "ordini": {"$sum": 1}, "ultimo": {"$max": "$data"}}},
-            {"$sort": {"fatt": -1}},
-        ]).to_list(2000)
+                        "ultimo": {"$max": "$data"}}},
+        ]).to_list(3000)
+        return {r['_id']: r for r in rows if r['_id']}
 
-    finestra = await per_cliente(ly_fs, ly_fe)
-    anno = await per_cliente(anno_start, oggi)
+    ly = await per_cliente(ly_fs, ly_fe)          # stessa finestra anno scorso
+    rec = await per_cliente(rec_start, oggi)      # ultimi N giorni
+    anno = await per_cliente(anno_start, oggi)    # ultimi 12 mesi
+
+    mesi = await db.vendite.aggregate([
+        {"$match": {**base_v, "prodotto_nome": prodotto, "data": {"$gte": anno_start, "$lte": oggi}}},
+        {"$group": {"_id": {"$substr": ["$data", 0, 7]}, "qty": {"$sum": {"$abs": "$quantita"}},
+                    "fatt": {"$sum": {"$abs": "$totale"}},
+                    "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
+                    "clienti": {"$addToSet": "$cliente_nome"}}},
+        {"$sort": {"_id": 1}},
+    ]).to_list(24)
 
     forn = await db.ordini.aggregate([
         {"$match": {"prodotto_nome": prodotto, "data": {"$gte": anno_start, "$lte": oggi},
                     "quantita": {"$gt": 0}, "totale": {"$gt": 0}}},
         {"$group": {"_id": "$fornitore_nome", "qty": {"$sum": "$quantita"}, "spesa": {"$sum": "$totale"},
-                    "ultima": {"$max": "$data"}}},
-        {"$sort": {"spesa": -1}},
-    ]).to_list(500)
+                    "ultima": {"$max": "$data"}, "date": {"$addToSet": "$data"}}},
+        {"$sort": {"qty": -1}},
+    ]).to_list(200)
+    qty_forn_tot = sum(f['qty'] for f in forn) or 1
+    tutte_date = sorted({d for f in forn for d in f['date']})
+    riordino = None
+    if len(tutte_date) >= 2:
+        riordino = round((datetime.strptime(tutte_date[-1], "%Y-%m-%d")
+                          - datetime.strptime(tutte_date[0], "%Y-%m-%d")).days / (len(tutte_date) - 1))
 
     prod = await db.prodotti.find_one({"nome": prodotto}, {"_id": 0, "quantita": 1})
     giac = (prod or {}).get('quantita', 0) or 0
-    qty_fin = sum(r['qty'] for r in finestra)
-    fatt_fin = sum(r['fatt'] for r in finestra)
-    qty_anno = sum(r['qty'] for r in anno)
+    qty_ly = sum(r['qty'] for r in ly.values())
+    fatt_ly = sum(r['fatt'] for r in ly.values())
+    qty_anno = sum(r['qty'] for r in anno.values())
+    qty_rec = sum(r['qty'] for r in rec.values())
+    costo_anno = sum(r['costo'] for r in anno.values())
+    fatt_anno = sum(r['fatt'] for r in anno.values())
+    mesi_cop = (giac / (qty_anno / 12)) if qty_anno else None
+    rotazione = "bassa" if not qty_anno else ("alta" if mesi_cop < 1 else "media" if mesi_cop <= 3 else "bassa")
 
     spiegazione = (
-        f"Nella stessa finestra dell'anno scorso ({ly_fs} → {ly_fe}) hai venduto {_qt(qty_fin)} pezzi di "
-        f"{prodotto} a {len(finestra)} clienti per {_eur(fatt_fin)}. Negli ultimi 12 mesi il totale e' "
-        f"{_qt(qty_anno)} pezzi su {len(anno)} clienti. Giacenza attuale: {_qt(giac)} pezzi, quindi la "
-        f"previsione per il periodo {fs} → {fe} e' di {_qt(max(qty_fin - giac, 0))} pezzi da ordinare."
+        f"Negli ultimi 12 mesi: {_qt(qty_anno)} pz a {len(anno)} clienti per {_eur(fatt_anno)}"
+        + (f", margine {_eur(fatt_anno - costo_anno)} "
+           f"({(fatt_anno - costo_anno) / costo_anno * 100:.1f}% sul costo lotti). " if costo_anno > 0 else ". ")
+        + f"Rotazione {rotazione}"
+        + (f" ({mesi_cop:.1f} mesi di copertura con {_qt(giac)} pz in giacenza)" if mesi_cop is not None else "")
+        + (f", riordinato in media ogni {riordino} giorni su {len(tutte_date)} ordini. " if riordino else ". ")
+        + f"Nella finestra {ly_fs} - {ly_fe} dell'anno scorso ne sono stati venduti {_qt(qty_ly)} pz "
+          f"({_eur(fatt_ly)}) a {len(ly)} clienti: e' la previsione per {fs} - {fe}. "
+        + f"Negli ultimi {giorni} giorni ne sono usciti {_qt(qty_rec)} pz."
     )
-    if cliente:
-        mio = next((r for r in anno if r['_id'] == cliente), None)
-        quota = (mio['fatt'] / sum(r['fatt'] for r in anno) * 100) if (mio and anno) else 0
-        spiegazione += (f" {cliente} pesa il {quota:.1f}% del fatturato dell'articolo negli ultimi 12 mesi."
-                        if mio else f" {cliente} non ha comprato questo articolo negli ultimi 12 mesi.")
 
-    def tab_clienti(rows, titolo, tot_fatt):
-        return {
-            "titolo": titolo,
-            "colonne": ["Cliente", "Qtà", "Fatturato", "Prezzo medio", "Margine", "% sul totale", "Ultimo acquisto"],
-            "righe": [[r['_id'], _qt(r['qty']), _eur(r['fatt']),
-                       _eur(r['fatt'] / r['qty']) if r['qty'] else "—",
-                       f"{(r['fatt'] - r['costo']) / r['costo'] * 100:.1f}%" if r['costo'] > 0 else "—",
-                       f"{(r['fatt'] / tot_fatt * 100):.1f}%" if tot_fatt else "—",
-                       r['ultimo']] for r in rows[:200]],
-        }
+    # ── clienti: confronto anno su anno ──
+    nomi = sorted(set(ly) | set(rec), key=lambda n: -(ly.get(n, {}).get('fatt', 0) + rec.get(n, {}).get('fatt', 0)))
+    righe_cli = []
+    for n in nomi[:150]:
+        a = ly.get(n, {})
+        b = rec.get(n, {})
+        qa, qb = a.get('qty', 0), b.get('qty', 0)
+        var = ((qb - qa) / qa * 100) if qa else (100.0 if qb else 0.0)
+        pa = (a['fatt'] / qa) if qa else None
+        pb = (b['fatt'] / qb) if qb else None
+        righe_cli.append([n, _qt(qa), _qt(qb), f"{var:+.0f}%",
+                          _eur(pa) if pa else "-", _eur(pb) if pb else "-",
+                          "fermo" if (qa and not qb) else ("nuovo" if (qb and not qa) else "attivo"),
+                          (anno.get(n, {}).get('ultimo')) or "-"])
 
-    tabelle = [
-        tab_clienti(finestra, f"Vendite per cliente — stessa finestra anno scorso ({ly_fs} → {ly_fe})", fatt_fin),
-        tab_clienti(anno, "Vendite per cliente — ultimi 12 mesi", sum(r['fatt'] for r in anno)),
-    ]
+    tabelle = [{
+        "titolo": f"Clienti: anno scorso ({ly_fs} - {ly_fe}) contro ultimi {giorni} giorni",
+        "colonne": ["Cliente", "Qtà anno scorso", f"Qtà ultimi {giorni} gg", "Var. %",
+                    "Prezzo allora", "Prezzo ora", "Stato", "Ultimo acquisto"],
+        "righe": righe_cli,
+    }, {
+        "titolo": "Andamento mensile (ultimi 12 mesi)",
+        "colonne": ["Mese", "Qtà", "Fatturato", "Prezzo medio", "Margine %", "Clienti"],
+        "righe": [[m['_id'], _qt(m['qty']), _eur(m['fatt']),
+                   _eur(m['fatt'] / m['qty']) if m['qty'] else "-",
+                   f"{(m['fatt'] - m['costo']) / m['costo'] * 100:.1f}%" if m['costo'] > 0 else "-",
+                   str(len(m.get('clienti') or []))] for m in mesi],
+    }]
     if forn:
         tabelle.append({
-            "titolo": "Acquisti per fornitore — ultimi 12 mesi",
-            "colonne": ["Fornitore", "Qtà", "Spesa", "Prezzo medio", "Ultimo acquisto"],
-            "righe": [[f['_id'], _qt(f['qty']), _eur(f['spesa']),
-                       _eur(f['spesa'] / f['qty']) if f['qty'] else "—", f['ultima']] for f in forn],
+            "titolo": "Fornitori: ruolo, prezzi e quantità acquistate (ultimi 12 mesi)",
+            "colonne": ["Fornitore", "Ruolo", "Qtà", "Quota", "Spesa", "Prezzo medio", "Ordini", "Ultimo acquisto"],
+            "righe": [[f['_id'],
+                       "primario" if f['qty'] / qty_forn_tot >= 0.4 else
+                       ("secondario" if f['qty'] / qty_forn_tot >= 0.1 else "occasionale"),
+                       _qt(f['qty']), f"{f['qty'] / qty_forn_tot * 100:.0f}%", _eur(f['spesa']),
+                       _eur(f['spesa'] / f['qty']) if f['qty'] else "-",
+                       str(len(f.get('date') or [])), f['ultima']] for f in forn],
         })
 
     return {"titolo": prodotto, "spiegazione": spiegazione, "tabelle": tabelle}
+
+
+# ─────────────────────────── PDF DEL PIANO ───────────────────────────
+@router.get("/ottimizzazione/piano/pdf")
+async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
+                    nome: str = None):
+    from fastapi.responses import Response
+    from routes.ai_insight import blocco_considerazioni_ai
+    from routes.pdf_helper import (C_AMBER, C_BLUE, C_EMERALD, C_NAVY, C_VIOLET,
+                                   FlowPDF, clean_text, eur, it_num)
+
+    d = await piano_azione(tipo=tipo, giorni=giorni, limit=200 if nome else limit)
+    chiave = 'fornitore' if tipo == 'acquisti' else 'cliente'
+    if nome:
+        d['ordini'] = [o for o in d['ordini'] if o[chiave] == nome]
+        if not d['ordini']:
+            raise HTTPException(status_code=404, detail="Nessun piano per questa scheda")
+        o = d['ordini'][0]
+        if tipo == 'acquisti':
+            d['totali'] = {
+                "fornitori": 1, "prodotti": len(o['articoli']),
+                "valore_ordini": o['valore'], "margine_previsto": o['margine_eur'],
+                "fatturato_atteso": o['fatturato_atteso'],
+            }
+        else:
+            d['totali'] = {
+                "clienti": 1, "valore_atteso": o['valore_atteso'],
+                "valore_mancante": o['valore_mancante'], "margine_previsto": o['margine_eur'],
+                "da_chiamare": 1 if o['azione'] in ("CHIAMA ORA", "CLIENTE FERMO") else 0,
+            }
+        d['suggerimenti'] = []
+    per, tot = d['periodo'], d['totali']
+    dm = lambda x: f"{x[8:10]}/{x[5:7]}/{x[2:4]}"  # noqa: E731
+    acquisti = d['tipo'] == 'acquisti'
+
+    titolo = ("PIANO DI ACQUISTO" if acquisti else "PIANO DI VENDITA") if not nome else \
+        (f"ORDINE FORNITORE - {nome}" if acquisti else f"PROPOSTA CLIENTE - {nome}")
+    pdf = FlowPDF(
+        titolo,
+        f"Previsione {per['giorni']} giorni: {dm(per['futuro_start'])} - {dm(per['futuro_end'])}  |  "
+        f"Base: {dm(per['storico_start'])} - {dm(per['storico_end'])} (anno precedente)")
+    pdf.add_page()
+
+    if acquisti:
+        qty_tot = sum(a['da_ordinare'] for o in d['ordini'] for a in o['articoli'])
+        pdf.kpi_row([
+            ("DA ORDINARE", f"{it_num(qty_tot, 0)} pz", C_BLUE, f"{tot['prodotti']} articoli"),
+            ("VALORE ORDINI", eur(tot['valore_ordini']), C_AMBER, f"{tot['fornitori']} fornitori"),
+            ("MARGINE PREVISTO", eur(tot['margine_previsto']), C_VIOLET,
+             f"su {eur(tot['fatturato_atteso'])} attesi"),
+            ("FATTURATO ATTESO", eur(tot['fatturato_atteso']), C_EMERALD, "stesso periodo anno prec."),
+        ])
+        for o in d['ordini']:
+            qty_forn = sum(a['da_ordinare'] for a in o['articoli'])
+            pdf.section_title(f"{o['fornitore']} — {it_num(qty_forn, 0)} pz · {eur(o['valore'])}", C_BLUE)
+            righe = [[clean_text(a['prodotto'])[:40], it_num(a['domanda_prevista'], 0),
+                      a['rotazione'], f"{a['riordino_giorni']} gg" if a['riordino_giorni'] else '/',
+                      it_num(a['da_ordinare'], 0),
+                      eur(a['prezzo_acquisto']) if a['prezzo_acquisto'] else '-',
+                      eur(a['prezzo_vendita_atteso']) if a['prezzo_vendita_atteso'] else '-',
+                      f"{a['margine_pct']}%" if a['margine_pct'] is not None else '-',
+                      eur(a['valore'])] for a in o['articoli'][:40]]
+            righe.append(['TOTALE ORDINE', '', '', '', it_num(qty_forn, 0), '', '',
+                          f"{o['margine_pct']}%" if o['margine_pct'] is not None else '-',
+                          eur(o['valore'])])
+            pdf.smart_table(['Articolo', 'Domanda prev. (pz)', 'Rotazione', 'Riordino ogni',
+                             'Da ordinare (pz)', 'Prezzo acq.', 'Prezzo vend.', 'Marg. %', 'Valore'],
+                            [48, 22, 17, 19, 21, 19, 19, 14, 21], righe,
+                            aligns=['L', 'R', 'C', 'R', 'R', 'R', 'R', 'R', 'R'])
+    else:
+        qty_tot = sum(a['quantita_attesa'] for o in d['ordini'] for a in o['articoli'])
+        pdf.kpi_row([
+            ("FATTURATO ATTESO", eur(tot['valore_atteso']), C_BLUE, f"{it_num(qty_tot, 0)} pz attesi"),
+            ("DA PROPORRE", eur(tot['valore_mancante']), C_AMBER, "non ancora riordinato"),
+            ("MARGINE PREVISTO", eur(tot['margine_previsto']), C_VIOLET, "sul costo lotti (FIFO)"),
+            ("CLIENTI DA SENTIRE", f"{tot['da_chiamare']} di {tot['clienti']}", C_EMERALD,
+             f"prossimi {per['giorni']} giorni"),
+        ])
+        for o in d['ordini']:
+            qty_cli = sum(a['quantita_attesa'] for a in o['articoli'])
+            pdf.section_title(f"{o['cliente']} — {o['azione']} · {eur(o['valore_atteso'])}", C_EMERALD)
+            righe = [[clean_text(a['prodotto'])[:44], it_num(a['quantita_attesa'], 0),
+                      eur(a['prezzo_atteso']) if a['prezzo_atteso'] else '-',
+                      eur(a['valore_atteso']),
+                      'gia ordinato' if a['gia_ordinato'] else 'da proporre']
+                     for a in o['articoli'][:40]]
+            righe.append(['TOTALE', it_num(qty_cli, 0), '', eur(o['valore_atteso']),
+                          f"{o['prodotti_mancanti']} da proporre"])
+            pdf.smart_table(['Articolo', 'Qta attesa (pz)', 'Prezzo atteso', 'Valore', 'Stato'],
+                            [76, 24, 26, 28, 26], righe,
+                            aligns=['L', 'R', 'R', 'R', 'R'])
+
+    if d.get('suggerimenti'):
+        pdf.section_title("Punti di attenzione", C_NAVY)
+        pdf.smart_table(['Area', 'Voce', 'Dettaglio', 'Valore'],
+                        [44, 52, 70, 24],
+                        [[s['titolo'], clean_text(v['nome'])[:40], clean_text(v['dettaglio'])[:60],
+                          eur(v['valore'])]
+                         for s in d['suggerimenti'] for v in s['voci'][:5]],
+                        aligns=['L', 'L', 'L', 'R'])
+
+    ctx_righe = []
+    for o in d['ordini'][:8]:
+        if acquisti:
+            ctx_righe.append(f"{o['fornitore']}: {o['prodotti_n']} articoli, € {o['valore']}, "
+                             f"margine {o['margine_pct']}%, articoli principali " +
+                             ", ".join(f"{a['prodotto']} {a['da_ordinare']} pz" for a in o['articoli'][:4]))
+        else:
+            ctx_righe.append(f"{o['cliente']}: {o['azione']}, atteso € {o['valore_atteso']}, "
+                             f"{o['prodotti_mancanti']} referenze da proporre su {o['prodotti_n']}, "
+                             f"ultimo ordine {o['ultimo_ordine']}")
+    ctx = (f"Piano {d['tipo']} per i prossimi {per['giorni']} giorni ({per['futuro_start']} - "
+           f"{per['futuro_end']}), previsione basata sul venduto dello stesso intervallo dell'anno precedente.\n"
+           f"Totali: {tot}\n" + "\n".join(ctx_righe))
+    await blocco_considerazioni_ai(pdf, ctx, f"piano-{d['tipo']}-{per['futuro_start']}-{per['giorni']}")
+
+    out = pdf.output()
+    base = "".join(c if c.isalnum() else "_" for c in nome)[:40] if nome else d['tipo']
+    fname = f"piano_{base}_{per['futuro_start']}_{per['futuro_end']}.pdf"
+    return Response(bytes(out), media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename={fname}"})

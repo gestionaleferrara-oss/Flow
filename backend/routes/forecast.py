@@ -604,7 +604,7 @@ async def export_forecast_pdf(data: dict):
 
         # AI analysis
         if ai_text.strip():
-            pdf.section_title("Analisi AI", C_VIOLET, top_gap=3)
+            pdf.section_title("Considerazioni", C_VIOLET, top_gap=3)
             pdf.ai_text_block(ai_text)
 
         pdf_bytes = pdf.output()

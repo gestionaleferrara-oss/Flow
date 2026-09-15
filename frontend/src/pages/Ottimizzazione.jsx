@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
-  ShoppingCart, TrendingUp, ChevronDown, X as XIcon, Target, Truck, Users,
-  Lightbulb, CalendarClock, Trophy,
+  ShoppingCart, TrendingUp, ChevronDown, Truck, Users,
+  Lightbulb, CalendarClock, Trophy, FileDown,
 } from 'lucide-react';
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { PrevisioneRicerca } from '@/components/PrevisioneRicerca';
+import { SchedaProdotto } from '@/components/SchedaProdotto';
 import { formatCurrency, cn } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -21,91 +23,6 @@ const AZIONI = {
   'IN LINEA': 'bg-white/[0.05] text-slate-400 border-white/10',
 };
 
-function DettaglioDrawer({ ctx, giorni, onClose }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const r = await axios.get(`${API}/ottimizzazione/piano/articolo`, {
-          params: { prodotto: ctx.prodotto, cliente: ctx.cliente || undefined, giorni },
-        });
-        setData(r.data);
-      } catch (e) {
-        setData({ spiegazione: 'Non è stato possibile caricare il dettaglio.', tabelle: [] });
-      } finally { setLoading(false); }
-    })();
-  }, [ctx, giorni]);
-
-  return (
-    <div className="fixed inset-0 z-[80] flex items-start justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm overflow-y-auto"
-      onClick={onClose} data-testid="ott-dettaglio-drawer">
-      <div onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-5xl rounded-2xl border border-white/[0.08] bg-[#0b1120] shadow-2xl my-4">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] sticky top-0 bg-[#0b1120] rounded-t-2xl z-10">
-          <div className="min-w-0">
-            <h3 className="text-base font-semibold text-white truncate">{data?.titolo || ctx.titolo}</h3>
-            <p className="text-xs text-slate-500">Vendite per cliente</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
-            data-testid="ott-dettaglio-close">
-            <XIcon className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="p-5 space-y-5">
-          {loading ? <LoadingSpinner /> : (
-            <>
-              <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/[0.05] p-4">
-                <p className="text-sm text-slate-200 leading-relaxed" data-testid="ott-spiegazione">{data.spiegazione}</p>
-                {data.azione && (
-                  <p className="mt-3 text-sm text-emerald-300 font-medium flex items-start gap-2">
-                    <Target className="w-4 h-4 mt-0.5 shrink-0" /> {data.azione}
-                  </p>
-                )}
-              </div>
-              {(data.tabelle || []).map((t, i) => (
-                <div key={i} className="rounded-xl border border-white/[0.07] overflow-hidden" data-testid={`ott-tabella-${i}`}>
-                  <div className="px-4 py-2.5 border-b border-white/[0.06]">
-                    <h4 className="text-sm font-semibold text-white">{t.titolo}</h4>
-                  </div>
-                  <div className="overflow-x-auto max-h-80 overflow-y-auto">
-                    <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-[#0b1120]">
-                        <tr>
-                          {t.colonne.map((c, ci) => (
-                            <th key={c} className={cn('px-3 py-2 text-[11px] uppercase tracking-wider text-slate-500 whitespace-nowrap',
-                              ci === 0 ? 'text-left' : 'text-right')}>{c}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {t.righe.map((r, ri) => (
-                          <tr key={ri} className="border-t border-white/[0.04]">
-                            {r.map((cell, ci) => (
-                              <td key={ci} className={cn('px-3 py-2 tabular-nums',
-                                ci === 0 ? 'text-left text-slate-200 max-w-[260px] truncate' : 'text-right text-slate-300')}>{cell}</td>
-                            ))}
-                          </tr>
-                        ))}
-                        {t.righe.length === 0 && (
-                          <tr><td colSpan={t.colonne.length} className="px-3 py-5 text-center text-slate-500 text-xs">Nessun dato</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function Kpi({ label, value, color }) {
   return (
     <div className="rounded-xl border border-white/[0.07] bg-black/20 p-3">
@@ -115,33 +32,53 @@ function Kpi({ label, value, color }) {
   );
 }
 
-function OrdineAcquisto({ o, idx, onArticolo }) {
+function PdfScheda({ tipo, nome, giorni, testid }) {
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        const p = new URLSearchParams({ tipo, giorni: String(giorni), nome });
+        window.open(`${API}/ottimizzazione/piano/pdf?${p.toString()}`, '_blank');
+      }}
+      data-testid={testid}
+      title="Scarica questa scheda in PDF"
+      className="p-1.5 rounded-lg text-slate-500 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors shrink-0">
+      <FileDown className="w-4 h-4" />
+    </button>
+  );
+}
+
+function OrdineAcquisto({ o, idx, onArticolo, giorni }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-xl border border-white/[0.07] bg-white/[0.015] overflow-hidden" data-testid={`ordine-acquisto-${idx}`}>
-      <button onClick={() => setOpen(!open)} data-testid={`ordine-acquisto-${idx}-toggle`}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.02] transition-colors">
-        <div className="w-9 h-9 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] text-cyan-300 flex items-center justify-center shrink-0">
-          <Truck className="w-4 h-4" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-white truncate">{o.fornitore}</h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {o.prodotti_n} articoli · margine previsto {o.margine_pct ?? '—'}%
-          </p>
-        </div>
-        <div className="text-right shrink-0">
-          <div className="text-base font-bold tabular-nums text-cyan-300">{formatCurrency(o.valore)}</div>
-          <div className="text-[11px] text-slate-500">ordine consigliato</div>
-        </div>
-        <ChevronDown className={cn('w-4 h-4 text-slate-500 transition-transform', open && 'rotate-180')} />
-      </button>
+      <div className="flex items-center gap-2 pr-3 hover:bg-white/[0.02] transition-colors">
+        <button onClick={() => setOpen(!open)} data-testid={`ordine-acquisto-${idx}-toggle`}
+          className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3.5 text-left">
+          <div className="w-9 h-9 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] text-cyan-300 flex items-center justify-center shrink-0">
+            <Truck className="w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-white truncate">{o.fornitore}</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {o.prodotti_n} articoli · margine previsto {o.margine_pct ?? '—'}%
+            </p>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-base font-bold tabular-nums text-cyan-300">{formatCurrency(o.valore)}</div>
+            <div className="text-[11px] text-slate-500">ordine consigliato</div>
+          </div>
+          <ChevronDown className={cn('w-4 h-4 text-slate-500 transition-transform', open && 'rotate-180')} />
+        </button>
+        <PdfScheda tipo="acquisti" nome={o.fornitore} giorni={giorni}
+          testid={`ordine-acquisto-${idx}-pdf`} />
+      </div>
       {open && (
         <div className="overflow-x-auto border-t border-white/[0.06]">
           <table className="w-full text-sm">
             <thead>
               <tr>
-                {['Articolo', 'Domanda prev.', 'Giacenza', 'Copertura gg', 'Da ordinare', 'Prezzo', 'Prz. vendita', 'Margine', 'Valore'].map((c, i) => (
+                {['Articolo', 'Domanda prev.', 'Giacenza', 'Rotazione', 'Riordino ogni', 'Da ordinare', 'Prezzo', 'Prz. vendita', 'Margine', 'Valore'].map((c, i) => (
                   <th key={c} className={cn('px-2 py-2 text-[11px] uppercase tracking-wider text-slate-500 whitespace-nowrap',
                     i === 0 ? 'text-left' : 'text-right')}>{c}</th>
                 ))}
@@ -155,7 +92,19 @@ function OrdineAcquisto({ o, idx, onArticolo }) {
                   <td className="px-2 py-2 text-slate-200 max-w-[180px] truncate">{a.prodotto}</td>
                   <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{num(a.domanda_prevista)}</td>
                   <td className="px-2 py-2 text-right text-slate-400 tabular-nums">{num(a.giacenza)}</td>
-                  <td className="px-2 py-2 text-right text-slate-400 tabular-nums">{a.copertura_giorni ?? '—'}</td>
+                  <td className="px-2 py-2 text-right">
+                    <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded border whitespace-nowrap',
+                      a.rotazione === 'alta' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        : a.rotazione === 'media' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                          : 'bg-rose-500/15 text-rose-300 border-rose-500/30')}
+                      title={a.mesi_copertura !== null ? `${a.mesi_copertura} mesi di copertura` : 'nessuna vendita ultimi 12 mesi'}>
+                      {a.rotazione}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 text-right text-slate-400 tabular-nums"
+                    title={`${a.ordini_ultimo_anno} ordini negli ultimi 12 mesi`}>
+                    {a.riordino_giorni ? `${a.riordino_giorni} gg` : '/'}
+                  </td>
                   <td className="px-2 py-2 text-right text-white font-semibold tabular-nums">{num(a.da_ordinare)}</td>
                   <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{a.prezzo_acquisto ? `€${a.prezzo_acquisto.toFixed(2)}` : '—'}</td>
                   <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{a.prezzo_vendita_atteso ? `€${a.prezzo_vendita_atteso.toFixed(2)}` : '—'}</td>
@@ -175,14 +124,15 @@ function OrdineAcquisto({ o, idx, onArticolo }) {
   );
 }
 
-function ProposteCliente({ o, idx, onArticolo }) {
+function ProposteCliente({ o, idx, onArticolo, giorni }) {
   const [open, setOpen] = useState(false);
   const [soloDaProporre, setSoloDaProporre] = useState(false);
   const articoli = soloDaProporre ? o.articoli.filter((a) => !a.gia_ordinato) : o.articoli;
   return (
     <div className="rounded-xl border border-white/[0.07] bg-white/[0.015] overflow-hidden" data-testid={`proposta-cliente-${idx}`}>
+      <div className="flex items-center gap-2 pr-3 hover:bg-white/[0.02] transition-colors">
       <button onClick={() => setOpen(!open)} data-testid={`proposta-cliente-${idx}-toggle`}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.02] transition-colors">
+        className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3.5 text-left">
         <div className="w-9 h-9 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-300 flex items-center justify-center shrink-0">
           <Users className="w-4 h-4" />
         </div>
@@ -204,6 +154,9 @@ function ProposteCliente({ o, idx, onArticolo }) {
         </div>
         <ChevronDown className={cn('w-4 h-4 text-slate-500 transition-transform', open && 'rotate-180')} />
       </button>
+        <PdfScheda tipo="vendite" nome={o.cliente} giorni={giorni}
+          testid={`proposta-cliente-${idx}-pdf`} />
+      </div>
       {open && (
         <div className="border-t border-white/[0.06]">
           <div className="flex items-center gap-3 px-3 py-2 text-[11px] text-slate-400 flex-wrap">
@@ -336,6 +289,13 @@ export default function Ottimizzazione() {
   const [piano, setPiano] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dettaglio, setDettaglio] = useState(null);
+  const [ggInput, setGgInput] = useState(() => String(Number(localStorage.getItem('flow_piano_giorni')) || 30));
+
+  const applicaGg = () => {
+    const v = Math.max(3, Math.min(180, Number(ggInput) || 30));
+    setGgInput(String(v));
+    if (v !== giorni) { setGiorni(v); localStorage.setItem('flow_piano_giorni', String(v)); }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -374,7 +334,7 @@ export default function Ottimizzazione() {
         <div className="flex items-center gap-1.5 ml-auto">
           <span className="text-xs text-slate-400 mr-1">Previsione prossimi</span>
           {GIORNI.map((g) => (
-            <button key={g} onClick={() => { setGiorni(g); localStorage.setItem('flow_piano_giorni', String(g)); }}
+            <button key={g} onClick={() => { setGiorni(g); setGgInput(String(g)); localStorage.setItem('flow_piano_giorni', String(g)); }}
               data-testid={`piano-giorni-${g}`}
               className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
                 giorni === g ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300'
@@ -382,8 +342,21 @@ export default function Ottimizzazione() {
               {g} gg
             </button>
           ))}
+          <div className="flex items-center gap-1.5 pl-1.5 ml-0.5 border-l border-white/[0.07]">
+            <input type="number" min="3" max="180" value={ggInput}
+              onChange={(e) => setGgInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') applicaGg(); }}
+              onBlur={applicaGg}
+              data-testid="piano-giorni-input"
+              className={cn('w-[62px] h-[30px] px-2 rounded-lg text-xs tabular-nums bg-white/[0.02] border text-slate-200 outline-none transition-colors',
+                GIORNI.includes(giorni) ? 'border-white/[0.07] focus:border-cyan-500/40'
+                  : 'border-cyan-500/30 text-cyan-300')} />
+            <span className="text-xs text-slate-500">gg</span>
+          </div>
         </div>
       </div>
+
+      <PrevisioneRicerca giorni={giorni} />
 
       {loading && !piano ? <LoadingSpinner /> : piano && (
         <>
@@ -426,10 +399,10 @@ export default function Ottimizzazione() {
             </p>
             <div className="space-y-3">
               {(piano.ordini || []).map((o, i) => acquisti ? (
-                <OrdineAcquisto key={o.fornitore} o={o} idx={i}
+                <OrdineAcquisto key={o.fornitore} o={o} idx={i} giorni={giorni}
                   onArticolo={(a) => setDettaglio({ prodotto: a.prodotto, titolo: a.prodotto })} />
               ) : (
-                <ProposteCliente key={o.cliente} o={o} idx={i}
+                <ProposteCliente key={o.cliente} o={o} idx={i} giorni={giorni}
                   onArticolo={(a) => setDettaglio({ cliente: o.cliente, prodotto: a.prodotto, titolo: `${a.prodotto} — ${o.cliente}` })} />
               ))}
               {!(piano.ordini || []).length && (
@@ -447,7 +420,7 @@ export default function Ottimizzazione() {
         </>
       )}
 
-      {dettaglio && <DettaglioDrawer ctx={dettaglio} giorni={giorni} onClose={() => setDettaglio(null)} />}
+      {dettaglio && <SchedaProdotto prodotto={dettaglio.prodotto} giorni={giorni} onClose={() => setDettaglio(null)} />}
     </PageWrapper>
   );
 }
