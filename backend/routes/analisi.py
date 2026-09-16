@@ -3,6 +3,7 @@ from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 
 from database import db
+from routes.previsione_peso import PESO_BASE, PESO_PREC, agg_ponderata
 
 router = APIRouter()
 
@@ -574,6 +575,8 @@ def _finestra_previsione(giorni: int):
     return {"futuro_start": fs.strftime(f), "futuro_end": fe.strftime(f),
             "storico_start": (fs - timedelta(days=365)).strftime(f),
             "storico_end": (fe - timedelta(days=365)).strftime(f),
+            "storico2_start": (fs - timedelta(days=730)).strftime(f),
+            "storico2_end": (fe - timedelta(days=730)).strftime(f),
             "recenti_start": (oggi - timedelta(days=giorni)).strftime(f),
             "recenti_end": oggi.strftime(f),
             "giorni": giorni}
@@ -585,22 +588,24 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
     per = _finestra_previsione(giorni)
     base = {"prodotto_nome": {"$in": nomi}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}
 
-    per_cliente = await db.vendite.aggregate([
-        {"$match": {**base, "data": {"$gte": per['storico_start'], "$lte": per['storico_end']}}},
-        {"$group": {"_id": "$cliente_nome", "quantita": {"$sum": {"$abs": "$quantita"}},
-                    "fatturato": {"$sum": {"$abs": "$totale"}},
-                    "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
-                    "prodotti": {"$addToSet": "$prodotto_nome"}, "ultimo": {"$max": "$data"}}},
-        {"$sort": {"fatturato": -1}},
-    ]).to_list(3000)
+    per_cliente = await agg_ponderata(
+        db.vendite, base, per['storico_start'], per['storico_end'],
+        per['storico2_start'], per['storico2_end'],
+        {"_id": "$cliente_nome", "quantita": {"$sum": {"$abs": "$quantita"}},
+         "fatturato": {"$sum": {"$abs": "$totale"}},
+         "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
+         "prodotti": {"$addToSet": "$prodotto_nome"}, "ultimo": {"$max": "$data"}},
+        ("quantita", "fatturato", "costo"), limit=3000)
+    per_cliente.sort(key=lambda r: -r['fatturato'])
 
-    per_prodotto = await db.vendite.aggregate([
-        {"$match": {**base, "data": {"$gte": per['storico_start'], "$lte": per['storico_end']}}},
-        {"$group": {"_id": "$prodotto_nome", "quantita": {"$sum": {"$abs": "$quantita"}},
-                    "fatturato": {"$sum": {"$abs": "$totale"}},
-                    "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
-                    "clienti": {"$addToSet": "$cliente_nome"}}},
-    ]).to_list(3000)
+    per_prodotto = await agg_ponderata(
+        db.vendite, base, per['storico_start'], per['storico_end'],
+        per['storico2_start'], per['storico2_end'],
+        {"_id": "$prodotto_nome", "quantita": {"$sum": {"$abs": "$quantita"}},
+         "fatturato": {"$sum": {"$abs": "$totale"}},
+         "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
+         "clienti": {"$addToSet": "$cliente_nome"}},
+        ("quantita", "fatturato", "costo"), limit=3000)
 
     recenti = await db.vendite.aggregate([
         {"$match": {**base, "data": {"$gte": per['recenti_start'], "$lte": per['recenti_end']}}},

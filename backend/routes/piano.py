@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException
 
 from database import db
 from routes.analisi import EXCLUDED_CLIENTS, esclusi_filter
+from routes.previsione_peso import PESO_BASE, PESO_PREC, agg_ponderata, anno_prec, pondera
 
 router = APIRouter()
 
@@ -126,7 +127,11 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
 
     articoli: List[Dict] = []
     for nome, d in dom_map.items():
-        dom = d['qty']
+        d2 = dom2_map.get(nome) or {}
+        q2 = d2.get('qty', 0) or 0
+        # previsione = media ponderata 60% anno base + 40% anno precedente
+        dom = pondera(d['qty'], q2)
+        fatt_prev = pondera(d['fatt'], d2.get('fatt', 0))
         giac = giacenze.get(nome, 0) or 0
         da_ordinare = max(dom - giac, 0)
         forns = acq_map.get(nome, {})
@@ -137,13 +142,12 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
         qty_tot = sum(v['qty'] for v in forns.values())
         p_medio = (sum(v['spesa'] for v in forns.values()) / qty_tot) if qty_tot else None
         quota_best = (forns[best]['qty'] / qty_tot * 100) if (best and qty_tot) else None
-        pv = pv_map.get(nome) or (d['fatt'] / dom if dom else 0)
+        pv = pv_map.get(nome) or (fatt_prev / dom if dom else 0)
         costo = p_best or p_medio or 0
         margine_pct = ((pv - costo) / costo * 100) if (costo and pv) else None
         rotazione, rot_indice = _rotazione(nome, giac)
-        d2 = dom2_map.get(nome) or {}
-        q2 = d2.get('qty', 0) or 0
-        var_anno = ((dom - q2) / q2 * 100) if q2 else None
+        # variazione dell'anno base sull'anno precedente (dati reali)
+        var_anno = ((d['qty'] - q2) / q2 * 100) if q2 else None
         n_ord = len(date_ordini.get(nome) or [])
         qty_acq = sum(v['qty'] for v in forns.values())
         lotto_medio = (qty_acq / n_ord) if n_ord else None
@@ -159,11 +163,12 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
             "ordini_ultimo_anno": n_ord,
             "lotto_medio": round(lotto_medio, 1) if lotto_medio else None,
             "domanda_anno_prec": round(q2, 1),
+            "domanda_anno_base": round(d['qty'], 1),
             "var_anno_pct": round(var_anno, 1) if var_anno is not None else None,
             "fornitore": best or FORNITORE_IGNOTO,
             "fornitori_alternativi": len(prezzi),
             "domanda_prevista": round(dom, 1),
-            "fatturato_atteso": round(d['fatt'], 2),
+            "fatturato_atteso": round(fatt_prev, 2),
             "clienti_attesi": len(d.get('clienti') or []),
             "giacenza": round(giac, 1),
             "copertura_giorni": round(giac / (dom / giorni)) if dom > 0 else None,
@@ -223,7 +228,7 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
             "quantita_attesa": round(sum(a['domanda_prevista'] for a in articoli), 1),
             "quantita_anno_prec": round(sum(a['domanda_anno_prec'] for a in articoli), 1),
             "var_quantita_pct": round(
-                (sum(a['domanda_prevista'] for a in articoli) - sum(a['domanda_anno_prec'] for a in articoli))
+                (sum(a['domanda_anno_base'] for a in articoli) - sum(a['domanda_anno_prec'] for a in articoli))
                 / sum(a['domanda_anno_prec'] for a in articoli) * 100, 1)
             if sum(a['domanda_anno_prec'] for a in articoli) else None,
         },
@@ -286,12 +291,12 @@ async def _piano_vendite(periodo: Dict, limit: int) -> Dict:
     recenti_start = _d(datetime.now() - timedelta(days=periodo['giorni']))
     sem_start = _d(datetime.now() - timedelta(days=180))
 
-    storico = await db.vendite.aggregate([
-        {"$match": {**base_v, "data": {"$gte": ly_fs, "$lte": ly_fe}}},
-        {"$group": {"_id": {"c": "$cliente_nome", "p": "$prodotto_nome"},
-                    "qty": {"$sum": {"$abs": "$quantita"}},
-                    "fatt": {"$sum": {"$abs": "$totale"}}}},
-    ]).to_list(200000)
+    storico = await agg_ponderata(
+        db.vendite, base_v, ly_fs, ly_fe, anno_prec(ly_fs), anno_prec(ly_fe),
+        {"_id": {"c": "$cliente_nome", "p": "$prodotto_nome"},
+         "qty": {"$sum": {"$abs": "$quantita"}},
+         "fatt": {"$sum": {"$abs": "$totale"}}},
+        ("qty", "fatt"), limit=200000)
 
     recenti = await db.vendite.aggregate([
         {"$match": {**base_v, "data": {"$gte": recenti_start, "$lte": oggi}}},
@@ -576,7 +581,7 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
             raise HTTPException(status_code=404, detail="Nessun piano per questa scheda")
         o = d['ordini'][0]
         if tipo == 'acquisti':
-            q_att = sum(a['domanda_prevista'] for a in o['articoli'])
+            q_att = sum(a['domanda_anno_base'] for a in o['articoli'])
             q_prec = sum(a['domanda_anno_prec'] for a in o['articoli'])
             d['totali'] = {
                 "fornitori": 1, "prodotti": len(o['articoli']),
