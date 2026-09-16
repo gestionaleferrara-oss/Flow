@@ -40,7 +40,8 @@ async def _base_vendite() -> Dict:
 async def piano_azione(tipo: str = "acquisti", giorni: int = 30, limit: int = 40):
     fs, fe, ly_fs, ly_fe, giorni = _finestra(giorni)
     periodo = {"futuro_start": fs, "futuro_end": fe, "storico_start": ly_fs,
-               "storico_end": ly_fe, "giorni": giorni}
+               "storico_end": ly_fe, "giorni": giorni,
+               "anno_base": ly_fs[:4], "anno_confronto": str(int(ly_fs[:4]) - 1)}
     if tipo == "vendite":
         return await _piano_vendite(periodo, limit)
     return await _piano_acquisti(periodo, limit)
@@ -62,6 +63,14 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
                     "clienti": {"$addToSet": "$cliente_nome"}}},
     ]).to_list(20000)
     dom_map = {r['_id']: r for r in domanda if r['_id'] and r['qty'] > 0}
+
+    ly2_fs = _d(datetime.strptime(ly_fs, "%Y-%m-%d") - timedelta(days=365))
+    ly2_fe = _d(datetime.strptime(ly_fe, "%Y-%m-%d") - timedelta(days=365))
+    dom2_map = {r['_id']: r for r in await db.vendite.aggregate([
+        {"$match": {**base_v, "data": {"$gte": ly2_fs, "$lte": ly2_fe}}},
+        {"$group": {"_id": "$prodotto_nome", "qty": {"$sum": {"$abs": "$quantita"}},
+                    "fatt": {"$sum": {"$abs": "$totale"}}}},
+    ]).to_list(20000) if r['_id']}
 
     # Prezzi fornitore nella stessa finestra dell'anno scorso (fallback: ultimi 12 mesi)
     async def acq_per_fornitore(s, e):
@@ -132,6 +141,12 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
         costo = p_best or p_medio or 0
         margine_pct = ((pv - costo) / costo * 100) if (costo and pv) else None
         rotazione, rot_indice = _rotazione(nome, giac)
+        d2 = dom2_map.get(nome) or {}
+        q2 = d2.get('qty', 0) or 0
+        var_anno = ((dom - q2) / q2 * 100) if q2 else None
+        n_ord = len(date_ordini.get(nome) or [])
+        qty_acq = sum(v['qty'] for v in forns.values())
+        lotto_medio = (qty_acq / n_ord) if n_ord else None
         articoli.append({
             "prodotto": nome,
             "quota_fornitore_pct": round(quota_best, 1) if quota_best is not None else None,
@@ -141,7 +156,10 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
             "rotazione": rotazione,
             "mesi_copertura": rot_indice,
             "riordino_giorni": _riordino(nome),
-            "ordini_ultimo_anno": len(date_ordini.get(nome) or []),
+            "ordini_ultimo_anno": n_ord,
+            "lotto_medio": round(lotto_medio, 1) if lotto_medio else None,
+            "domanda_anno_prec": round(q2, 1),
+            "var_anno_pct": round(var_anno, 1) if var_anno is not None else None,
             "fornitore": best or FORNITORE_IGNOTO,
             "fornitori_alternativi": len(prezzi),
             "domanda_prevista": round(dom, 1),
@@ -199,6 +217,12 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
             "valore_ordini": round(sum(o['valore'] for o in ordini), 2),
             "margine_previsto": round(sum(o['margine_eur'] for o in ordini), 2),
             "fatturato_atteso": round(sum(a['fatturato_atteso'] for a in articoli), 2),
+            "quantita_attesa": round(sum(a['domanda_prevista'] for a in articoli), 1),
+            "quantita_anno_prec": round(sum(a['domanda_anno_prec'] for a in articoli), 1),
+            "var_quantita_pct": round(
+                (sum(a['domanda_prevista'] for a in articoli) - sum(a['domanda_anno_prec'] for a in articoli))
+                / sum(a['domanda_anno_prec'] for a in articoli) * 100, 1)
+            if sum(a['domanda_anno_prec'] for a in articoli) else None,
         },
         "ordini": ordini[:limit],
         "suggerimenti": suggerimenti,
@@ -549,10 +573,14 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
             raise HTTPException(status_code=404, detail="Nessun piano per questa scheda")
         o = d['ordini'][0]
         if tipo == 'acquisti':
+            q_att = sum(a['domanda_prevista'] for a in o['articoli'])
+            q_prec = sum(a['domanda_anno_prec'] for a in o['articoli'])
             d['totali'] = {
                 "fornitori": 1, "prodotti": len(o['articoli']),
                 "valore_ordini": o['valore'], "margine_previsto": o['margine_eur'],
                 "fatturato_atteso": o['fatturato_atteso'],
+                "quantita_attesa": round(q_att, 1), "quantita_anno_prec": round(q_prec, 1),
+                "var_quantita_pct": round((q_att - q_prec) / q_prec * 100, 1) if q_prec else None,
             }
         else:
             d['totali'] = {
@@ -570,7 +598,8 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
     pdf = FlowPDF(
         titolo,
         f"Previsione {per['giorni']} giorni: {dm(per['futuro_start'])} - {dm(per['futuro_end'])}  |  "
-        f"Base: {dm(per['storico_start'])} - {dm(per['storico_end'])} (anno precedente)")
+        f"Base {per['anno_base']}: {dm(per['storico_start'])} - {dm(per['storico_end'])}  |  "
+        f"Confronto con {per['anno_confronto']}")
     pdf.add_page()
 
     if acquisti:
@@ -580,14 +609,19 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
             ("VALORE ORDINI", eur(tot['valore_ordini']), C_AMBER, f"{tot['fornitori']} fornitori"),
             ("MARGINE PREVISTO", eur(tot['margine_previsto']), C_VIOLET,
              f"su {eur(tot['fatturato_atteso'])} attesi"),
-            ("FATTURATO ATTESO", eur(tot['fatturato_atteso']), C_EMERALD, "stesso periodo anno prec."),
+            ("FATTURATO ATTESO", eur(tot['fatturato_atteso']), C_EMERALD,
+             f"{it_num(tot['quantita_attesa'], 0)} pz"
+             + (f" ({tot['var_quantita_pct']:+.1f}% su {per['anno_confronto']})"
+                if tot.get('var_quantita_pct') is not None else "")),
         ])
         for o in d['ordini']:
             qty_forn = sum(a['da_ordinare'] for a in o['articoli'])
             pdf.section_title(f"{o['fornitore']} — {it_num(qty_forn, 0)} pz · {eur(o['valore'])}", C_BLUE)
-            righe = [[clean_text(a['prodotto'])[:40], it_num(a['domanda_prevista'], 0),
+            righe = [[clean_text(a['prodotto'])[:40],
+                      it_num(a['domanda_prevista'], 0) +
+                      (f" ({a['var_anno_pct']:+.0f}%)" if a['var_anno_pct'] is not None else ""),
                       a['rotazione'], f"{a['riordino_giorni']} gg" if a['riordino_giorni'] else '/',
-                      it_num(a['da_ordinare'], 0),
+                      it_num(a['lotto_medio'], 0) if a['lotto_medio'] else '-',
                       eur(a['prezzo_acquisto']) if a['prezzo_acquisto'] else '-',
                       eur(a['prezzo_vendita_atteso']) if a['prezzo_vendita_atteso'] else '-',
                       f"{a['margine_pct']}%" if a['margine_pct'] is not None else '-',
@@ -595,9 +629,10 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
             righe.append(['TOTALE ORDINE', '', '', '', it_num(qty_forn, 0), '', '',
                           f"{o['margine_pct']}%" if o['margine_pct'] is not None else '-',
                           eur(o['valore'])])
-            pdf.smart_table(['Articolo', 'Domanda prev. (pz)', 'Rotazione', 'Riordino ogni',
-                             'Da ordinare (pz)', 'Prezzo acq.', 'Prezzo vend.', 'Marg. %', 'Valore'],
-                            [48, 22, 17, 19, 21, 19, 19, 14, 21], righe,
+            pdf.smart_table([f"Articolo", f"Domanda prev. {per['anno_base']} (pz)", 'Rotazione',
+                             'Riordino ogni', 'Lotto medio (pz)', 'Prezzo acq.', 'Prezzo vend.',
+                             'Marg. %', 'Valore'],
+                            [46, 24, 17, 19, 20, 19, 19, 14, 21], righe,
                             aligns=['L', 'R', 'C', 'R', 'R', 'R', 'R', 'R', 'R'])
     else:
         qty_tot = sum(a['quantita_attesa'] for o in d['ordini'] for a in o['articoli'])
@@ -634,9 +669,18 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
     ctx_righe = []
     for o in d['ordini'][:8]:
         if acquisti:
-            ctx_righe.append(f"{o['fornitore']}: {o['prodotti_n']} articoli, € {o['valore']}, "
-                             f"margine {o['margine_pct']}%, articoli principali " +
-                             ", ".join(f"{a['prodotto']} {a['da_ordinare']} pz" for a in o['articoli'][:4]))
+            ctx_righe.append(
+                f"{o['fornitore']}: {o['prodotti_n']} articoli, valore ordine € {o['valore']}, "
+                f"margine previsto {o['margine_pct']}%, spesa ultimi 12 mesi € {o['spesa_ultimo_anno']}, "
+                f"ordini emessi negli ultimi 12 mesi {sum(a['ordini_ultimo_anno'] for a in o['articoli'])} "
+                f"(righe d'acquisto), lotto medio per riordino " +
+                ", ".join(f"{a['prodotto']} {a['lotto_medio']} pz" for a in o['articoli'][:3]) +
+                ". Articoli: " +
+                "; ".join(f"{a['prodotto']} domanda {a['domanda_prevista']} pz, giacenza {a['giacenza']} pz, "
+                          f"da ordinare {a['da_ordinare']} pz, rotazione {a['rotazione']}, "
+                          f"riordino ogni {a['riordino_giorni'] or '-'} gg, acquisto € {a['prezzo_acquisto']}, "
+                          f"vendita € {a['prezzo_vendita_atteso']}, margine {a['margine_pct']}%"
+                          for a in o['articoli'][:6]))
         else:
             ctx_righe.append(f"{o['cliente']}: {o['azione']}, atteso € {o['valore_atteso']}, "
                              f"{o['prodotti_mancanti']} referenze da proporre su {o['prodotti_n']}, "

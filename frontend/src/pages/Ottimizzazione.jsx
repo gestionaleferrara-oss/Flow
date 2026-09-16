@@ -48,7 +48,7 @@ function PdfScheda({ tipo, nome, giorni, testid }) {
   );
 }
 
-function OrdineAcquisto({ o, idx, onArticolo, giorni }) {
+function OrdineAcquisto({ o, idx, onArticolo, giorni, per }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-xl border border-white/[0.07] bg-white/[0.015] overflow-hidden" data-testid={`ordine-acquisto-${idx}`}>
@@ -78,7 +78,7 @@ function OrdineAcquisto({ o, idx, onArticolo, giorni }) {
           <table className="w-full text-sm">
             <thead>
               <tr>
-                {['Articolo', 'Domanda prev.', 'Giacenza', 'Rotazione', 'Riordino ogni', 'Da ordinare', 'Prezzo', 'Prz. vendita', 'Margine', 'Valore'].map((c, i) => (
+                {['Articolo', `Domanda prev. ${per?.anno_base || ''}`, 'Giacenza', 'Rotazione', 'Riordino ogni', 'Lotto medio', 'Prezzo', 'Prz. vendita', 'Margine', 'Valore'].map((c, i) => (
                   <th key={c} className={cn('px-2 py-2 text-[11px] uppercase tracking-wider text-slate-500 whitespace-nowrap',
                     i === 0 ? 'text-left' : 'text-right')}>{c}</th>
                 ))}
@@ -90,7 +90,14 @@ function OrdineAcquisto({ o, idx, onArticolo, giorni }) {
                   className="border-t border-white/[0.04] cursor-pointer hover:bg-cyan-500/[0.07] transition-colors"
                   data-testid={`ordine-acquisto-${idx}-row-${i}`}>
                   <td className="px-2 py-2 text-slate-200 max-w-[180px] truncate">{a.prodotto}</td>
-                  <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{num(a.domanda_prevista)}</td>
+                  <td className="px-2 py-2 text-right text-slate-300 tabular-nums whitespace-nowrap">
+                    {num(a.domanda_prevista)}
+                    {a.var_anno_pct !== null && (
+                      <span className={cn('ml-1 text-[10px]', a.var_anno_pct >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                        ({a.var_anno_pct > 0 ? '+' : ''}{a.var_anno_pct}%)
+                      </span>
+                    )}
+                  </td>
                   <td className="px-2 py-2 text-right text-slate-400 tabular-nums">{num(a.giacenza)}</td>
                   <td className="px-2 py-2 text-right">
                     <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded border whitespace-nowrap',
@@ -105,7 +112,10 @@ function OrdineAcquisto({ o, idx, onArticolo, giorni }) {
                     title={`${a.ordini_ultimo_anno} ordini negli ultimi 12 mesi`}>
                     {a.riordino_giorni ? `${a.riordino_giorni} gg` : '/'}
                   </td>
-                  <td className="px-2 py-2 text-right text-white font-semibold tabular-nums">{num(a.da_ordinare)}</td>
+                  <td className="px-2 py-2 text-right text-white font-semibold tabular-nums"
+                    title={`${a.ordini_ultimo_anno} ordini negli ultimi 12 mesi · ${num(a.da_ordinare)} pz da ordinare`}>
+                    {a.lotto_medio ? num(a.lotto_medio) : '—'}
+                  </td>
                   <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{a.prezzo_acquisto ? `€${a.prezzo_acquisto.toFixed(2)}` : '—'}</td>
                   <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{a.prezzo_vendita_atteso ? `€${a.prezzo_vendita_atteso.toFixed(2)}` : '—'}</td>
                   <td className={cn('px-2 py-2 text-right font-semibold tabular-nums',
@@ -368,7 +378,7 @@ export default function Ottimizzazione() {
                   {acquisti ? 'Ordini da fare' : 'Ordini da proporre'} dal {dmy(per.futuro_start)} al {dmy(per.futuro_end)}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5" data-testid="piano-periodi">
-                  Previsione calcolata sul venduto reale dal {dmy(per.storico_start)} al {dmy(per.storico_end)} (stessi giorni dell'anno scorso)
+                  Previsione calcolata sul venduto reale dal {dmy(per.storico_start)} al {dmy(per.storico_end)} ({per.anno_base}), confronto con {per.anno_confronto}
                 </p>
               </div>
             </div>
@@ -399,7 +409,7 @@ export default function Ottimizzazione() {
             </p>
             <div className="space-y-3">
               {(piano.ordini || []).map((o, i) => acquisti ? (
-                <OrdineAcquisto key={o.fornitore} o={o} idx={i} giorni={giorni}
+                <OrdineAcquisto key={o.fornitore} o={o} idx={i} giorni={giorni} per={per}
                   onArticolo={(a) => setDettaglio({ prodotto: a.prodotto, titolo: a.prodotto })} />
               ) : (
                 <ProposteCliente key={o.cliente} o={o} idx={i} giorni={giorni}
