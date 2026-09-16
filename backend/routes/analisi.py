@@ -647,6 +647,8 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
         prodotti_righe.append({
             "nome": r['_id'],
             "domanda_prevista": round(r['quantita'], 1),
+            "quantita_anno_prec": round(r['quantita_base'], 1),
+            "fatturato_anno_prec": round(r['fatturato_base'], 2),
             "giacenza": round(giac, 1),
             "da_ordinare": round(da_ord, 1),
             "prezzo_acquisto": round(b['prezzo'], 4) if b else None,
@@ -662,6 +664,7 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
     # ── Fornitori di questi prodotti: ruolo e previsione (ultimi 12 mesi) ──
     da_ord_map = {r['nome']: r['da_ordinare'] for r in prodotti_righe}
     dom_map = {r['nome']: r['domanda_prevista'] for r in prodotti_righe}
+    prec_map = {r['nome']: r['quantita_anno_prec'] for r in prodotti_righe}
     qty_prodotto: Dict[str, float] = {}
     for r in forn:
         pnome = r['_id'].get('p')
@@ -674,13 +677,14 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
         if not pnome or not fnome or r['qty'] <= 0:
             continue
         f = forn_agg.setdefault(fnome, {"nome": fnome, "qty": 0.0, "spesa": 0.0,
-                                        "prodotti": set(), "domanda": 0.0,
+                                        "prodotti": set(), "domanda": 0.0, "domanda_prec": 0.0,
                                         "da_ordinare": 0.0, "valore": 0.0, "ultima": ""})
         quota = r['qty'] / qty_prodotto[pnome]
         f['qty'] += r['qty']
         f['spesa'] += r['spesa']
         f['prodotti'].add(pnome)
         f['domanda'] += dom_map.get(pnome, 0) * quota
+        f['domanda_prec'] += prec_map.get(pnome, 0) * quota
         f['da_ordinare'] += da_ord_map.get(pnome, 0) * quota
         f['valore'] += da_ord_map.get(pnome, 0) * quota * (r['spesa'] / r['qty'])
         f['ultima'] = max(f['ultima'], r.get('ultima') or '')
@@ -698,6 +702,7 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
             "prezzo_medio": round(f['spesa'] / f['qty'], 4) if f['qty'] else None,
             "prodotti_trattati": len(f['prodotti']),
             "domanda_prevista": round(f['domanda'], 1),
+            "domanda_anno_prec": round(f['domanda_prec'], 1),
             "da_ordinare": round(f['da_ordinare'], 1),
             "valore_ordine": round(f['valore'], 2),
             "ultimo_acquisto": f['ultima'] or None,
@@ -905,8 +910,9 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
     d = await _previsione_dati(tipo, lista, giorni)
     per, k = d['periodo'], d['kpi']
     dm = lambda x: x[8:10] + '/' + x[5:7] + '/' + x[2:4]  # noqa: E731
-    etichetta = {"prodotto": "PRODOTTI", "cliente": "CLIENTI", "fornitore": "FORNITORI"}[d['tipo']]
-    titolo = f"PREVISIONE {etichetta}"
+    etichetta = {"prodotto": "PRODOTTI", "cliente": "CLIENTE", "fornitore": "FORNITORE"}[d['tipo']]
+    titolo = f"REPORT {etichetta}"
+    anno_prec_lbl = per['storico_start'][:4]
     sottotitolo = (f"Prossimi {per['giorni']} giorni: {dm(per['futuro_start'])} - {dm(per['futuro_end'])}  |  "
                    f"Base ponderata: {dm(per['storico_start'])} - {dm(per['storico_end'])} "
                    f"({int(PESO_BASE * 100)}%) e anno prec. ({int(PESO_PREC * 100)}%)")
@@ -992,31 +998,31 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
             if resto:
                 pdf.note_text(f"Altri {len(resto)} clienti per {eur(sum(r['fatturato_atteso'] for r in resto))} "
                               f"e {it_num(sum(r['quantita_attesa'] for r in resto), 0)} pezzi attesi.")
-        if mostra_fornitori and d.get('righe_fornitori'):
-            pdf.section_title("Previsione per fornitore", C_EMERALD)
-            pdf.smart_table(['Fornitore', 'Ruolo', 'Articoli', 'Prz. medio',
-                             'Domanda prev.', 'Da ordinare', 'Valore'],
-                            [60, 24, 18, 24, 26, 24, 24],
-                            [[clean_text(r['nome'])[:38], r['ruolo'],
-                              f"{r['prodotti_trattati']}",
-                              eur(r['prezzo_medio']) if r['prezzo_medio'] else '-',
-                              it_num(r['domanda_prevista'], 0),
-                              it_num(r['da_ordinare'], 0) if r['da_ordinare'] else '-',
-                              eur(r['valore_ordine']) if r['valore_ordine'] else '-']
-                             for r in d['righe_fornitori'][:15]],
-                            aligns=['L', 'L', 'R', 'R', 'R', 'R', 'R'])
         if d.get('righe_prodotti'):
             pdf.section_title("Riepilogo per prodotto", C_AMBER)
-            pdf.smart_table(['Prodotto', 'Domanda prev.', 'Da ordinare', 'Prz. acq.',
+            pdf.smart_table(['Prodotto', 'Domanda prev.', f'Venduto {anno_prec_lbl}', 'Prz. acq.',
                              'Marg. %', 'Fatturato', 'Fornitore'],
-                            [56, 24, 22, 22, 18, 26, 32],
+                            [56, 24, 24, 22, 18, 26, 30],
                             [[clean_text(r['nome'])[:40], it_num(r['domanda_prevista'], 0),
-                              it_num(r['da_ordinare'], 0),
+                              it_num(r['quantita_anno_prec'], 0),
                               eur(r['prezzo_acquisto']) if r['prezzo_acquisto'] else '-',
                               f"{r['margine_pct']}%" if r['margine_pct'] is not None else '-',
                               eur(r['fatturato_atteso']),
                               clean_text(r['fornitore'] or '-')[:22]] for r in d['righe_prodotti'][:30]],
                             aligns=['L', 'R', 'R', 'R', 'R', 'R', 'L'])
+        if mostra_fornitori and d.get('righe_fornitori'):
+            pdf.section_title("Previsione per fornitore", C_EMERALD)
+            pdf.smart_table(['Fornitore', 'Ruolo', 'Articoli', 'Prz. medio',
+                             'Domanda prev.', f'Venduto {anno_prec_lbl}', 'Spesa 12 mesi'],
+                            [58, 24, 18, 24, 26, 24, 26],
+                            [[clean_text(r['nome'])[:38], r['ruolo'],
+                              f"{r['prodotti_trattati']}",
+                              eur(r['prezzo_medio']) if r['prezzo_medio'] else '-',
+                              it_num(r['domanda_prevista'], 0),
+                              it_num(r['domanda_anno_prec'], 0),
+                              eur(r['spesa'])]
+                             for r in d['righe_fornitori'][:15]],
+                            aligns=['L', 'L', 'R', 'R', 'R', 'R', 'R'])
 
     pdf.note_text(f"Previsione con media ponderata {int(PESO_BASE * 100)}% / {int(PESO_PREC * 100)}% "
                   "sul venduto dello stesso intervallo dei due anni precedenti. "
@@ -1039,13 +1045,15 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
                 "considerazioni sulla clientela.")
     if d.get('righe_prodotti'):
         ctx += ("\nProdotti: " + "; ".join(
-            f"{r['nome']} domanda prevista {r['domanda_prevista']} da ordinare {r['da_ordinare']} "
-            f"prz acq € {r['prezzo_acquisto']} marg {r['margine_pct']}% "
+            f"{r['nome']} domanda prevista {r['domanda_prevista']} (venduto {anno_prec_lbl} "
+            f"{r['quantita_anno_prec']}) prz acq € {r['prezzo_acquisto']} marg {r['margine_pct']}% "
             f"fatturato atteso € {r['fatturato_atteso']} fornitore {r['fornitore']}"
             for r in d['righe_prodotti'][:12]))
     if d.get('righe_fornitori'):
         ctx += ("\nFornitori: " + "; ".join(
-            f"{f['nome']} ruolo {f['ruolo']} prz € {f['prezzo_medio']} da ordinare {f['da_ordinare']}"
+            f"{f['nome']} ruolo {f['ruolo']} prz € {f['prezzo_medio']} domanda prevista "
+            f"{f['domanda_prevista']} (venduto {anno_prec_lbl} {f['domanda_anno_prec']}) "
+            f"spesa 12 mesi € {f['spesa']}"
             for f in d['righe_fornitori'][:8]))
     await blocco_considerazioni_ai(
         pdf, ctx, f"previsione-{d['tipo']}-{per['futuro_start']}-{per['giorni']}-{vista}",

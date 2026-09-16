@@ -32,7 +32,10 @@ async def agg_ponderata(coll, base: dict, s1: str, e1: str, s2: str, e2: str,
     for r in righe:
         p = prec.get(_k(r['_id']))
         for c in campi:
-            r[c] = pondera(r.get(c), p.get(c) if p else 0)
+            base_v, prec_v = r.get(c) or 0, (p.get(c) or 0) if p else 0
+            r[f"{c}_base"] = base_v      # dato reale della finestra base (anno precedente)
+            r[f"{c}_prec"] = prec_v      # dato reale di due anni prima
+            r[c] = pondera(base_v, prec_v)
     return righe
 
 
