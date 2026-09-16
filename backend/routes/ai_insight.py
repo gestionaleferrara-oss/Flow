@@ -50,9 +50,10 @@ async def considerazioni(contesto: str, chiave: str = "", extra: str = "") -> st
         testo = (testo or "").strip()
         if not testo:
             return ""
-        await db.report_insight.insert_one({
-            "_id": h, "testo": testo, "created_at": datetime.now(timezone.utc).isoformat(),
-        })
+        await db.report_insight.replace_one(
+            {"_id": h},
+            {"_id": h, "testo": testo, "created_at": datetime.now(timezone.utc).isoformat()},
+            upsert=True)
         return testo
     except Exception as e:
         logger.warning(f"Considerazioni non disponibili: {e}")

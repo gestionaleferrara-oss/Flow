@@ -3,7 +3,7 @@ from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 
 from database import db
-from routes.previsione_peso import PESO_BASE, PESO_PREC, agg_ponderata
+from routes.previsione_peso import agg_ponderata
 
 router = APIRouter()
 
@@ -736,13 +736,14 @@ async def _prev_clienti(nomi: List[str], giorni: int) -> Dict:
     esclusi = await esclusi_filter()
     base = {**esclusi, "cliente_nome": {"$in": nomi}}
 
-    storico = await db.vendite.aggregate([
-        {"$match": {**base, "data": {"$gte": per['storico_start'], "$lte": per['storico_end']}}},
-        {"$group": {"_id": "$prodotto_nome", "quantita": {"$sum": {"$abs": "$quantita"}},
-                    "fatturato": {"$sum": {"$abs": "$totale"}},
-                    "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}}}},
-        {"$sort": {"fatturato": -1}},
-    ]).to_list(5000)
+    storico = await agg_ponderata(
+        db.vendite, base, per['storico_start'], per['storico_end'],
+        per['storico2_start'], per['storico2_end'],
+        {"_id": "$prodotto_nome", "quantita": {"$sum": {"$abs": "$quantita"}},
+         "fatturato": {"$sum": {"$abs": "$totale"}},
+         "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}}},
+        ("quantita", "fatturato", "costo"), limit=5000)
+    storico.sort(key=lambda r: -r['fatturato'])
 
     recenti = await db.vendite.aggregate([
         {"$match": {"cliente_nome": {"$in": nomi},
@@ -809,14 +810,15 @@ async def _prev_fornitori(nomi: List[str], giorni: int) -> Dict:
                         "spesa_ultimo_anno": 0, "fornitori": len(nomi)},
                 "righe": []}
 
-    domanda = await db.vendite.aggregate([
-        {"$match": {**esclusi, "prodotto_nome": {"$in": list(prezzi.keys())},
-                    "cliente_nome": {"$nin": EXCLUDED_CLIENTS},
-                    "data": {"$gte": per['storico_start'], "$lte": per['storico_end']}}},
-        {"$group": {"_id": "$prodotto_nome", "qty": {"$sum": {"$abs": "$quantita"}},
-                    "fatt": {"$sum": {"$abs": "$totale"}},
-                    "clienti": {"$addToSet": "$cliente_nome"}}},
-    ]).to_list(20000)
+    domanda = await agg_ponderata(
+        db.vendite,
+        {**esclusi, "prodotto_nome": {"$in": list(prezzi.keys())},
+         "cliente_nome": {"$nin": EXCLUDED_CLIENTS}},
+        per['storico_start'], per['storico_end'], per['storico2_start'], per['storico2_end'],
+        {"_id": "$prodotto_nome", "qty": {"$sum": {"$abs": "$quantita"}},
+         "fatt": {"$sum": {"$abs": "$totale"}},
+         "clienti": {"$addToSet": "$cliente_nome"}},
+        ("qty", "fatt"))
     dom = {r['_id']: r for r in domanda}
 
     giacenze = {d['nome']: (d.get('quantita', 0) or 0) for d in

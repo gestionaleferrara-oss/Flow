@@ -1,12 +1,12 @@
-"""Previsione con media ponderata: 60% anno base + 40% anno precedente."""
+"""Previsione con media ponderata: 70% anno base + 30% anno precedente."""
 import json
 
-PESO_BASE = 0.6
-PESO_PREC = 0.4
+PESO_BASE = 0.7
+PESO_PREC = 0.3
 
 
 def pondera(v_base: float, v_prec: float) -> float:
-    """Media ponderata 60/40. Se l'anno precedente non ha dati resta il solo anno base."""
+    """Media ponderata 70/30. Se l'anno precedente non ha dati resta il solo anno base."""
     v_base = v_base or 0
     v_prec = v_prec or 0
     return PESO_BASE * v_base + PESO_PREC * v_prec if v_prec > 0 else v_base

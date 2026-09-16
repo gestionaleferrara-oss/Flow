@@ -179,3 +179,11 @@
 - FIX valore riga (sessione 8b): il "Valore" usava `da_ordinare` (netto giacenza) mentre la colonna mostrata era `domanda_prevista` -> riga non verificabile (es. PISTACCHIO 1.950 x €12 ma valore €15.960). Nuovi campi `valore_domanda` / `margine_eur_domanda` (= quantita' prevista x prezzo) usati SOLO nel PDF; la UI Ottimizzazione resta sul valore d'ordine netto giacenza.
 - KPI PDF acquisti: DOMANDA PREVISTA (kg/pz, con VAR% anno prec.), VALORE ACQUISTO, MARGINE PREVISTO, FATTURATO ATTESO; totale riga fornitore coerente con la somma delle righe.
 - Unita' di misura: quantita' e prezzi sono registrati nella stessa unita' (kg per gli sfusi, pz per i confezionati), quindi valore = prezzo x quantita' e' corretto; rimosse le etichette fisse "(pz)" -> "kg/pz" + nota esplicativa nel PDF.
+
+### 2026-06 (sessione 8c) — Previsione con media ponderata
+- `routes/previsione_peso.py`: PESO_BASE=0.7 (anno base) + PESO_PREC=0.3 (anno precedente), helper `pondera()` e `agg_ponderata()` (stesso $group su due finestre, fusione dei campi numerici). Se l'anno precedente non ha dati resta il solo anno base (evita di dimezzare i prodotti nuovi).
+- Applicata a: piano acquisti (`domanda_prevista`, `fatturato_atteso`), piano vendite (qty/fatt per cliente+prodotto), previsione prodotto/cliente/fornitore in analisi.py.
+- La % tra parentesi ora e' la variazione della PREVISIONE (2026) rispetto al venduto dell'anno base (2025); nuovo campo `domanda_anno_base`. Intestazione colonna: "Domanda prev. <anno futuro>".
+- Nota descrittiva sotto i KPI del piano fornitore RIMOSSA su richiesta utente.
+- FIX `ai_insight`: cache su Mongo con replace_one(upsert) invece di insert_one (il duplicate key error faceva sparire le considerazioni).
+- Nota: se l'Emergent LLM Key e' a budget esaurito le considerazioni non vengono generate (fallback silenzioso) -> ricaricare da Profile > Manage plan > Universal Key.

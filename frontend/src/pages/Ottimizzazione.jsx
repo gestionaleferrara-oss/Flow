@@ -78,7 +78,7 @@ function OrdineAcquisto({ o, idx, onArticolo, giorni, per }) {
           <table className="w-full text-sm">
             <thead>
               <tr>
-                {['Articolo', `Domanda prev. ${per?.anno_base || ''}`, 'Giacenza', 'Rotazione', 'Riordino ogni', 'Lotto medio', 'Prezzo', 'Prz. vendita', 'Margine', 'Valore'].map((c, i) => (
+                {['Articolo', `Domanda prev. ${per?.futuro_start?.slice(0, 4) || ''}`, 'Giacenza', 'Rotazione', 'Riordino ogni', 'Lotto medio', 'Prezzo', 'Prz. vendita', 'Margine', 'Valore'].map((c, i) => (
                   <th key={c} className={cn('px-2 py-2 text-[11px] uppercase tracking-wider text-slate-500 whitespace-nowrap',
                     i === 0 ? 'text-left' : 'text-right')}>{c}</th>
                 ))}
@@ -325,7 +325,7 @@ export default function Ottimizzazione() {
     <PageWrapper>
       <PageHeader
         title="Ottimizzazione"
-        subtitle="Cosa ordinare e a chi vendere nei prossimi giorni, sulla base del venduto reale dello stesso periodo dell'anno scorso"
+        subtitle="Cosa ordinare e a chi vendere nei prossimi giorni, sulla base del venduto dello stesso periodo dei due anni precedenti (ponderato 70/30)"
       />
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -378,7 +378,7 @@ export default function Ottimizzazione() {
                   {acquisti ? 'Ordini da fare' : 'Ordini da proporre'} dal {dmy(per.futuro_start)} al {dmy(per.futuro_end)}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5" data-testid="piano-periodi">
-                  Previsione calcolata sul venduto reale dal {dmy(per.storico_start)} al {dmy(per.storico_end)} ({per.anno_base}), confronto con {per.anno_confronto}
+                  Previsione ponderata 70% {per.anno_base} + 30% {per.anno_confronto} sul venduto dal {dmy(per.storico_start)} al {dmy(per.storico_end)} · la % tra parentesi è la variazione sul {per.anno_base}
                 </p>
               </div>
             </div>
