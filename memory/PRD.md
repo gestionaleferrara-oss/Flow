@@ -176,3 +176,6 @@
 - Piano acquisti: 1o punto sempre sulla leva dello SCONTO sul fatturato ipotetico portato al fornitore (valore ordine + spesa 12 mesi); solo fatturato/sconto/margine/prezzi/gestione fornitore; VIETATO giacenze, la parola "righe", il rischio di dipendenza da unico fornitore o fornitori alternativi.
 - Contesto AI: solo articoli con riordino ricorrente (esclusi quelli con riordino "/"), nessuna giacenza.
 - Verificato generando il PDF reale (BORGHINI SRL, 30 gg) ed estraendo il testo.
+- FIX valore riga (sessione 8b): il "Valore" usava `da_ordinare` (netto giacenza) mentre la colonna mostrata era `domanda_prevista` -> riga non verificabile (es. PISTACCHIO 1.950 x €12 ma valore €15.960). Nuovi campi `valore_domanda` / `margine_eur_domanda` (= quantita' prevista x prezzo) usati SOLO nel PDF; la UI Ottimizzazione resta sul valore d'ordine netto giacenza.
+- KPI PDF acquisti: DOMANDA PREVISTA (kg/pz, con VAR% anno prec.), VALORE ACQUISTO, MARGINE PREVISTO, FATTURATO ATTESO; totale riga fornitore coerente con la somma delle righe.
+- Unita' di misura: quantita' e prezzi sono registrati nella stessa unita' (kg per gli sfusi, pz per i confezionati), quindi valore = prezzo x quantita' e' corretto; rimosse le etichette fisse "(pz)" -> "kg/pz" + nota esplicativa nel PDF.

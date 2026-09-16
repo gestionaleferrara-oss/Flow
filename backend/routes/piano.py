@@ -174,6 +174,9 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
             "margine_pct": round(margine_pct, 1) if margine_pct is not None else None,
             "valore": round(costo * da_ordinare, 2),
             "margine_eur": round((pv - costo) * da_ordinare, 2) if pv else 0,
+            # valore della domanda prevista (quantita' x prezzo, senza netting della giacenza)
+            "valore_domanda": round(costo * dom, 2),
+            "margine_eur_domanda": round((pv - costo) * dom, 2) if pv else 0,
             "ultimo_acquisto": forns.get(best, {}).get('ultima') if best else None,
         })
 
@@ -603,20 +606,30 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
     pdf.add_page()
 
     if acquisti:
-        qty_tot = sum(a['da_ordinare'] for o in d['ordini'] for a in o['articoli'])
+        arts = [a for o in d['ordini'] for a in o['articoli']]
+        qty_tot = sum(a['domanda_prevista'] for a in arts)
+        val_tot = sum(a['valore_domanda'] for a in arts)
+        marg_tot = sum(max(a['margine_eur_domanda'], 0) for a in arts)
+        fatt_tot = sum(a['fatturato_atteso'] for a in arts)
         pdf.kpi_row([
-            ("DA ORDINARE", f"{it_num(qty_tot, 0)} pz", C_BLUE, f"{tot['prodotti']} articoli"),
-            ("VALORE ORDINI", eur(tot['valore_ordini']), C_AMBER, f"{tot['fornitori']} fornitori"),
-            ("MARGINE PREVISTO", eur(tot['margine_previsto']), C_VIOLET,
-             f"su {eur(tot['fatturato_atteso'])} attesi"),
-            ("FATTURATO ATTESO", eur(tot['fatturato_atteso']), C_EMERALD,
-             f"{it_num(tot['quantita_attesa'], 0)} pz"
+            ("DOMANDA PREVISTA", f"{it_num(qty_tot, 0)} kg/pz", C_BLUE, f"{len(arts)} articoli"
              + (f" ({tot['var_quantita_pct']:+.1f}% su {per['anno_confronto']})"
                 if tot.get('var_quantita_pct') is not None else "")),
+            ("VALORE ACQUISTO", eur(val_tot), C_AMBER,
+             f"{tot['fornitori']} " + ("fornitore" if tot['fornitori'] == 1 else "fornitori")),
+            ("MARGINE PREVISTO", eur(marg_tot), C_VIOLET, f"su {eur(fatt_tot)} attesi"),
+            ("FATTURATO ATTESO", eur(fatt_tot), C_EMERALD, f"{eur(val_tot)} di acquisto"),
         ])
+        pdf.note_text(
+            "Valore = domanda prevista x prezzo di acquisto, nella stessa unita' di misura con cui "
+            "l'articolo viene comprato e venduto (a kg per gli sfusi, a pezzo per i confezionati). "
+            "La quantita' effettiva da ordinare si decide sul lotto medio, al netto della giacenza.")
         for o in d['ordini']:
-            qty_forn = sum(a['da_ordinare'] for a in o['articoli'])
-            pdf.section_title(f"{o['fornitore']} — {it_num(qty_forn, 0)} pz · {eur(o['valore'])}", C_BLUE)
+            qty_forn = sum(a['domanda_prevista'] for a in o['articoli'])
+            val_forn = sum(a['valore_domanda'] for a in o['articoli'])
+            marg_forn = sum(max(a['margine_eur_domanda'], 0) for a in o['articoli'])
+            mp_forn = (marg_forn / val_forn * 100) if val_forn else None
+            pdf.section_title(f"{o['fornitore']} — {it_num(qty_forn, 0)} kg/pz · {eur(val_forn)}", C_BLUE)
             righe = [[clean_text(a['prodotto'])[:40],
                       it_num(a['domanda_prevista'], 0) +
                       (f" ({a['var_anno_pct']:+.0f}%)" if a['var_anno_pct'] is not None else ""),
@@ -625,19 +638,18 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
                       eur(a['prezzo_acquisto']) if a['prezzo_acquisto'] else '-',
                       eur(a['prezzo_vendita_atteso']) if a['prezzo_vendita_atteso'] else '-',
                       f"{a['margine_pct']}%" if a['margine_pct'] is not None else '-',
-                      eur(a['valore'])] for a in o['articoli'][:40]]
-            righe.append(['TOTALE ORDINE', '', '', '', it_num(qty_forn, 0), '', '',
-                          f"{o['margine_pct']}%" if o['margine_pct'] is not None else '-',
-                          eur(o['valore'])])
-            pdf.smart_table(["Articolo", f"Domanda prev. {per['anno_base']} (pz)", 'Rotazione',
-                             'Riordino ogni', 'Lotto medio (pz)', 'Prezzo acq.', 'Prezzo vend.',
+                      eur(a['valore_domanda'])] for a in o['articoli'][:40]]
+            righe.append(['TOTALE', it_num(qty_forn, 0), '', '', '', '', '',
+                          f"{mp_forn:.1f}%" if mp_forn is not None else '-', eur(val_forn)])
+            pdf.smart_table(["Articolo", f"Domanda prev. {per['anno_base']}", 'Rotazione',
+                             'Riordino ogni', 'Lotto medio', 'Prezzo acq.', 'Prezzo vend.',
                              'Marg. %', 'Valore'],
                             [46, 24, 17, 19, 20, 19, 19, 14, 21], righe,
                             aligns=['L', 'R', 'C', 'R', 'R', 'R', 'R', 'R', 'R'])
     else:
         qty_tot = sum(a['quantita_attesa'] for o in d['ordini'] for a in o['articoli'])
         pdf.kpi_row([
-            ("FATTURATO ATTESO", eur(tot['valore_atteso']), C_BLUE, f"{it_num(qty_tot, 0)} pz attesi"),
+            ("FATTURATO ATTESO", eur(tot['valore_atteso']), C_BLUE, f"{it_num(qty_tot, 0)} kg/pz attesi"),
             ("DA PROPORRE", eur(tot['valore_mancante']), C_AMBER, "non ancora riordinato"),
             ("MARGINE PREVISTO", eur(tot['margine_previsto']), C_VIOLET, "sul costo lotti (FIFO)"),
             ("CLIENTI DA SENTIRE", f"{tot['da_chiamare']} di {tot['clienti']}", C_EMERALD,
@@ -653,7 +665,7 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
                      for a in o['articoli'][:40]]
             righe.append(['TOTALE', it_num(qty_cli, 0), '', eur(o['valore_atteso']),
                           f"{o['prodotti_mancanti']} da proporre"])
-            pdf.smart_table(['Articolo', 'Qta attesa (pz)', 'Prezzo atteso', 'Valore', 'Stato'],
+            pdf.smart_table(['Articolo', 'Qta attesa', 'Prezzo atteso', 'Valore', 'Stato'],
                             [76, 24, 26, 28, 26], righe,
                             aligns=['L', 'R', 'R', 'R', 'R'])
 
@@ -670,14 +682,16 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
     for o in d['ordini'][:8]:
         if acquisti:
             ctx_righe.append(
-                f"{o['fornitore']}: {o['prodotti_n']} articoli, valore ordine € {o['valore']}, "
+                f"{o['fornitore']}: {o['prodotti_n']} articoli, valore acquisto previsto € "
+                f"{round(sum(a['valore_domanda'] for a in o['articoli']), 2)}, "
                 f"margine previsto {o['margine_pct']}%, spesa ultimi 12 mesi € {o['spesa_ultimo_anno']}, "
                 f"fatturato atteso € {o['fatturato_atteso']}. Articoli con riordino ricorrente: " +
-                "; ".join(f"{a['prodotto']} domanda prevista {a['domanda_prevista']} pz "
+                "; ".join(f"{a['prodotto']} domanda prevista {a['domanda_prevista']} "
                           f"({a['var_anno_pct']:+.0f}% sull'anno precedente) "
                           f"rotazione {a['rotazione']}, riordino ogni {a['riordino_giorni']} gg, "
-                          f"lotto medio {a['lotto_medio']} pz, acquisto € {a['prezzo_acquisto']}, "
+                          f"lotto medio {a['lotto_medio']}, acquisto € {a['prezzo_acquisto']}, "
                           f"vendita € {a['prezzo_vendita_atteso']}, margine {a['margine_pct']}%, "
+                          f"valore acquisto € {a['valore_domanda']}, "
                           f"fatturato atteso € {a['fatturato_atteso']}"
                           for a in o['articoli'][:8]
                           if a['riordino_giorni'] and a['var_anno_pct'] is not None))
@@ -697,6 +711,8 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
         "concentrazione della spesa su pochi articoli).\n"
         "- Considera SOLO gli articoli elencati nei dati; non parlare di giacenze, scorte o copertura "
         "di magazzino.\n"
+        "- Le quantita' sono espresse nell'unita' con cui l'articolo viene comprato e venduto "
+        "(kg per gli sfusi, pezzi per i confezionati): non aggiungere mai 'pz' o 'kg' alle quantita'.\n"
         "- VIETATO: usare le parole 'riga' o 'righe' (usa 'articoli'); parlare del rischio di dipendenza "
         "da un unico fornitore, di fornitori alternativi o di secondo fornitore.\n"
     ) if acquisti else ""
