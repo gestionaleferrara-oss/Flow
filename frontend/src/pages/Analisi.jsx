@@ -155,16 +155,20 @@ function VenditeProdotti({ range, setPreset, preset, setRange }) {
   const [sort, setSort] = useState({ field: 'fatturato', dir: 'desc' });
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [clienteFiltro, setClienteFiltro] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const r = await axios.get(`${API}/analisi/vendite-prodotti`, {
-        params: { start_date: range[0] || undefined, end_date: range[1] || undefined, search: search || undefined },
+        params: {
+          start_date: range[0] || undefined, end_date: range[1] || undefined,
+          search: search || undefined, cliente: clienteFiltro || undefined,
+        },
       });
       setData(r.data);
     } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, [range, search]);
+  }, [range, search, clienteFiltro]);
 
   useEffect(() => { const t = setTimeout(load, 300); return () => clearTimeout(t); }, [load]);
 
@@ -200,7 +204,8 @@ function VenditeProdotti({ range, setPreset, preset, setRange }) {
               data-testid="analisi-vendite-search"
             />
           </div>
-          <ExportBar range={range} tipo="vendite" filtri={{ prodotto: search }} periodo={data?.periodo} />
+          <ExportBar range={range} tipo="vendite" filtri={{ prodotto: search }} periodo={data?.periodo}
+            cliente={clienteFiltro} onCliente={setClienteFiltro} />
         </div>
       </PeriodBar>
 
@@ -529,10 +534,12 @@ function AcquistiFornitori({ range, setRange, preset, setPreset }) {
 
 // ───────────────────────── SHARED UI ─────────────────────────
 
-function ExportBar({ range, tipo, filtri = {}, periodo }) {
+function ExportBar({ range, tipo, filtri = {}, periodo, cliente, onCliente }) {
   const [pct, setPct] = useState(() => localStorage.getItem('flow_provvigione') || '3');
   const [dettaglio, setDettaglio] = useState(false);
-  const [clienteListino, setClienteListino] = useState('');
+  const [clienteLocale, setClienteLocale] = useState('');
+  const clienteListino = onCliente ? (cliente || '') : clienteLocale;
+  const setClienteListino = onCliente || setClienteLocale;
   const [prodottoListino, setProdottoListino] = useState('');
   const [ordinaMargine, setOrdinaMargine] = useState(false);
 
@@ -604,7 +611,7 @@ function ExportBar({ range, tipo, filtri = {}, periodo }) {
           <div className="flex items-center gap-1 pl-2 border-l border-white/[0.08]">
             <div className="w-44">
               <Autocomplete
-                placeholder="Listino per cliente..."
+                placeholder="Filtra e listino per cliente..."
                 value={clienteListino}
                 onChange={setClienteListino}
                 tipo="clienti"

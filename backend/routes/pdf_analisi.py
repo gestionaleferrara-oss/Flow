@@ -784,6 +784,38 @@ async def export_listino(
             aligns=['L', 'R', 'R', 'R', 'R', 'R', 'R', 'C'], col_colors={6: _margin_color})
         pdf.note_text("Prezzo medio ponderato del periodo, costo/u dai lotti FIFO.")
 
+        # ── prodotti non piu' acquistati rispetto allo stesso periodo dell'anno scorso ──
+        if per_cliente:
+            ly_s, ly_e = p0
+            ly_rows = await db.vendite.aggregate([
+                {"$match": {**excl, "cliente_nome": {"$regex": cliente, "$options": "i"},
+                            "data": {"$gte": ly_s, "$lte": ly_e}}},
+                {"$group": {"_id": "$prodotto_nome", "qty": {"$sum": {"$abs": "$quantita"}},
+                            "fatt": {"$sum": {"$abs": "$totale"}}, "ultimo": {"$max": "$data"}}},
+                {"$sort": {"fatt": -1}},
+            ]).to_list(3000)
+            attuali = {r['_id'] for r in rows_agg}
+            persi = [r for r in ly_rows if r['_id'] not in attuali and r['qty'] > 0]
+            if persi:
+                ultimo_map = {}
+                for r in await db.vendite.aggregate([
+                    {"$match": {**excl, "cliente_nome": {"$regex": cliente, "$options": "i"},
+                                "prodotto_nome": {"$in": [r['_id'] for r in persi]}}},
+                    {"$group": {"_id": "$prodotto_nome", "ultimo": {"$max": "$data"}}},
+                ]).to_list(3000):
+                    ultimo_map[r['_id']] = r['ultimo']
+                pdf.section_title(f"Non lo compra piu': {len(persi)} prodotti dell'anno scorso", C_RED)
+                pdf.smart_table(['Prodotto', 'Qta anno scorso', 'Fatturato perso', 'Prezzo applicato',
+                                 'Ultimo acquisto'],
+                                [76, 26, 30, 30, 28],
+                                [[_short(r['_id'], 48), it_num(r['qty'], 0), eur(r['fatt']),
+                                  eur(r['fatt'] / r['qty']) if r['qty'] else '-',
+                                  _dm(ultimo_map.get(r['_id'])) if ultimo_map.get(r['_id']) else '-']
+                                 for r in persi[:30]],
+                                aligns=['L', 'R', 'R', 'R', 'R'])
+                pdf.note_text(f"Confronto con {_dm(ly_s)} - {_dm(ly_e)}: fatturato non piu' ripetuto "
+                              f"{eur(sum(r['fatt'] for r in persi))}.")
+
         ctx = (f"Listino {cliente or prodotto} periodo {_dm(start)}-{_dm(end)}. "
                f"{len(table_rows)} voci.\nRighe (voce, qta, prezzo medio, costo/u, fatturato, margine%): "
                + "; ".join(" ".join(str(c) for c in r[:7]) for r in table_rows[:15]))

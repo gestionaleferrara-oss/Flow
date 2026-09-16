@@ -71,12 +71,15 @@ async def prezzi_acquisto(nomi: List[str], start: str, end: str) -> Dict[str, fl
 @router.get("/analisi/vendite-prodotti")
 async def analisi_vendite_prodotti(
     start_date: Optional[str] = None, end_date: Optional[str] = None,
-    search: Optional[str] = None, limit: int = 300
+    search: Optional[str] = None, cliente: Optional[str] = None, limit: int = 300
 ):
     start, end, prev_start, prev_end = await resolve_period(start_date, end_date)
     excl = await esclusi_filter()
 
     base_match = {"cliente_nome": {"$nin": EXCLUDED_CLIENTS}, **excl}
+    if cliente:
+        base_match["$and"] = [{"cliente_nome": {"$nin": EXCLUDED_CLIENTS}},
+                              {"cliente_nome": {"$regex": cliente, "$options": "i"}}]
     if search:
         base_match["prodotto_nome"] = {"$regex": search, "$options": "i"}
 
