@@ -589,24 +589,36 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
     per = _finestra_previsione(giorni)
     base = {"prodotto_nome": {"$in": nomi}, "cliente_nome": {"$nin": EXCLUDED_CLIENTS}}
 
-    per_cliente = await agg_ponderata(
+    # Un'unica base ponderata per coppia cliente+prodotto: aggregando per cliente o per
+    # prodotto i totali restano identici, cosi' i KPI quadrano con tutte le tabelle.
+    coppie = await agg_ponderata(
         db.vendite, base, per['storico_start'], per['storico_end'],
         per['storico2_start'], per['storico2_end'],
-        {"_id": "$cliente_nome", "quantita": {"$sum": {"$abs": "$quantita"}},
+        {"_id": {"c": "$cliente_nome", "p": "$prodotto_nome"},
+         "quantita": {"$sum": {"$abs": "$quantita"}},
          "fatturato": {"$sum": {"$abs": "$totale"}},
          "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
-         "prodotti": {"$addToSet": "$prodotto_nome"}, "ultimo": {"$max": "$data"}},
-        ("quantita", "fatturato", "costo"), limit=3000)
-    per_cliente.sort(key=lambda r: -r['fatturato'])
+         "ultimo": {"$max": "$data"}},
+        ("quantita", "fatturato", "costo"), limit=200000)
 
-    per_prodotto = await agg_ponderata(
-        db.vendite, base, per['storico_start'], per['storico_end'],
-        per['storico2_start'], per['storico2_end'],
-        {"_id": "$prodotto_nome", "quantita": {"$sum": {"$abs": "$quantita"}},
-         "fatturato": {"$sum": {"$abs": "$totale"}},
-         "costo": {"$sum": {"$ifNull": ["$costo_fifo", 0]}},
-         "clienti": {"$addToSet": "$cliente_nome"}},
-        ("quantita", "fatturato", "costo"), limit=3000)
+    def _raggruppa(chiave, chiave_set, nome_set):
+        out: Dict[str, Dict] = {}
+        for c in coppie:
+            k = c['_id'].get(chiave)
+            if not k:
+                continue
+            r = out.setdefault(k, {"_id": k, "quantita": 0.0, "fatturato": 0.0, "costo": 0.0,
+                                   "quantita_base": 0.0, "fatturato_base": 0.0,
+                                   nome_set: set(), "ultimo": ""})
+            for campo in ("quantita", "fatturato", "costo", "quantita_base", "fatturato_base"):
+                r[campo] += c.get(campo) or 0
+            if c['_id'].get(chiave_set):
+                r[nome_set].add(c['_id'][chiave_set])
+            r['ultimo'] = max(r['ultimo'], c.get('ultimo') or '')
+        return out
+
+    per_cliente = sorted(_raggruppa('c', 'p', 'prodotti').values(), key=lambda r: -r['fatturato'])
+    per_prodotto = list(_raggruppa('p', 'c', 'clienti').values())
 
     # prodotto piu' acquistato da ogni cliente (nella finestra base)
     top_prod = {}
@@ -645,9 +657,10 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
         if pnome not in best or r['qty'] > best[pnome]['qty']:
             best[pnome] = {"fornitore": fnome, "prezzo": r['spesa'] / r['qty'], "qty": r['qty']}
 
-    fatt = sum(r['fatturato'] for r in per_cliente)
-    costo = sum(r['costo'] for r in per_cliente)
-    qty = sum(r['quantita'] for r in per_cliente)
+    # KPI sui prodotti: stessa base delle righe della tabella, cosi' i totali quadrano
+    fatt = sum(r['fatturato'] for r in per_prodotto)
+    costo = sum(r['costo'] for r in per_prodotto)
+    qty = sum(r['quantita'] for r in per_prodotto)
     da_ordinare_tot = 0.0
     valore_ordine = 0.0
     prodotti_righe = []
@@ -955,10 +968,10 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
     if d['tipo'] == 'prodotto':
         pdf.kpi_row([
             ("QUANTITA ATTESA", f"{it_num(k['quantita_attesa'], 0)}", C_BLUE, f"{k['prodotti']} prodotti"),
-            ("VALORE ACQUISTO", eur(k['valore_acquisto']), C_AMBER, "spesa merce prevista"),
+            ("VALORE ACQUISTO", eur(k['valore_acquisto']), C_AMBER, "ai prezzi di acquisto attuali"),
             ("FATTURATO ATTESO", eur(k['fatturato_atteso']), C_EMERALD, f"{k['clienti_attesi']} clienti"),
             ("MARGINE PREVISTO", eur(k['margine_atteso']) if k['margine_atteso'] is not None else '-',
-             C_VIOLET, f"{k['margine_pct']}% sul costo" if k['margine_pct'] is not None else None),
+             C_VIOLET, f"{k['margine_pct']}% sul costo FIFO" if k['margine_pct'] is not None else None),
         ])
     elif d['tipo'] == 'cliente':
         pdf.kpi_row([
@@ -1043,7 +1056,10 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
                             aligns=['L', 'R', 'R', 'R', 'R', 'R', 'L'])
             pdf.note_text("La quantita' e' quella con cui l'articolo viene comprato e venduto in "
                           "tutto il sistema: kg per gli articoli a peso, pz (confezioni) per i "
-                          f"confezionati. Fatturato = venduto atteso nei prossimi {per['giorni']} giorni.")
+                          f"confezionati. Fatturato = venduto atteso nei prossimi {per['giorni']} giorni. "
+                          "Valore acquisto = quantita' prevista x prezzo di acquisto attuale, mentre il "
+                          "margine e' calcolato sul costo reale dei lotti (FIFO): i due valori non "
+                          "coincidono se i prezzi di acquisto sono cambiati.")
         if mostra_fornitori and d.get('righe_fornitori'):
             pdf.section_title("Previsione per fornitore", C_EMERALD)
             pdf.smart_table(['Fornitore', 'Ruolo', 'Articoli', 'Prz. medio',

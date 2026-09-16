@@ -597,7 +597,7 @@ async def export_analisi_pdf(
             await blocco_considerazioni_ai(pdf, ctx, f"analisi-acquisti-{per['start']}-{per['end']}")
             fname = f"analisi_acquisti_{per['start']}_{per['end']}.pdf"
         else:
-            data = await analisi_vendite_prodotti(start_date, end_date, prodotto, 500)
+            data = await analisi_vendite_prodotti(start_date, end_date, search=prodotto, limit=500)
             per = data['periodo']
             k = data['kpi']
             pdf = FlowPDF("ANALISI VENDITE PER PRODOTTO",
