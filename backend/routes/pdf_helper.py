@@ -121,8 +121,7 @@ class FlowPDF(FPDF):
         self.set_font(FONT, '', 7)
         self.set_text_color(*C_MUTED)
         self.set_xy(ML, self.get_y() + 1.5)
-        self.cell(CONTENT_W / 2, 5, 'Flow Business Analytics', ln=False)
-        self.cell(CONTENT_W / 2, 5,
+        self.cell(CONTENT_W, 5,
                   f'Generato il {datetime.now().strftime("%d/%m/%Y %H:%M")}  ·  Documento riservato',
                   align='R', ln=False)
 

@@ -1166,7 +1166,7 @@ async def export_report_pdf(data: dict):
 
         pdf.ln(6)
         pdf.set_font(FONT,'I',7.5); pdf.set_text_color(*C_SLATE)
-        pdf.cell(0,5,f"Report generato il {created_at}  |  Flow Business Analytics  |  Confidenziale",align='C')
+        pdf.cell(0,5,f"Report generato il {created_at}  |  Documento riservato",align='C')
 
         pdf_bytes = pdf.output()
         return Response(bytes(pdf_bytes), media_type="application/pdf",
