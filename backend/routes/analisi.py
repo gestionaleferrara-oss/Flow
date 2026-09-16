@@ -741,6 +741,8 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
         "kpi": {
             "quantita_attesa": round(qty, 1),
             "kg_attesi": round(sum(r['kg_previsti'] for r in prodotti_righe), 1),
+            "valore_acquisto": round(sum((r['prezzo_acquisto'] or 0) * r['domanda_prevista']
+                                         for r in prodotti_righe), 2),
             "fatturato_atteso": round(fatt, 2),
             "margine_atteso": round(fatt - costo, 2) if costo else None,
             "margine_pct": round((fatt - costo) / costo * 100, 1) if costo > 0 else None,
@@ -953,7 +955,7 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
     if d['tipo'] == 'prodotto':
         pdf.kpi_row([
             ("QUANTITA ATTESA", f"{it_num(k['quantita_attesa'], 0)}", C_BLUE, f"{k['prodotti']} prodotti"),
-            ("KG TOTALI", f"{it_num(k['kg_attesi'], 0)} kg", C_AMBER, "peso convertito"),
+            ("VALORE ACQUISTO", eur(k['valore_acquisto']), C_AMBER, "spesa merce prevista"),
             ("FATTURATO ATTESO", eur(k['fatturato_atteso']), C_EMERALD, f"{k['clienti_attesi']} clienti"),
             ("MARGINE PREVISTO", eur(k['margine_atteso']) if k['margine_atteso'] is not None else '-',
              C_VIOLET, f"{k['margine_pct']}% sul costo" if k['margine_pct'] is not None else None),
@@ -1039,19 +1041,19 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
                               eur(r['fatturato_atteso']),
                               clean_text(r['fornitore'] or '-')[:22]] for r in d['righe_prodotti'][:30]],
                             aligns=['L', 'R', 'R', 'R', 'R', 'R', 'L'])
-            pdf.note_text("La quantita' e' espressa nell'unita' con cui l'articolo viene comprato e "
-                          "venduto: kg per gli articoli a peso, pz (confezioni) per i confezionati. "
-                          f"Fatturato = venduto atteso nei prossimi {per['giorni']} giorni.")
+            pdf.note_text("La quantita' e' quella con cui l'articolo viene comprato e venduto in "
+                          "tutto il sistema: kg per gli articoli a peso, pz (confezioni) per i "
+                          f"confezionati. Fatturato = venduto atteso nei prossimi {per['giorni']} giorni.")
         if mostra_fornitori and d.get('righe_fornitori'):
             pdf.section_title("Previsione per fornitore", C_EMERALD)
             pdf.smart_table(['Fornitore', 'Ruolo', 'Articoli', 'Prz. medio',
-                             'Kg previsti', f'Kg venduti {anno_prec_lbl}', 'Spesa 12 mesi'],
+                             'Domanda prev.', f'Venduto {anno_prec_lbl}', 'Spesa 12 mesi'],
                             [58, 24, 18, 24, 24, 26, 26],
                             [[clean_text(r['nome'])[:38], r['ruolo'],
                               f"{r['prodotti_trattati']}",
                               eur(r['prezzo_medio']) if r['prezzo_medio'] else '-',
-                              f"{it_num(r['kg_previsti'], 0)} kg",
-                              f"{it_num(r['kg_anno_prec'], 0)} kg",
+                              it_num(r['domanda_prevista'], 0),
+                              it_num(r['domanda_anno_prec'], 0),
                               eur(r['spesa'])]
                              for r in d['righe_fornitori'][:15]],
                             aligns=['L', 'L', 'R', 'R', 'R', 'R', 'R'])
@@ -1080,7 +1082,7 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
     if d.get('righe_prodotti'):
         ctx += ("\nProdotti: " + "; ".join(
             f"{r['nome']} domanda prevista {r['domanda_prevista']} {unita(r['nome'])} "
-            f"({r['kg_previsti']} kg) (venduto {anno_prec_lbl} {r['quantita_anno_prec']} "
+            f"(venduto {anno_prec_lbl} {r['quantita_anno_prec']} "
             f"{unita(r['nome'])}) prz acq € {r['prezzo_acquisto']} "
             f"marg {r['margine_pct']}% fatturato atteso € {r['fatturato_atteso']} "
             f"fornitore {r['fornitore']}"
@@ -1088,8 +1090,8 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
     if d.get('righe_fornitori'):
         ctx += ("\nFornitori: " + "; ".join(
             f"{f['nome']} ruolo {f['ruolo']} (copre il {f['quota_pct']}% degli acquisti dei "
-            f"prodotti che tratta) prz € {f['prezzo_medio']} kg previsti "
-            f"{f['kg_previsti']} (kg venduti {anno_prec_lbl} {f['kg_anno_prec']}) "
+            f"prodotti che tratta) prz € {f['prezzo_medio']} domanda prevista "
+            f"{f['domanda_prevista']} (venduto {anno_prec_lbl} {f['domanda_anno_prec']}) "
             f"spesa 12 mesi € {f['spesa']}"
             for f in d['righe_fornitori'][:8]))
     await blocco_considerazioni_ai(
