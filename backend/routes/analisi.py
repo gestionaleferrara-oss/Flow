@@ -678,13 +678,15 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
             continue
         f = forn_agg.setdefault(fnome, {"nome": fnome, "qty": 0.0, "spesa": 0.0,
                                         "prodotti": set(), "domanda": 0.0, "domanda_prec": 0.0,
-                                        "da_ordinare": 0.0, "valore": 0.0, "ultima": ""})
+                                        "da_ordinare": 0.0, "valore": 0.0, "ultima": "",
+                                        "qty_mercato": 0.0})
         quota = r['qty'] / qty_prodotto[pnome]
         f['qty'] += r['qty']
         f['spesa'] += r['spesa']
         f['prodotti'].add(pnome)
         f['domanda'] += dom_map.get(pnome, 0) * quota
         f['domanda_prec'] += prec_map.get(pnome, 0) * quota
+        f['qty_mercato'] += qty_prodotto[pnome]
         f['da_ordinare'] += da_ord_map.get(pnome, 0) * quota
         f['valore'] += da_ord_map.get(pnome, 0) * quota * (r['spesa'] / r['qty'])
         f['ultima'] = max(f['ultima'], r.get('ultima') or '')
@@ -692,11 +694,14 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
     spesa_tot = sum(f['spesa'] for f in forn_agg.values()) or 1
     righe_fornitori = []
     for f in sorted(forn_agg.values(), key=lambda x: -x['spesa']):
-        quota_pct = f['spesa'] / spesa_tot * 100
+        # il ruolo si riferisce ai prodotti che quel fornitore tratta davvero,
+        # non al totale della selezione analizzata
+        quota_pct = (f['qty'] / f['qty_mercato'] * 100) if f['qty_mercato'] else 0
         righe_fornitori.append({
             "nome": f['nome'],
             "ruolo": "primario" if quota_pct >= 40 else ("secondario" if quota_pct >= 10 else "occasionale"),
             "quota_pct": round(quota_pct, 1),
+            "quota_spesa_pct": round(f['spesa'] / spesa_tot * 100, 1),
             "quantita_acquistata": round(f['qty'], 1),
             "spesa": round(f['spesa'], 2),
             "prezzo_medio": round(f['spesa'] / f['qty'], 4) if f['qty'] else None,
@@ -1051,7 +1056,8 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
             for r in d['righe_prodotti'][:12]))
     if d.get('righe_fornitori'):
         ctx += ("\nFornitori: " + "; ".join(
-            f"{f['nome']} ruolo {f['ruolo']} prz € {f['prezzo_medio']} domanda prevista "
+            f"{f['nome']} ruolo {f['ruolo']} (copre il {f['quota_pct']}% degli acquisti dei "
+            f"prodotti che tratta) prz € {f['prezzo_medio']} domanda prevista "
             f"{f['domanda_prevista']} (venduto {anno_prec_lbl} {f['domanda_anno_prec']}) "
             f"spesa 12 mesi € {f['spesa']}"
             for f in d['righe_fornitori'][:8]))
