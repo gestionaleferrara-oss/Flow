@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from database import db
 from routes.previsione_peso import PESO_BASE, PESO_PREC, agg_ponderata
-from routes.unita import etichetta_kg, kg, kg_per_unita
+from routes.unita import etichetta_qta, kg, kg_per_unita, unita
 
 router = APIRouter()
 
@@ -681,6 +681,7 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
     dom_map = {r['nome']: r['domanda_prevista'] for r in prodotti_righe}
     prec_map = {r['nome']: r['quantita_anno_prec'] for r in prodotti_righe}
     kg_map = {r['nome']: r['kg_previsti'] for r in prodotti_righe}
+    kg_prec_map = {r['nome']: kg(r['nome'], r['quantita_anno_prec']) for r in prodotti_righe}
     qty_prodotto: Dict[str, float] = {}
     for r in forn:
         pnome = r['_id'].get('p')
@@ -694,7 +695,7 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
             continue
         f = forn_agg.setdefault(fnome, {"nome": fnome, "qty": 0.0, "spesa": 0.0,
                                         "prodotti": set(), "domanda": 0.0, "domanda_prec": 0.0,
-                                        "kg": 0.0,
+                                        "kg": 0.0, "kg_prec": 0.0,
                                         "da_ordinare": 0.0, "valore": 0.0, "ultima": "",
                                         "qty_mercato": 0.0})
         quota = r['qty'] / qty_prodotto[pnome]
@@ -704,6 +705,7 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
         f['domanda'] += dom_map.get(pnome, 0) * quota
         f['domanda_prec'] += prec_map.get(pnome, 0) * quota
         f['kg'] += kg_map.get(pnome, 0) * quota
+        f['kg_prec'] += kg_prec_map.get(pnome, 0) * quota
         f['qty_mercato'] += qty_prodotto[pnome]
         f['da_ordinare'] += da_ord_map.get(pnome, 0) * quota
         f['valore'] += da_ord_map.get(pnome, 0) * quota * (r['spesa'] / r['qty'])
@@ -727,6 +729,7 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
             "domanda_prevista": round(f['domanda'], 1),
             "domanda_anno_prec": round(f['domanda_prec'], 1),
             "kg_previsti": round(f['kg'], 1),
+            "kg_anno_prec": round(f['kg_prec'], 1),
             "da_ordinare": round(f['da_ordinare'], 1),
             "valore_ordine": round(f['valore'], 2),
             "ultimo_acquisto": f['ultima'] or None,
@@ -1026,35 +1029,32 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
                               f"e {it_num(sum(r['quantita_attesa'] for r in resto), 0)} pezzi attesi.")
         if d.get('righe_prodotti'):
             pdf.section_title("Riepilogo per prodotto", C_AMBER)
-            pdf.smart_table(['Prodotto', 'Domanda prev.', 'Kg previsti', f'Venduto {anno_prec_lbl}',
+            pdf.smart_table(['Prodotto', 'Domanda prev.', f'Venduto {anno_prec_lbl}',
                              'Prz. acq.', 'Marg. %', f"Fatturato {per['giorni']} gg", 'Fornitore'],
-                            [50, 22, 22, 24, 20, 16, 26, 30],
-                            [[clean_text(r['nome'])[:38], it_num(r['domanda_prevista'], 0),
-                              etichetta_kg(r['nome'], r['domanda_prevista']),
-                              it_num(r['quantita_anno_prec'], 0),
+                            [54, 26, 24, 22, 18, 26, 32],
+                            [[clean_text(r['nome'])[:40], etichetta_qta(r['nome'], r['domanda_prevista']),
+                              etichetta_qta(r['nome'], r['quantita_anno_prec']),
                               eur(r['prezzo_acquisto']) if r['prezzo_acquisto'] else '-',
                               f"{r['margine_pct']}%" if r['margine_pct'] is not None else '-',
                               eur(r['fatturato_atteso']),
                               clean_text(r['fornitore'] or '-')[:22]] for r in d['righe_prodotti'][:30]],
-                            aligns=['L', 'R', 'R', 'R', 'R', 'R', 'R', 'L'])
-            pdf.note_text("Kg previsti = quantita' convertita a peso in base al formato "
-                          "(gli articoli sfusi sono gia' in kg, i confezionati moltiplicati per il peso "
-                          "della confezione; i liquidi non hanno conversione). "
+                            aligns=['L', 'R', 'R', 'R', 'R', 'R', 'L'])
+            pdf.note_text("La quantita' e' espressa nell'unita' con cui l'articolo viene comprato e "
+                          "venduto: kg per gli articoli a peso, pz (confezioni) per i confezionati. "
                           f"Fatturato = venduto atteso nei prossimi {per['giorni']} giorni.")
         if mostra_fornitori and d.get('righe_fornitori'):
             pdf.section_title("Previsione per fornitore", C_EMERALD)
             pdf.smart_table(['Fornitore', 'Ruolo', 'Articoli', 'Prz. medio',
-                             'Domanda prev.', 'Kg previsti', f'Venduto {anno_prec_lbl}', 'Spesa 12 mesi'],
-                            [52, 22, 16, 22, 24, 22, 22, 24],
-                            [[clean_text(r['nome'])[:34], r['ruolo'],
+                             'Kg previsti', f'Kg venduti {anno_prec_lbl}', 'Spesa 12 mesi'],
+                            [58, 24, 18, 24, 24, 26, 26],
+                            [[clean_text(r['nome'])[:38], r['ruolo'],
                               f"{r['prodotti_trattati']}",
                               eur(r['prezzo_medio']) if r['prezzo_medio'] else '-',
-                              it_num(r['domanda_prevista'], 0),
-                              f"{it_num(r['kg_previsti'], 0)} kg" if r['kg_previsti'] else '-',
-                              it_num(r['domanda_anno_prec'], 0),
+                              f"{it_num(r['kg_previsti'], 0)} kg",
+                              f"{it_num(r['kg_anno_prec'], 0)} kg",
                               eur(r['spesa'])]
                              for r in d['righe_fornitori'][:15]],
-                            aligns=['L', 'L', 'R', 'R', 'R', 'R', 'R', 'R'])
+                            aligns=['L', 'L', 'R', 'R', 'R', 'R', 'R'])
 
     pdf.note_text(f"Previsione con media ponderata {int(PESO_BASE * 100)}% / {int(PESO_PREC * 100)}% "
                   "sul venduto dello stesso intervallo dei due anni precedenti. "
@@ -1079,16 +1079,17 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
                 "considerazioni sulla clientela.")
     if d.get('righe_prodotti'):
         ctx += ("\nProdotti: " + "; ".join(
-            f"{r['nome']} domanda prevista {r['domanda_prevista']} ({r['kg_previsti']} kg) "
-            f"(venduto {anno_prec_lbl} {r['quantita_anno_prec']}) prz acq € {r['prezzo_acquisto']} "
+            f"{r['nome']} domanda prevista {r['domanda_prevista']} {unita(r['nome'])} "
+            f"({r['kg_previsti']} kg) (venduto {anno_prec_lbl} {r['quantita_anno_prec']} "
+            f"{unita(r['nome'])}) prz acq € {r['prezzo_acquisto']} "
             f"marg {r['margine_pct']}% fatturato atteso € {r['fatturato_atteso']} "
             f"fornitore {r['fornitore']}"
             for r in d['righe_prodotti'][:12]))
     if d.get('righe_fornitori'):
         ctx += ("\nFornitori: " + "; ".join(
             f"{f['nome']} ruolo {f['ruolo']} (copre il {f['quota_pct']}% degli acquisti dei "
-            f"prodotti che tratta) prz € {f['prezzo_medio']} domanda prevista "
-            f"{f['domanda_prevista']} (venduto {anno_prec_lbl} {f['domanda_anno_prec']}) "
+            f"prodotti che tratta) prz € {f['prezzo_medio']} kg previsti "
+            f"{f['kg_previsti']} (kg venduti {anno_prec_lbl} {f['kg_anno_prec']}) "
             f"spesa 12 mesi € {f['spesa']}"
             for f in d['righe_fornitori'][:8]))
     await blocco_considerazioni_ai(

@@ -27,6 +27,18 @@ def kg_per_unita(nome: str):
     return 1.0
 
 
+def unita(nome: str) -> str:
+    """'kg' se la quantita' registrata e' un peso, altrimenti 'pz' (confezioni)."""
+    return 'kg' if kg_per_unita(nome) == 1.0 else 'pz'
+
+
+def etichetta_qta(nome: str, qta) -> str:
+    """Quantita' con la sua unita': '356 kg' oppure '269 pz'."""
+    if qta is None:
+        return '-'
+    return f"{qta:,.0f}".replace(',', '.') + f" {unita(nome)}"
+
+
 def etichetta_kg(nome: str, qta) -> str:
     """Es. '67 kg (x0,25)' oppure '356 kg' se la quantita' e' gia' a peso."""
     f = kg_per_unita(nome)
