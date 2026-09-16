@@ -29,11 +29,11 @@ ISTRUZIONI = (
 )
 
 
-async def considerazioni(contesto: str, chiave: str = "") -> str:
+async def considerazioni(contesto: str, chiave: str = "", extra: str = "") -> str:
     """Testo di considerazioni sui dati passati. Stringa vuota se non disponibile."""
     if not contesto.strip():
         return ""
-    h = hashlib.sha256((chiave + contesto).encode()).hexdigest()[:24]
+    h = hashlib.sha256((chiave + extra + contesto).encode()).hexdigest()[:24]
     cached = await db.report_insight.find_one({"_id": h}, {"_id": 0, "testo": 1})
     if cached:
         return cached['testo']
@@ -43,7 +43,8 @@ async def considerazioni(contesto: str, chiave: str = "") -> str:
         return ""
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
-        chat = (LlmChat(api_key=api_key, session_id=f"insight-{h}", system_message=ISTRUZIONI)
+        system = ISTRUZIONI + ("\nREGOLE AGGIUNTIVE PRIORITARIE:\n" + extra if extra else "")
+        chat = (LlmChat(api_key=api_key, session_id=f"insight-{h}", system_message=system)
                 .with_model(PROVIDER, MODEL))
         testo = await chat.send_message(UserMessage(text=contesto))
         testo = (testo or "").strip()
@@ -59,11 +60,11 @@ async def considerazioni(contesto: str, chiave: str = "") -> str:
 
 
 async def blocco_considerazioni_ai(pdf, contesto: str, chiave: str = "",
-                                   titolo: str = "Considerazioni"):
+                                   titolo: str = "Considerazioni", extra: str = ""):
     """Aggiunge al PDF la sezione con le considerazioni, se disponibili."""
     from routes.pdf_helper import C_NAVY
 
-    testo = await considerazioni(contesto, chiave)
+    testo = await considerazioni(contesto, chiave, extra)
     if not testo:
         return
     pdf.ensure_space(34)

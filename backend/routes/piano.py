@@ -629,7 +629,7 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
             righe.append(['TOTALE ORDINE', '', '', '', it_num(qty_forn, 0), '', '',
                           f"{o['margine_pct']}%" if o['margine_pct'] is not None else '-',
                           eur(o['valore'])])
-            pdf.smart_table([f"Articolo", f"Domanda prev. {per['anno_base']} (pz)", 'Rotazione',
+            pdf.smart_table(["Articolo", f"Domanda prev. {per['anno_base']} (pz)", 'Rotazione',
                              'Riordino ogni', 'Lotto medio (pz)', 'Prezzo acq.', 'Prezzo vend.',
                              'Marg. %', 'Valore'],
                             [46, 24, 17, 19, 20, 19, 19, 14, 21], righe,
@@ -672,15 +672,15 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
             ctx_righe.append(
                 f"{o['fornitore']}: {o['prodotti_n']} articoli, valore ordine € {o['valore']}, "
                 f"margine previsto {o['margine_pct']}%, spesa ultimi 12 mesi € {o['spesa_ultimo_anno']}, "
-                f"ordini emessi negli ultimi 12 mesi {sum(a['ordini_ultimo_anno'] for a in o['articoli'])} "
-                f"(righe d'acquisto), lotto medio per riordino " +
-                ", ".join(f"{a['prodotto']} {a['lotto_medio']} pz" for a in o['articoli'][:3]) +
-                ". Articoli: " +
-                "; ".join(f"{a['prodotto']} domanda {a['domanda_prevista']} pz, giacenza {a['giacenza']} pz, "
-                          f"da ordinare {a['da_ordinare']} pz, rotazione {a['rotazione']}, "
-                          f"riordino ogni {a['riordino_giorni'] or '-'} gg, acquisto € {a['prezzo_acquisto']}, "
-                          f"vendita € {a['prezzo_vendita_atteso']}, margine {a['margine_pct']}%"
-                          for a in o['articoli'][:6]))
+                f"fatturato atteso € {o['fatturato_atteso']}. Articoli con riordino ricorrente: " +
+                "; ".join(f"{a['prodotto']} domanda prevista {a['domanda_prevista']} pz "
+                          f"({a['var_anno_pct']:+.0f}% sull'anno precedente) "
+                          f"rotazione {a['rotazione']}, riordino ogni {a['riordino_giorni']} gg, "
+                          f"lotto medio {a['lotto_medio']} pz, acquisto € {a['prezzo_acquisto']}, "
+                          f"vendita € {a['prezzo_vendita_atteso']}, margine {a['margine_pct']}%, "
+                          f"fatturato atteso € {a['fatturato_atteso']}"
+                          for a in o['articoli'][:8]
+                          if a['riordino_giorni'] and a['var_anno_pct'] is not None))
         else:
             ctx_righe.append(f"{o['cliente']}: {o['azione']}, atteso € {o['valore_atteso']}, "
                              f"{o['prodotti_mancanti']} referenze da proporre su {o['prodotti_n']}, "
@@ -688,7 +688,20 @@ async def piano_pdf(tipo: str = "acquisti", giorni: int = 30, limit: int = 25,
     ctx = (f"Piano {d['tipo']} per i prossimi {per['giorni']} giorni ({per['futuro_start']} - "
            f"{per['futuro_end']}), previsione basata sul venduto dello stesso intervallo dell'anno precedente.\n"
            f"Totali: {tot}\n" + "\n".join(ctx_righe))
-    await blocco_considerazioni_ai(pdf, ctx, f"piano-{d['tipo']}-{per['futuro_start']}-{per['giorni']}")
+    extra = (
+        "- Il PRIMO punto deve riguardare la leva dello SCONTO sul fatturato ipotetico che porti al "
+        "fornitore: cita il valore dell'ordine previsto (e la spesa degli ultimi 12 mesi se presente) e "
+        "indica quale sconto chiedere e su quali articoli, con gli importi.\n"
+        "- Parla SOLO di: fatturato/valore ordine, sconto e margine, prezzi di acquisto e vendita, "
+        "gestione complessiva del fornitore (numero di ordini, entita' dell'ordine, frequenza di riordino, "
+        "concentrazione della spesa su pochi articoli).\n"
+        "- Considera SOLO gli articoli elencati nei dati; non parlare di giacenze, scorte o copertura "
+        "di magazzino.\n"
+        "- VIETATO: usare le parole 'riga' o 'righe' (usa 'articoli'); parlare del rischio di dipendenza "
+        "da un unico fornitore, di fornitori alternativi o di secondo fornitore.\n"
+    ) if acquisti else ""
+    await blocco_considerazioni_ai(pdf, ctx, f"piano-{d['tipo']}-{per['futuro_start']}-{per['giorni']}",
+                                   extra=extra)
 
     out = pdf.output()
     base = "".join(c if c.isalnum() else "_" for c in nome)[:40] if nome else d['tipo']

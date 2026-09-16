@@ -168,3 +168,11 @@
 - Previsione per fornitore: niente calcolo risparmio; ruolo primario/secondario/occasionale in base alla quota di acquisti; colonna "Quota" RIMOSSA da UI e PDF su richiesta utente.
 - Intestazioni tabella nei PDF: font auto-ridotto prima del troncamento (niente sovrapposizioni). Note lunghe accorciate, tabelle limitate con riga "Altri N ...".
 - NUOVO endpoint GET /api/ottimizzazione/piano/pdf?tipo=acquisti|vendite&giorni=N: piano strutturato come previsione, con quantita' in pezzi (domanda prevista, giacenza, da ordinare), prezzi acq/vendita, margine, totale per fornitore/cliente, punti di attenzione e considerazioni. Pulsante "PDF del piano" nella pagina Ottimizzazione (data-testid=piano-export-pdf).
+
+### 2026-06 (sessione 8) — PDF Piano Fornitore rifinito
+- Colonne tabella ordine fornitore: Articolo | Domanda prev. (con VAR% anno prec. tra parentesi) | Rotazione | Riordino ogni | Lotto medio (pz) | Prezzo acq. | Prezzo vend. | Marg. % | Valore. "Da ordinare" rimosso.
+- `lotto_medio` = quantita' acquistata / numero ordini storici (media pz per ordine).
+- `ai_insight.considerazioni()/blocco_considerazioni_ai()` accettano `extra`: regole aggiuntive per singolo report (incluse nella chiave di cache).
+- Piano acquisti: 1o punto sempre sulla leva dello SCONTO sul fatturato ipotetico portato al fornitore (valore ordine + spesa 12 mesi); solo fatturato/sconto/margine/prezzi/gestione fornitore; VIETATO giacenze, la parola "righe", il rischio di dipendenza da unico fornitore o fornitori alternativi.
+- Contesto AI: solo articoli con riordino ricorrente (esclusi quelli con riordino "/"), nessuna giacenza.
+- Verificato generando il PDF reale (BORGHINI SRL, 30 gg) ed estraendo il testo.
