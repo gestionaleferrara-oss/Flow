@@ -14,27 +14,27 @@ FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 FONT = "plex"
 
 # Palette (RGB)
-C_DARK   = (10,  15,  28)
-C_NAVY   = (18,  26,  43)
-C_BLUE   = (37,  99,  235)
-C_EMERALD= (5,   150, 105)
-C_VIOLET = (124, 58,  237)
-C_AMBER  = (202, 138, 4)
-C_RED    = (220, 38,  38)
-C_SLATE  = (110, 122, 142)
+C_DARK   = (11,  17,  32)
+C_NAVY   = (15,  23,  42)
+C_BLUE   = (59,  130, 246)
+C_EMERALD= (16,  185, 129)
+C_VIOLET = (139, 92,  246)
+C_AMBER  = (245, 158, 11)
+C_RED    = (239, 68,  68)
+C_SLATE  = (100, 116, 139)
 C_MUTED  = (148, 158, 175)
-C_LIGHT  = (246, 248, 251)
+C_LIGHT  = (245, 247, 250)
 C_WHITE  = (255, 255, 255)
-C_BORDER = (223, 229, 238)
+C_BORDER = (210, 218, 230)
 C_HAIR   = (234, 238, 245)
-C_ROW_ALT= (248, 250, 252)
+C_ROW_ALT= (242, 246, 250)
 
 PAGE_W   = 210
 PAGE_H   = 297
-ML       = 14          # margine sinistro
-MR       = 14          # margine destro
+ML       = 10          # margine sinistro
+MR       = 10          # margine destro
 CONTENT_W = PAGE_W - ML - MR
-HEADER_H = 26
+HEADER_H = 25.5
 MARGIN_B = 20
 SAFE_Y   = PAGE_H - MARGIN_B
 
@@ -68,6 +68,11 @@ def _tint(color, amount=0.92):
     return tuple(int(c + (255 - c) * amount) for c in color)
 
 
+def _bg(color, lightness=235):
+    """Sfondo pastello del colore (stile schede KPI)."""
+    return tuple(min(255, c // 6 + lightness) for c in color)
+
+
 class FlowPDF(FPDF):
     def __init__(self, report_title="Report", subtitle=""):
         super().__init__()
@@ -75,7 +80,7 @@ class FlowPDF(FPDF):
         self.subtitle = clean_text(subtitle)
         self.accent = C_BLUE
         self.set_auto_page_break(auto=True, margin=MARGIN_B)
-        self.set_margins(ML, HEADER_H + 8, MR)
+        self.set_margins(ML, HEADER_H + 4.5, MR)
         self.add_font(FONT, '', os.path.join(FONT_DIR, 'Plex-Regular.ttf'))
         self.add_font(FONT, 'B', os.path.join(FONT_DIR, 'Plex-Bold.ttf'))
         self.add_font(FONT, 'I', os.path.join(FONT_DIR, 'Plex-Italic.ttf'))
@@ -85,33 +90,29 @@ class FlowPDF(FPDF):
 
     # ── Header / Footer ────────────────────────────────────────────
     def header(self):
-        self.set_fill_color(*C_WHITE)
-        self.rect(0, 0, PAGE_W, HEADER_H, 'F')
+        # Fascia scura con titolo, sottotitolo e numero di pagina
+        self.set_fill_color(*C_NAVY)
+        self.rect(0, 0, PAGE_W, 24, 'F')
+        self.set_fill_color(*self.accent)
+        self.rect(0, 24, PAGE_W, 1.5, 'F')
 
-        # Titolo + sottotitolo
-        self.set_font(FONT, 'B', 11.5)
-        self.set_text_color(*C_DARK)
-        self.set_xy(ML, 7.2)
-        self.cell(150, 6, self.report_title[:74], ln=False)
+        self.set_font(FONT, 'B', 12)
+        self.set_text_color(*C_WHITE)
+        self.set_xy(ML, 6)
+        self.cell(150, 7, self.report_title[:74], ln=False)
+
         if self.subtitle:
             self.set_font(FONT, '', 7.8)
-            self.set_text_color(*C_SLATE)
+            self.set_text_color(170, 195, 230)
             self.set_xy(ML, 13.6)
-            self.cell(150, 5, self.subtitle[:120], ln=False)
+            self.cell(150, 6, self.subtitle[:130], ln=False)
 
-        # Numero pagina
-        self.set_font(FONT, '', 7.6)
-        self.set_text_color(*C_MUTED)
-        self.set_xy(PAGE_W - MR - 30, 9)
-        self.cell(30, 6, f'{self.page_no():02d}', align='R', ln=False)
+        self.set_font(FONT, '', 7.8)
+        self.set_text_color(150, 170, 210)
+        self.set_xy(PAGE_W - MR - 40, 8)
+        self.cell(40, 7, f'Pag. {self.page_no()}', align='R', ln=False)
 
-        # Filetto con segmento accento
-        self.set_fill_color(*C_HAIR)
-        self.rect(ML, HEADER_H - 3.5, CONTENT_W, 0.35, 'F')
-        self.set_fill_color(*self.accent)
-        self.rect(ML, HEADER_H - 3.5, 26, 0.9, 'F')
-
-        self.set_xy(ML, HEADER_H + 8)
+        self.set_xy(ML, HEADER_H + 4.5)
 
     def footer(self):
         self.set_y(-14)
@@ -140,19 +141,17 @@ class FlowPDF(FPDF):
         if top_gap:
             self.ln(top_gap)
         y = self.get_y()
-        label = clean_text(text).upper()
-        self.set_font(FONT, 'B', 8.6)
-        self.set_text_color(*C_DARK)
-        self.set_xy(ML, y)
-        self.cell(0, 5, label, ln=False)
-        w = self.get_string_width(label)
-        # Filetto a destra del titolo
-        self.set_fill_color(*C_HAIR)
-        self.rect(ML + w + 4, y + 2.4, max(CONTENT_W - w - 4, 0), 0.3, 'F')
-        # Puntino accento
+        # Fascia pastello con accento a sinistra
+        self.set_fill_color(*_bg(color, 238))
+        self.rect(ML, y, CONTENT_W, 8, 'F')
         self.set_fill_color(*color)
-        self.rect(ML + w + 4, y + 2.05, 6, 0.9, 'F')
+        self.rect(ML, y, 3, 8, 'F')
+        self.set_font(FONT, 'B', 9.2)
+        self.set_text_color(*color)
+        self.set_xy(ML + 6, y)
+        self.cell(CONTENT_W - 8, 8, clean_text(text).upper(), ln=False)
         self.set_xy(ML, y + 8)
+        self.ln(3)
 
     def note_text(self, text):
         self.ensure_space(12)
@@ -175,30 +174,31 @@ class FlowPDF(FPDF):
     # ── KPI ────────────────────────────────────────────────────────
     def kpi_box(self, x, y, w, h, label, value, color=None, sub=None):
         color = color or self.accent
-        self.set_fill_color(*C_WHITE)
-        self.set_draw_color(*C_BORDER)
+        self.set_fill_color(*_bg(color))
+        self.set_draw_color(*color)
         self.set_line_width(0.25)
         self.rect(x, y, w, h, 'FD')
+        # Barra accento a sinistra
         self.set_fill_color(*color)
-        self.rect(x, y, w, 1.1, 'F')
+        self.rect(x, y, 3, h, 'F')
 
-        self.set_font(FONT, '', 6.6)
-        self.set_text_color(*C_MUTED)
-        self.set_xy(x + 4, y + 3.4)
-        self.cell(w - 6, 4, clean_text(label).upper()[:34], ln=False)
+        self.set_font(FONT, '', 6.8)
+        self.set_text_color(*C_SLATE)
+        self.set_xy(x + 5, y + 2.4)
+        self.cell(w - 7, 4, clean_text(label)[:34], ln=False)
 
         val = clean_text(str(value))
-        size = 13 if len(val) <= 12 else (11 if len(val) <= 17 else 9.2)
+        size = 11.5 if len(val) <= 12 else (10 if len(val) <= 17 else 8.6)
         self.set_font(FONT, 'B', size)
-        self.set_text_color(*C_DARK)
-        self.set_xy(x + 4, y + 8.2)
-        self.cell(w - 6, 7, val, ln=False)
+        self.set_text_color(*C_NAVY)
+        self.set_xy(x + 5, y + 7.4)
+        self.cell(w - 7, 7, val, ln=False)
 
         if sub:
             self.set_font(FONT, '', 6.4)
             self.set_text_color(*C_SLATE)
-            self.set_xy(x + 4, y + h - 6)
-            self.cell(w - 6, 4, clean_text(str(sub))[:40], ln=False)
+            self.set_xy(x + 5, y + h - 6)
+            self.cell(w - 7, 4, clean_text(str(sub))[:40], ln=False)
 
     def kpi_row(self, kpis):
         """kpis: lista di (label, value, color, sub). Max 4."""
@@ -213,30 +213,29 @@ class FlowPDF(FPDF):
         self.set_xy(ML, y + 27)
 
     # ── Tabella ────────────────────────────────────────────────────
-    def smart_table(self, cols, widths, rows, aligns=None, row_h=6.2,
+    def smart_table(self, cols, widths, rows, aligns=None, row_h=5.8,
                     col_colors=None, value_formatters=None):
         aligns = aligns or ['L'] * len(cols)
         scale = CONTENT_W / max(sum(widths), 1)
         widths = [w * scale for w in widths]
 
         def draw_header():
-            y = self.get_y()
-            self.set_text_color(*C_SLATE)
+            self.set_fill_color(*C_NAVY)
+            self.set_text_color(*C_WHITE)
+            self.set_draw_color(*C_BORDER)
+            self.set_line_width(0.2)
             self.set_x(ML)
             for col, w, a in zip(cols, widths, aligns):
                 txt = clean_text(col).upper()
-                size = 7
+                size = 7.2
                 self.set_font(FONT, 'B', size)
                 while txt and self.get_string_width(txt) > w - 2 and size > 5.2:
                     size -= 0.3
                     self.set_font(FONT, 'B', size)
                 while txt and self.get_string_width(txt) > w - 2:
                     txt = txt[:-2]
-                self.cell(w, 6, txt, border=0, align=a)
-            self.ln(6)
-            self.set_fill_color(*C_NAVY)
-            self.rect(ML, y + 6, CONTENT_W, 0.45, 'F')
-            self.ln(1.6)
+                self.cell(w, 7, txt, border=1, fill=True, align=a)
+            self.ln(7)
 
         self.ensure_space(8 + row_h * 3)
         draw_header()
@@ -245,12 +244,9 @@ class FlowPDF(FPDF):
             if self.get_y() + row_h > SAFE_Y:
                 self.add_page()
                 draw_header()
-            y = self.get_y()
-            if i % 2 == 1:
-                self.set_fill_color(*C_ROW_ALT)
-                self.rect(ML, y - 0.6, CONTENT_W, row_h, 'F')
-
-            self.set_font(FONT, '', 7.8)
+            alt = i % 2 == 1
+            self.set_draw_color(*C_BORDER)
+            self.set_fill_color(*(C_ROW_ALT if alt else C_WHITE))
             self.set_x(ML)
             for j, (val, w, a) in enumerate(zip(row_vals, widths, aligns)):
                 txt = clean_text('' if val is None else str(val))
@@ -258,26 +254,21 @@ class FlowPDF(FPDF):
                 if col_colors and col_colors.get(j):
                     self.set_text_color(*col_colors[j](txt))
                     style = 'B'
-                elif j == 0:
-                    self.set_text_color(*C_DARK)
-                    style = ''
                 else:
-                    self.set_text_color(45, 56, 74)
+                    self.set_text_color(*C_NAVY)
                     style = ''
                 self.set_font(FONT, style, size)
-                # riduce il corpo prima di troncare, cosi' i numeri restano leggibili
-                while txt and self.get_string_width(txt) > w - 2 and size > 5.6:
-                    size -= 0.35
-                    self.set_font(FONT, style, size)
+                # colonne di testo: si troncano; colonne numeriche: si riduce il corpo
+                if a != 'L':
+                    while txt and self.get_string_width(txt) > w - 2 and size > 5.6:
+                        size -= 0.35
+                        self.set_font(FONT, style, size)
                 while txt and self.get_string_width(txt) > w - 2:
                     txt = txt[:-2] + '.'
-                self.cell(w, row_h - 1.2, txt, border=0, align=a)
-            self.ln(row_h - 1.2)
-            self.set_fill_color(*C_HAIR)
-            self.rect(ML, self.get_y() - 0.4, CONTENT_W, 0.2, 'F')
-            self.ln(0.8)
+                self.cell(w, row_h, txt, border=1, align=a, fill=True)
+            self.ln(row_h)
 
-        self.ln(2)
+        self.ln(3)
 
     # ── Grafici ────────────────────────────────────────────────────
     def column_chart(self, pairs, color=None, height=42, unit=''):

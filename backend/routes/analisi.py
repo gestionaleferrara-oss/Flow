@@ -3,7 +3,7 @@ from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 
 from database import db
-from routes.previsione_peso import agg_ponderata
+from routes.previsione_peso import PESO_BASE, PESO_PREC, agg_ponderata
 
 router = APIRouter()
 
@@ -908,7 +908,8 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
     etichetta = {"prodotto": "PRODOTTI", "cliente": "CLIENTI", "fornitore": "FORNITORI"}[d['tipo']]
     titolo = f"PREVISIONE {etichetta}"
     sottotitolo = (f"Prossimi {per['giorni']} giorni: {dm(per['futuro_start'])} - {dm(per['futuro_end'])}  |  "
-                   f"Base: {dm(per['storico_start'])} - {dm(per['storico_end'])} (anno precedente)")
+                   f"Base ponderata: {dm(per['storico_start'])} - {dm(per['storico_end'])} "
+                   f"({int(PESO_BASE * 100)}%) e anno prec. ({int(PESO_PREC * 100)}%)")
 
     pdf = FlowPDF(titolo, sottotitolo)
     pdf.add_page()
@@ -1006,33 +1007,50 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
                             aligns=['L', 'L', 'R', 'R', 'R', 'R', 'R'])
         if d.get('righe_prodotti'):
             pdf.section_title("Riepilogo per prodotto", C_AMBER)
-            pdf.smart_table(['Prodotto', 'Domanda prev.', 'Giacenza', 'Da ordinare', 'Prz. acq.',
+            pdf.smart_table(['Prodotto', 'Domanda prev.', 'Da ordinare', 'Prz. acq.',
                              'Marg. %', 'Fatturato', 'Fornitore'],
-                            [52, 22, 18, 20, 20, 16, 24, 28],
+                            [56, 24, 22, 22, 18, 26, 32],
                             [[clean_text(r['nome'])[:40], it_num(r['domanda_prevista'], 0),
-                              it_num(r['giacenza'], 0), it_num(r['da_ordinare'], 0),
+                              it_num(r['da_ordinare'], 0),
                               eur(r['prezzo_acquisto']) if r['prezzo_acquisto'] else '-',
                               f"{r['margine_pct']}%" if r['margine_pct'] is not None else '-',
                               eur(r['fatturato_atteso']),
                               clean_text(r['fornitore'] or '-')[:22]] for r in d['righe_prodotti'][:30]],
-                            aligns=['L', 'R', 'R', 'R', 'R', 'R', 'R', 'L'])
+                            aligns=['L', 'R', 'R', 'R', 'R', 'R', 'L'])
 
-    pdf.note_text("Le quantita' e i valori attesi sono il venduto reale dello stesso intervallo dell'anno "
-                  "precedente. Margini calcolati sul costo reale dei lotti (FIFO).")
+    pdf.note_text(f"Previsione con media ponderata {int(PESO_BASE * 100)}% / {int(PESO_PREC * 100)}% "
+                  "sul venduto dello stesso intervallo dei due anni precedenti. "
+                  "Margini calcolati sul costo reale dei lotti (FIFO).")
 
     from routes.ai_insight import blocco_considerazioni_ai
+    # per i prodotti le righe sono i clienti: se la vista clienti e' disattivata non vanno considerati
+    con_clienti = d['tipo'] != 'prodotto' or vista in ('entrambi', 'clienti')
     ctx_righe = "; ".join(
         f"{r['nome']} qta {r.get('quantita_attesa') or r.get('da_ordinare')} "
         f"val € {r.get('fatturato_atteso') or r.get('valore')} marg {r.get('margine_pct')}%"
-        for r in d['righe'][:12])
+        for r in d['righe'][:12]) if con_clienti else ""
     ctx = (f"Previsione {d['tipo']} per i prossimi {per['giorni']} giorni "
            f"({per['futuro_start']} - {per['futuro_end']}), basata sullo stesso intervallo dell'anno precedente.\n"
-           f"Selezione: {', '.join(d['nomi'])[:300]}\nKPI: {k}\nRighe principali: {ctx_righe}")
+           f"Selezione: {', '.join(d['nomi'])[:300]}\nKPI: {k}")
+    if ctx_righe:
+        ctx += f"\nRighe principali: {ctx_righe}"
+    else:
+        ctx += ("\nI clienti non fanno parte di questo report: non nominare clienti e non fare "
+                "considerazioni sulla clientela.")
+    if d.get('righe_prodotti'):
+        ctx += ("\nProdotti: " + "; ".join(
+            f"{r['nome']} domanda prevista {r['domanda_prevista']} da ordinare {r['da_ordinare']} "
+            f"prz acq € {r['prezzo_acquisto']} marg {r['margine_pct']}% "
+            f"fatturato atteso € {r['fatturato_atteso']} fornitore {r['fornitore']}"
+            for r in d['righe_prodotti'][:12]))
     if d.get('righe_fornitori'):
         ctx += ("\nFornitori: " + "; ".join(
             f"{f['nome']} ruolo {f['ruolo']} prz € {f['prezzo_medio']} da ordinare {f['da_ordinare']}"
             for f in d['righe_fornitori'][:8]))
-    await blocco_considerazioni_ai(pdf, ctx, f"previsione-{d['tipo']}-{per['futuro_start']}-{per['giorni']}")
+    await blocco_considerazioni_ai(
+        pdf, ctx, f"previsione-{d['tipo']}-{per['futuro_start']}-{per['giorni']}-{vista}",
+        extra=("- Non nominare clienti e non fare considerazioni sui clienti: non fanno parte "
+               "di questo report.\n" if not con_clienti else ""))
 
     out = pdf.output(dest='S')
     fname = f"previsione_{d['tipo']}_{per['futuro_start']}_{per['futuro_end']}.pdf"

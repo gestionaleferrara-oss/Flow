@@ -78,7 +78,7 @@ function OrdineAcquisto({ o, idx, onArticolo, giorni, per }) {
           <table className="w-full text-sm">
             <thead>
               <tr>
-                {['Articolo', `Domanda prev. ${per?.futuro_start?.slice(0, 4) || ''}`, 'Giacenza', 'Rotazione', 'Riordino ogni', 'Lotto medio', 'Prezzo', 'Prz. vendita', 'Margine', 'Valore'].map((c, i) => (
+                {['Articolo', `Domanda prev. ${per?.futuro_start?.slice(0, 4) || ''}`, 'Giacenza', `Rotaz. ${per?.anno_base || ''}`, 'Riordino ogni', 'Lotto medio', 'Prezzo', 'Prz. vendita', 'Margine', 'Valore'].map((c, i) => (
                   <th key={c} className={cn('px-2 py-2 text-[11px] uppercase tracking-wider text-slate-500 whitespace-nowrap',
                     i === 0 ? 'text-left' : 'text-right')}>{c}</th>
                 ))}
@@ -104,16 +104,16 @@ function OrdineAcquisto({ o, idx, onArticolo, giorni, per }) {
                       a.rotazione === 'alta' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                         : a.rotazione === 'media' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                           : 'bg-rose-500/15 text-rose-300 border-rose-500/30')}
-                      title={a.mesi_copertura !== null ? `${a.mesi_copertura} mesi di copertura` : 'nessuna vendita ultimi 12 mesi'}>
+                      title={`${a.ordini_periodo} riordini nello stesso periodo ${per.anno_base}`}>
                       {a.rotazione}
                     </span>
                   </td>
                   <td className="px-2 py-2 text-right text-slate-400 tabular-nums"
-                    title={`${a.ordini_ultimo_anno} ordini negli ultimi 12 mesi`}>
+                    title={`${a.ordini_periodo} ordini nello stesso periodo ${per.anno_base}`}>
                     {a.riordino_giorni ? `${a.riordino_giorni} gg` : '/'}
                   </td>
                   <td className="px-2 py-2 text-right text-white font-semibold tabular-nums"
-                    title={`${a.ordini_ultimo_anno} ordini negli ultimi 12 mesi · ${num(a.da_ordinare)} pz da ordinare`}>
+                    title={`${num(a.qty_riordinata_periodo)} riordinati in ${a.ordini_periodo} ordini nello stesso periodo ${per.anno_base}`}>
                     {a.lotto_medio ? num(a.lotto_medio) : '—'}
                   </td>
                   <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{a.prezzo_acquisto ? `€${a.prezzo_acquisto.toFixed(2)}` : '—'}</td>
