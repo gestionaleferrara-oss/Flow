@@ -1054,12 +1054,6 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
                               eur(r['fatturato_atteso']),
                               clean_text(r['fornitore'] or '-')[:22]] for r in d['righe_prodotti'][:30]],
                             aligns=['L', 'R', 'R', 'R', 'R', 'R', 'L'])
-            pdf.note_text("La quantita' e' quella con cui l'articolo viene comprato e venduto in "
-                          "tutto il sistema: kg per gli articoli a peso, pz (confezioni) per i "
-                          f"confezionati. Fatturato = venduto atteso nei prossimi {per['giorni']} giorni. "
-                          "Valore acquisto = quantita' prevista x prezzo di acquisto attuale, mentre il "
-                          "margine e' calcolato sul costo reale dei lotti (FIFO): i due valori non "
-                          "coincidono se i prezzi di acquisto sono cambiati.")
         if mostra_fornitori and d.get('righe_fornitori'):
             pdf.section_title("Previsione per fornitore", C_EMERALD)
             pdf.smart_table(['Fornitore', 'Ruolo', 'Articoli', 'Prz. medio',
