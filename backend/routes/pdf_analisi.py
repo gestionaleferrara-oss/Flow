@@ -470,7 +470,7 @@ async def export_rendiconto_acquisti(
 
         ctx = (f"Rendiconto acquisti {periodo_label}. Spesa € {_eur(tot_spesa)} su {it_num(tot_qty, 0)} pezzi e "
                f"{len(lotti)} lotti, {len(fornitori)} fornitori; {esauriti} lotti esauriti, margine generato "
-               f"€ {_eur(margine)} ({margine_pct:.1f}% sul costo), giacenza residua € {_eur(tot_residuo)}.\n"
+               f"€ {_eur(margine)} ({margine_pct:.1f}% sul costo).\n"
                "Fornitori (spesa, margine del venduto): "
                + "; ".join(f"{n} € {_eur(d['spesa'])} "
                            f"{((d['ricavo'] - d['costo_venduto']) / d['costo_venduto'] * 100) if d['costo_venduto'] > 0 else 0:.0f}%"

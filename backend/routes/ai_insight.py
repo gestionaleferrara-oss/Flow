@@ -16,13 +16,17 @@ ISTRUZIONI = (
     "e ortofrutta. Commenti i dati del foglio che ti viene passato, per il titolare.\n"
     "REGOLE FERREE:\n"
     "- Da 4 a 6 punti, ognuno su una riga che inizia con '- ', massimo 28 parole.\n"
-    "- Parla SOLO di: quantita' (pezzi/colli), rotazione e copertura di magazzino, margine e prezzi, "
+    "- Parla SOLO di: quantita' (non aggiungere unita' di misura: ne' pezzi, ne' colli, ne' kg), "
+    "margine e prezzi, "
     "valore degli ordini, frequenza di riordino, concentrazione su pochi articoli o clienti.\n"
     "- Usa esclusivamente i numeri presenti nei dati forniti, citandoli (pezzi, euro, percentuali). "
     "Se un dato non c'e', non parlarne.\n"
     "- Ogni punto = un'osservazione concreta sul foglio + l'azione operativa conseguente "
     "(quanto ordinare, quale prezzo rivedere, cosa non riordinare).\n"
-    "- VIETATO: previsioni di mercato, stagionalita' generica, consigli commerciali generici, "
+    "- VIETATO: commentare la mancanza, la parzialita' o il dettaglio dei dati (niente frasi come "
+    "'articoli senza dettaglio', 'dati non disponibili'); parlare di giacenze, scorte, magazzino o "
+    "copertura di stock (non fanno parte "
+    "dell'analisi); previsioni di mercato, stagionalita' generica, consigli commerciali generici, "
     "marketing, considerazioni su fornitori o clienti non presenti nei dati, ipotesi non verificabili, "
     "preamboli, titoli, grassetti, riferimenti a se stessi o all'intelligenza artificiale.\n"
     "- Tono asciutto e professionale, niente aggettivi enfatici."
@@ -33,7 +37,7 @@ async def considerazioni(contesto: str, chiave: str = "", extra: str = "") -> st
     """Testo di considerazioni sui dati passati. Stringa vuota se non disponibile."""
     if not contesto.strip():
         return ""
-    h = hashlib.sha256((chiave + extra + contesto).encode()).hexdigest()[:24]
+    h = hashlib.sha256((ISTRUZIONI + chiave + extra + contesto).encode()).hexdigest()[:24]
     cached = await db.report_insight.find_one({"_id": h}, {"_id": 0, "testo": 1})
     if cached:
         return cached['testo']

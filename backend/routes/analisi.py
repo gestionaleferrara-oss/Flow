@@ -1004,17 +1004,14 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
             top = d['righe'][:25]
             resto = d['righe'][25:]
             pdf.section_title(f"Clienti che compreranno ({len(d['righe'])})", C_BLUE)
-            pdf.smart_table(['Cliente', 'Qta attesa', 'Prezzo medio', 'Fatturato', 'Marg. %',
-                             'Compra piu spesso', 'Ultimo acq.'],
-                        [52, 18, 22, 24, 15, 44, 18],
-                        [[clean_text(r['nome'])[:40], it_num(r['quantita_attesa'], 0),
+            pdf.smart_table(['Cliente', 'Qta attesa', 'Prezzo medio', 'Fatturato', 'Marg. %'],
+                        [86, 24, 28, 32, 20],
+                        [[clean_text(r['nome'])[:56], it_num(r['quantita_attesa'], 0),
                           eur(r['prezzo_medio']) if r['prezzo_medio'] else '-',
                           eur(r['fatturato_atteso']),
-                          f"{r['margine_pct']}%" if r['margine_pct'] is not None else '-',
-                          clean_text(r['prodotto_top'] or '-')[:34],
-                          dm(r['ultimo_acquisto']) if r.get('ultimo_acquisto') else '-']
+                          f"{r['margine_pct']}%" if r['margine_pct'] is not None else '-']
                              for r in top],
-                            aligns=['L', 'R', 'R', 'R', 'R', 'L', 'R'])
+                            aligns=['L', 'R', 'R', 'R', 'R'])
             if resto:
                 pdf.note_text(f"Altri {len(resto)} clienti per {eur(sum(r['fatturato_atteso'] for r in resto))} "
                               f"e {it_num(sum(r['quantita_attesa'] for r in resto), 0)} pezzi attesi.")
@@ -1055,9 +1052,11 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
         f"{r['nome']} qta {r.get('quantita_attesa') or r.get('da_ordinare')} "
         f"val € {r.get('fatturato_atteso') or r.get('valore')} marg {r.get('margine_pct')}%"
         for r in d['righe'][:12]) if con_clienti else ""
+    # le considerazioni non devono tenere conto delle giacenze
+    k_ctx = {kk: vv for kk, vv in k.items() if 'giacenz' not in kk and 'ordinare' not in kk}
     ctx = (f"Previsione {d['tipo']} per i prossimi {per['giorni']} giorni "
            f"({per['futuro_start']} - {per['futuro_end']}), basata sullo stesso intervallo dell'anno precedente.\n"
-           f"Selezione: {', '.join(d['nomi'])[:300]}\nKPI: {k}")
+           f"Selezione: {', '.join(d['nomi'])[:300]}\nKPI: {k_ctx}")
     if ctx_righe:
         ctx += f"\nRighe principali: {ctx_righe}"
     else:
