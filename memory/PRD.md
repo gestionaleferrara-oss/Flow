@@ -187,3 +187,12 @@
 - Nota descrittiva sotto i KPI del piano fornitore RIMOSSA su richiesta utente.
 - FIX `ai_insight`: cache su Mongo con replace_one(upsert) invece di insert_one (il duplicate key error faceva sparire le considerazioni).
 - Nota: se l'Emergent LLM Key e' a budget esaurito le considerazioni non vengono generate (fallback silenzioso) -> ricaricare da Profile > Manage plan > Universal Key.
+
+### 2026-06 (sessione 8d) — Grafica PDF unificata + report previsione
+- `pdf_helper.py` riportato alla grafica richiesta dall'utente (riferimento: PDF "Previsione Pistacchi"): fascia scura in testata con titolo/sottotitolo + "Pag. N" (NIENTE logo FLOW), margini 10mm, schede KPI pastello con bordo e barra accento, titoli sezione su fascia pastello, tabelle con testata navy e griglia completa + righe alternate. Footer attuale invariato ("Documento riservato"). Vale per TUTTI i PDF.
+- Previsione: `agg_ponderata` conserva anche i valori reali `{campo}_base` / `{campo}_prec`.
+- Report previsione (`/analisi/previsione/pdf`): titoli "REPORT PRODOTTI/CLIENTE/FORNITORE"; rimosse colonne Giacenza e Da ordinare; aggiunta colonna "Venduto <anno base>"; sezioni riordinate (Riepilogo prodotto PRIMA di Previsione per fornitore); colonna "Gia ordinato" sostituita da "Compra piu spesso" (prodotto piu' acquistato dal cliente tra quelli selezionati).
+- Ruolo fornitore (primario/secondario/occasionale) ora calcolato sulla quota degli acquisti DEI SOLI PRODOTTI CHE TRATTA (`quota_pct`), non sul totale della selezione (aggiunto `quota_spesa_pct` per la vecchia metrica). Es. BORGHINI su PISTACCHIO SGUSCIATO: da "occasionale" a "primario".
+- Considerazioni AI: se la spunta "Clienti" e' disattivata il contesto non contiene clienti e il prompt vieta di nominarli.
+- Piano fornitore: Rotazione / Riordino ogni / Lotto medio calcolati sugli ORDINI della stessa finestra dell'anno precedente; rotazione = n. riordini (3+ alta, 2 media, 0-1 bassa).
+- ATTENZIONE: Emergent LLM Key a budget esaurito (max 9.601, cost 9.6187) -> le considerazioni AI nei PDF non vengono generate finche' non si ricarica.

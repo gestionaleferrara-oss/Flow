@@ -607,6 +607,18 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
          "clienti": {"$addToSet": "$cliente_nome"}},
         ("quantita", "fatturato", "costo"), limit=3000)
 
+    # prodotto piu' acquistato da ogni cliente (nella finestra base)
+    top_prod = {}
+    for r in await db.vendite.aggregate([
+        {"$match": {**base, "data": {"$gte": per['storico_start'], "$lte": per['storico_end']}}},
+        {"$group": {"_id": {"c": "$cliente_nome", "p": "$prodotto_nome"},
+                    "qty": {"$sum": {"$abs": "$quantita"}}}},
+        {"$sort": {"qty": -1}},
+    ]).to_list(50000):
+        cli, prod = r['_id'].get('c'), r['_id'].get('p')
+        if cli and prod and cli not in top_prod:
+            top_prod[cli] = {"prodotto": prod, "quantita": round(r['qty'], 1)}
+
     recenti = await db.vendite.aggregate([
         {"$match": {**base, "data": {"$gte": per['recenti_start'], "$lte": per['recenti_end']}}},
         {"$group": {"_id": "$cliente_nome", "quantita": {"$sum": {"$abs": "$quantita"}}}},
@@ -735,6 +747,8 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
             "margine_pct": round((r['fatturato'] - r['costo']) / r['costo'] * 100, 1) if r['costo'] > 0 else None,
             "referenze": len(r.get('prodotti') or []),
             "gia_ordinato": round(gia.get(r['_id'], 0), 1),
+            "prodotto_top": (top_prod.get(r['_id']) or {}).get('prodotto'),
+            "prodotto_top_qta": (top_prod.get(r['_id']) or {}).get('quantita'),
             "ultimo_acquisto": r['ultimo'],
         } for r in per_cliente[:200]],
         "righe_prodotti": prodotti_righe[:200],
@@ -990,16 +1004,17 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
             top = d['righe'][:25]
             resto = d['righe'][25:]
             pdf.section_title(f"Clienti che compreranno ({len(d['righe'])})", C_BLUE)
-            pdf.smart_table(['Cliente', 'Qta attesa', 'Prezzo medio', 'Fatturato', 'Marg. %', 'Gia ordinato', 'Ultimo acq.'],
-                        [62, 20, 24, 26, 16, 22, 20],
-                        [[clean_text(r['nome'])[:44], it_num(r['quantita_attesa'], 0),
+            pdf.smart_table(['Cliente', 'Qta attesa', 'Prezzo medio', 'Fatturato', 'Marg. %',
+                             'Compra piu spesso', 'Ultimo acq.'],
+                        [52, 18, 22, 24, 15, 44, 18],
+                        [[clean_text(r['nome'])[:40], it_num(r['quantita_attesa'], 0),
                           eur(r['prezzo_medio']) if r['prezzo_medio'] else '-',
                           eur(r['fatturato_atteso']),
                           f"{r['margine_pct']}%" if r['margine_pct'] is not None else '-',
-                          f"{it_num(r['gia_ordinato'], 0)} pz" if r['gia_ordinato'] else '-',
+                          clean_text(r['prodotto_top'] or '-')[:34],
                           dm(r['ultimo_acquisto']) if r.get('ultimo_acquisto') else '-']
                              for r in top],
-                            aligns=['L', 'R', 'R', 'R', 'R', 'R', 'R'])
+                            aligns=['L', 'R', 'R', 'R', 'R', 'L', 'R'])
             if resto:
                 pdf.note_text(f"Altri {len(resto)} clienti per {eur(sum(r['fatturato_atteso'] for r in resto))} "
                               f"e {it_num(sum(r['quantita_attesa'] for r in resto), 0)} pezzi attesi.")
