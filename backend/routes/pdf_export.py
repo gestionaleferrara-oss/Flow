@@ -37,8 +37,20 @@ def _trend_color(val):
 async def export_statistiche_pdf(
     start_date: Optional[str] = None,
     end_date:   Optional[str] = None,
-    tipo: str = "vendite"
+    tipo: str = "vendite",
+    prodotto: Optional[str] = None,
+    cliente: Optional[str] = None,
+    fornitore: Optional[str] = None,
+    cmp1_start: Optional[str] = None,
+    cmp1_end: Optional[str] = None,
+    cmp2_start: Optional[str] = None,
+    cmp2_end: Optional[str] = None,
 ):
+    # confronto tra due periodi attivo in pagina: il PDF riporta il confronto
+    if cmp1_start and cmp1_end and cmp2_start and cmp2_end:
+        return await _confronto_pdf(cmp1_start, cmp1_end, cmp2_start, cmp2_end,
+                                    tipo, prodotto, cliente, fornitore)
+
     now = datetime.now()
     if not start_date:
         start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
@@ -46,12 +58,112 @@ async def export_statistiche_pdf(
         end_date = now.strftime("%Y-%m-%d")
 
     query = {"data": {"$gte": start_date, "$lte": end_date}}
+    query.update(_filtri(tipo, prodotto, cliente, fornitore))
     if tipo == "vendite":
         return await _vendite_pdf(query, start_date, end_date)
     elif tipo == "acquisti":
         return await _acquisti_pdf(query, start_date, end_date)
     else:
         raise HTTPException(status_code=400, detail="Tipo non valido")
+
+
+def _filtri(tipo: str, prodotto=None, cliente=None, fornitore=None) -> dict:
+    """Gli stessi filtri applicati nella pagina Statistiche."""
+    f = {}
+    if prodotto:
+        f["prodotto_nome"] = {"$regex": prodotto, "$options": "i"}
+    if cliente and tipo == "vendite":
+        f["cliente_nome"] = {"$regex": cliente, "$options": "i"}
+    if fornitore and tipo == "acquisti":
+        f["fornitore_nome"] = {"$regex": fornitore, "$options": "i"}
+    return f
+
+
+async def _confronto_pdf(s1, e1, s2, e2, tipo, prodotto=None, cliente=None, fornitore=None):
+    """PDF del confronto fra due periodi (stessi dati del pannello 'Confronta')."""
+    from routes.ai_insight import blocco_considerazioni_ai
+    from routes.pdf_helper import clean_text
+
+    coll = db.vendite if tipo == "vendite" else db.ordini
+    campo_qta, campo_tot = "quantita", "totale"
+    filtri = _filtri(tipo, prodotto, cliente, fornitore)
+
+    async def aggrega(s, e):
+        righe = await coll.aggregate([
+            {"$match": {**filtri, "data": {"$gte": s, "$lte": e}}},
+            {"$group": {"_id": "$prodotto_nome",
+                        "qty": {"$sum": {"$abs": f"${campo_qta}"}},
+                        "tot": {"$sum": {"$abs": f"${campo_tot}"}}}},
+        ]).to_list(50000)
+        return {r['_id']: r for r in righe if r['_id']}
+
+    p1, p2 = await aggrega(s1, e1), await aggrega(s2, e2)
+    recente1 = s1 > s2      # differenze in ordine cronologico
+    dm = lambda x: x[8:10] + '/' + x[5:7] + '/' + x[2:4]  # noqa: E731
+    lbl1, lbl2 = f"{dm(s1)} - {dm(e1)}", f"{dm(s2)} - {dm(e2)}"
+
+    righe = []
+    for nome in set(p1) | set(p2):
+        a, b = p1.get(nome, {}), p2.get(nome, {})
+        q1, q2 = a.get('qty', 0), b.get('qty', 0)
+        t1, t2 = a.get('tot', 0), b.get('tot', 0)
+        pr1 = t1 / q1 if q1 else 0
+        pr2 = t2 / q2 if q2 else 0
+        tn, to = (t1, t2) if recente1 else (t2, t1)
+        righe.append({"nome": nome, "q1": q1, "q2": q2, "t1": t1, "t2": t2,
+                      "pr1": pr1, "pr2": pr2, "diff": tn - to,
+                      "pct": ((tn - to) / to * 100) if to else None})
+    righe.sort(key=lambda r: -abs(r['diff']))
+
+    tot1 = sum(r['t1'] for r in righe)
+    tot2 = sum(r['t2'] for r in righe)
+    tn, to = (tot1, tot2) if recente1 else (tot2, tot1)
+    var = ((tn - to) / to * 100) if to else None
+    etichetta = "VENDITE" if tipo == "vendite" else "ACQUISTI"
+    filtri_txt = "  |  ".join(f"{k}: {v}" for k, v in
+                              (("Prodotto", prodotto), ("Cliente", cliente),
+                               ("Fornitore", fornitore)) if v)
+
+    pdf = FlowPDF(f"CONFRONTO {etichetta}",
+                  f"{lbl1}  vs  {lbl2}" + (f"  |  {filtri_txt}" if filtri_txt else ""))
+    pdf.add_page()
+    pdf.kpi_row([
+        (f"PERIODO {lbl1}", eur(tot1), C_BLUE, f"{len(p1)} articoli"),
+        (f"PERIODO {lbl2}", eur(tot2), C_SLATE, f"{len(p2)} articoli"),
+        ("DIFFERENZA", eur(tn - to), C_EMERALD if (tn - to) >= 0 else C_RED,
+         f"{var:+.1f}%" if var is not None else None),
+        ("ARTICOLI A CONFRONTO", f"{len(righe)}", C_VIOLET,
+         f"{sum(1 for r in righe if r['diff'] > 0)} in crescita"),
+    ])
+
+    pdf.section_title("Variazioni per articolo", C_BLUE)
+    pdf.smart_table(['Articolo', f'Qta {lbl1}', f'Qta {lbl2}', f'Prezzo {lbl1}', f'Prezzo {lbl2}',
+                     f'Valore {lbl1}', f'Valore {lbl2}', 'Differenza', 'Var. %'],
+                    [46, 19, 19, 20, 20, 22, 22, 22, 16],
+                    [[clean_text(r['nome'])[:40], it_num(r['q1'], 0), it_num(r['q2'], 0),
+                      eur(r['pr1']) if r['pr1'] else '-', eur(r['pr2']) if r['pr2'] else '-',
+                      eur(r['t1']), eur(r['t2']), eur(r['diff']),
+                      f"{r['pct']:+.0f}%" if r['pct'] is not None else '-']
+                     for r in righe[:45]],
+                    aligns=['L', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+                    col_colors={7: _trend_color, 8: _trend_color})
+    if len(righe) > 45:
+        pdf.note_text(f"Altri {len(righe) - 45} articoli con variazioni minori "
+                      f"per {eur(sum(r['diff'] for r in righe[45:]))} di differenza.")
+
+    ctx = (f"Confronto {tipo}: periodo {lbl1} € {round(tot1, 2)} contro periodo {lbl2} "
+           f"€ {round(tot2, 2)}" + (f" ({var:+.1f}% del periodo piu' recente)"
+                                    if var is not None else "") + ".\n"
+           + "Variazioni principali: " + "; ".join(
+               f"{r['nome']} da € {round(r['t2'], 2)} a € {round(r['t1'], 2)} "
+               f"(qta da {round(r['q2'], 1)} a {round(r['q1'], 1)}, prezzo da € {round(r['pr2'], 2)} "
+               f"a € {round(r['pr1'], 2)})" for r in righe[:12]))
+    await blocco_considerazioni_ai(pdf, ctx, f"confronto-{tipo}-{s1}-{e1}-{s2}-{e2}")
+
+    out = pdf.output()
+    fname = f"confronto_{tipo}_{s1}_{s2}.pdf"
+    return Response(bytes(out), media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 # ══════════════════════════════════════════════════════════════════

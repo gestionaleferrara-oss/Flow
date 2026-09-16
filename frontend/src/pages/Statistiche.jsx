@@ -74,10 +74,10 @@ export default function Statistiche() {
   // Month comparison state - separate month and year
   const [showCompare, setShowCompare] = useState(false);
   const [compareData, setCompareData] = useState(null);
-  const [compare1Month, setCompare1Month] = useState('');
-  const [compare1Year, setCompare1Year] = useState('');
-  const [compare2Month, setCompare2Month] = useState('');
-  const [compare2Year, setCompare2Year] = useState('');
+  const [cmpDal, setCmpDal] = useState('01-01');      // giorno/mese, uguali per i due periodi
+  const [cmpAl, setCmpAl] = useState('12-31');
+  const [cmpAnno1, setCmpAnno1] = useState(String(new Date().getFullYear()));
+  const [cmpAnno2, setCmpAnno2] = useState(String(new Date().getFullYear() - 1));
   const [loadingCompare, setLoadingCompare] = useState(false);
   const [compareSortBy, setCompareSortBy] = useState('totale'); // 'totale', 'qty', 'prezzo'
 
@@ -175,46 +175,58 @@ export default function Statistiche() {
       p.append('tipo', viewMode === 'vendite' ? 'vendite' : 'acquisti');
       if (filters.startDate) p.append('start_date', filters.startDate);
       if (filters.endDate) p.append('end_date', filters.endDate);
+      if (filters.prodotto) p.append('prodotto', filters.prodotto);
+      if (filters.cliente) p.append('cliente', filters.cliente);
+      if (filters.fornitore) p.append('fornitore', filters.fornitore);
+      if (compareData) {
+        p.append('cmp1_start', compareData.mese1.start);
+        p.append('cmp1_end', compareData.mese1.end);
+        p.append('cmp2_start', compareData.mese2.start);
+        p.append('cmp2_end', compareData.mese2.end);
+      }
       const url = `${API}/statistiche/export/pdf?${p}`;
       window.open(url, '_blank');
-      toast.success('PDF generato');
+      toast.success(compareData ? 'PDF del confronto generato' : 'PDF generato');
     } catch (e) {
       toast.error('Errore nella generazione PDF');
     }
   };
 
-  // Month and year options for comparison
-  const monthOptions = [
-    { value: '01', label: 'Gen' }, { value: '02', label: 'Feb' }, { value: '03', label: 'Mar' },
-    { value: '04', label: 'Apr' }, { value: '05', label: 'Mag' }, { value: '06', label: 'Giu' },
-    { value: '07', label: 'Lug' }, { value: '08', label: 'Ago' }, { value: '09', label: 'Set' },
-    { value: '10', label: 'Ott' }, { value: '11', label: 'Nov' }, { value: '12', label: 'Dic' }
-  ];
+  // Anni disponibili per il confronto rapido
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i); // Last 5 years
 
   // State for expanded product list
   const [showAllProducts, setShowAllProducts] = useState(false);
 
+  // Periodo = stesso giorno/mese su due anni diversi (se il periodo scavalca l'anno, la fine slitta)
+  const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+  const GIORNI = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
+  const setGm = (setter, valore, parte, val) => {
+    const [m, g] = valore.split('-');
+    setter(parte === 'm' ? `${val}-${g}` : `${m}-${val}`);
+  };
+  const dataPiena = (anno, mmdd) => {
+    const [m, g] = mmdd.split('-').map(Number);
+    const ultimo = new Date(Number(anno), m, 0).getDate();
+    return `${anno}-${String(m).padStart(2, '0')}-${String(Math.min(g, ultimo)).padStart(2, '0')}`;
+  };
+  const periodo = (anno) => {
+    const fineAnno = cmpAl < cmpDal ? String(Number(anno) + 1) : anno;
+    return [dataPiena(anno, cmpDal), dataPiena(fineAnno, cmpAl)];
+  };
+
   // Load comparison data
   const loadCompareData = async () => {
-    if (!compare1Month || !compare1Year || !compare2Month || !compare2Year) {
-      toast.error('Seleziona mese e anno per entrambi i periodi');
+    if (!cmpDal || !cmpAl || !cmpAnno1 || !cmpAnno2) {
+      toast.error('Imposta giorno/mese di inizio e fine e i due anni');
       return;
     }
     setLoadingCompare(true);
     setShowAllProducts(false);
     try {
-      const y1 = parseInt(compare1Year);
-      const m1 = parseInt(compare1Month);
-      const y2 = parseInt(compare2Year);
-      const m2 = parseInt(compare2Month);
-      
-      const start1 = `${y1}-${compare1Month}-01`;
-      const end1 = new Date(y1, m1, 0).toISOString().split('T')[0];
-      const start2 = `${y2}-${compare2Month}-01`;
-      const end2 = new Date(y2, m2, 0).toISOString().split('T')[0];
-
+      const [start1, end1] = periodo(cmpAnno1);
+      const [start2, end2] = periodo(cmpAnno2);
       const endpoint = viewMode === 'vendite' ? 'statistiche' : 'statistiche/acquisti';
       const [res1, res2, resConfronto] = await Promise.all([
         axios.get(`${API}/${endpoint}?start_date=${start1}&end_date=${end1}`),
@@ -222,10 +234,10 @@ export default function Statistiche() {
         axios.get(`${API}/confronta-periodi?start1=${start1}&end1=${end1}&start2=${start2}&end2=${end2}`)
       ]);
 
-      const monthLabels = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+      const dmy = (d) => d.split('-').reverse().join('/');
       setCompareData({
-        mese1: { label: `${monthLabels[m1 - 1]} ${y1}`, data: res1.data },
-        mese2: { label: `${monthLabels[m2 - 1]} ${y2}`, data: res2.data },
+        mese1: { label: `${dmy(start1)} - ${dmy(end1)}`, start: start1, end: end1, data: res1.data },
+        mese2: { label: `${dmy(start2)} - ${dmy(end2)}`, start: start2, end: end2, data: res2.data },
         articoli: resConfronto.data.confronto || [],
         totaleArticoli: resConfronto.data.totale_prodotti || 0
       });
@@ -385,88 +397,58 @@ export default function Statistiche() {
       {/* Month comparison panel */}
       {showCompare && (
         <div className="mb-6 p-4 bg-violet-500/5 rounded-xl border border-violet-500/20">
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            {/* Period 1 */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-violet-400 font-medium">Periodo 1:</span>
-              <select
-                value={compare1Month}
-                onChange={(e) => setCompare1Month(e.target.value)}
-                className="h-8 w-20 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
-                data-testid="compare-month-1"
-              >
-                <option value="">Mese</option>
-                <option value="01">Gennaio</option>
-                <option value="02">Febbraio</option>
-                <option value="03">Marzo</option>
-                <option value="04">Aprile</option>
-                <option value="05">Maggio</option>
-                <option value="06">Giugno</option>
-                <option value="07">Luglio</option>
-                <option value="08">Agosto</option>
-                <option value="09">Settembre</option>
-                <option value="10">Ottobre</option>
-                <option value="11">Novembre</option>
-                <option value="12">Dicembre</option>
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            <div>
+              <span className="block text-xs text-slate-400 font-medium mb-1">Dal</span>
+              <div className="flex gap-1">
+                <select value={cmpDal.slice(3)} onChange={(e) => setGm(setCmpDal, cmpDal, 'g', e.target.value)}
+                  className="h-8 w-16 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
+                  data-testid="compare-dal-giorno">
+                  {GIORNI.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <select value={cmpDal.slice(0, 2)} onChange={(e) => setGm(setCmpDal, cmpDal, 'm', e.target.value)}
+                  className="h-8 w-20 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
+                  data-testid="compare-dal-mese">
+                  {MESI.map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <span className="block text-xs text-slate-400 font-medium mb-1">Al</span>
+              <div className="flex gap-1">
+                <select value={cmpAl.slice(3)} onChange={(e) => setGm(setCmpAl, cmpAl, 'g', e.target.value)}
+                  className="h-8 w-16 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
+                  data-testid="compare-al-giorno">
+                  {GIORNI.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <select value={cmpAl.slice(0, 2)} onChange={(e) => setGm(setCmpAl, cmpAl, 'm', e.target.value)}
+                  className="h-8 w-20 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
+                  data-testid="compare-al-mese">
+                  {MESI.map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <span className="block text-xs text-violet-400 font-medium mb-1">Anno 1</span>
+              <select value={cmpAnno1} onChange={(e) => setCmpAnno1(e.target.value)}
+                className="h-8 w-24 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
+                data-testid="compare-year-1">
+                {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
-              <select
-                value={compare1Year}
-                onChange={(e) => setCompare1Year(e.target.value)}
-                className="h-8 w-20 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
-                data-testid="compare-year-1"
-              >
-                <option value="">Anno</option>
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-                <option value="2023">2023</option>
-                <option value="2022">2022</option>
+            </div>
+            <span className="text-slate-500 text-sm font-medium pb-2">vs</span>
+            <div>
+              <span className="block text-xs text-cyan-400 font-medium mb-1">Anno 2</span>
+              <select value={cmpAnno2} onChange={(e) => setCmpAnno2(e.target.value)}
+                className="h-8 w-24 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
+                data-testid="compare-year-2">
+                {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
 
-            <span className="text-slate-500 text-sm font-medium">vs</span>
-
-            {/* Period 2 */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-cyan-400 font-medium">Periodo 2:</span>
-              <select
-                value={compare2Month}
-                onChange={(e) => setCompare2Month(e.target.value)}
-                className="h-8 w-20 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
-                data-testid="compare-month-2"
-              >
-                <option value="">Mese</option>
-                <option value="01">Gennaio</option>
-                <option value="02">Febbraio</option>
-                <option value="03">Marzo</option>
-                <option value="04">Aprile</option>
-                <option value="05">Maggio</option>
-                <option value="06">Giugno</option>
-                <option value="07">Luglio</option>
-                <option value="08">Agosto</option>
-                <option value="09">Settembre</option>
-                <option value="10">Ottobre</option>
-                <option value="11">Novembre</option>
-                <option value="12">Dicembre</option>
-              </select>
-              <select
-                value={compare2Year}
-                onChange={(e) => setCompare2Year(e.target.value)}
-                className="h-8 w-20 px-2 rounded-md bg-slate-700 border border-slate-500 text-xs text-white"
-                data-testid="compare-year-2"
-              >
-                <option value="">Anno</option>
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-                <option value="2023">2023</option>
-                <option value="2022">2022</option>
-              </select>
-            </div>
-
-            <Button 
+            <Button
               onClick={loadCompareData}
-              disabled={loadingCompare || !compare1Month || !compare1Year || !compare2Month || !compare2Year}
+              disabled={loadingCompare}
               size="sm"
               className="bg-violet-500 hover:bg-violet-600 text-white h-8 px-4"
               data-testid="compare-load-btn"
@@ -522,18 +504,22 @@ export default function Statistiche() {
                 <h4 className="text-sm font-semibold text-white mb-3">Variazione</h4>
                 <div className="grid grid-cols-3 gap-4">
                   {(() => {
-                    const fatt1 = compareData.mese1.data.totaleEuro || 0;
-                    const fatt2 = compareData.mese2.data.totaleEuro || 0;
+                    // differenza cronologica: periodo piu' recente - periodo piu' vecchio
+                    const rec = compareData.mese1.start > compareData.mese2.start
+                      ? compareData.mese1 : compareData.mese2;
+                    const vec = rec === compareData.mese1 ? compareData.mese2 : compareData.mese1;
+                    const fatt1 = vec.data.totaleEuro || 0;
+                    const fatt2 = rec.data.totaleEuro || 0;
                     const diffFatt = fatt2 - fatt1;
                     const pctFatt = fatt1 > 0 ? ((fatt2 - fatt1) / fatt1 * 100) : 0;
-                    
-                    const art1 = compareData.mese1.data.totaleArticoli || 0;
-                    const art2 = compareData.mese2.data.totaleArticoli || 0;
+
+                    const art1 = vec.data.totaleArticoli || 0;
+                    const art2 = rec.data.totaleArticoli || 0;
                     const diffArt = art2 - art1;
                     const pctArt = art1 > 0 ? ((art2 - art1) / art1 * 100) : 0;
-                    
-                    const cli1 = viewMode === 'vendite' ? (compareData.mese1.data.clientiAttivi || 0) : (compareData.mese1.data.fornitoriAttivi || 0);
-                    const cli2 = viewMode === 'vendite' ? (compareData.mese2.data.clientiAttivi || 0) : (compareData.mese2.data.fornitoriAttivi || 0);
+
+                    const cli1 = viewMode === 'vendite' ? (vec.data.clientiAttivi || 0) : (vec.data.fornitoriAttivi || 0);
+                    const cli2 = viewMode === 'vendite' ? (rec.data.clientiAttivi || 0) : (rec.data.fornitoriAttivi || 0);
                     const diffCli = cli2 - cli1;
                     const pctCli = cli1 > 0 ? ((cli2 - cli1) / cli1 * 100) : 0;
                     
@@ -542,7 +528,7 @@ export default function Statistiche() {
                         <div className="text-center">
                           <div className="text-xs text-slate-400 mb-1">Fatturato</div>
                           <div className={cn("text-lg font-bold", diffFatt >= 0 ? "text-emerald-400" : "text-red-400")}>
-                            {diffFatt >= 0 ? '+' : ''}{formatCurrency(diffFatt)}
+                            {diffFatt >= 0 ? '+' : '-'}{formatCurrency(diffFatt)}
                           </div>
                           <div className={cn("text-xs", pctFatt >= 0 ? "text-emerald-400" : "text-red-400")}>
                             ({pctFatt >= 0 ? '+' : ''}{pctFatt.toFixed(1)}%)

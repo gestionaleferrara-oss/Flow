@@ -909,14 +909,18 @@ async def confronta_periodi(
         prezzo1 = tot1 / qty1 if qty1 > 0 else 0
         prezzo2 = tot2 / qty2 if qty2 > 0 else 0
         
-        # Diff: periodo1 - periodo2 (how much more/less in periodo1 vs periodo2)
-        diff_qty = qty1 - qty2
-        diff_prezzo = prezzo1 - prezzo2
-        diff_totale = tot1 - tot2
-        
-        # Calculate percentage changes (base is periodo2)
-        pct_qty = ((qty1 - qty2) / qty2 * 100) if qty2 > 0 else (100 if qty1 > 0 else 0)
-        pct_prezzo = ((prezzo1 - prezzo2) / prezzo2 * 100) if prezzo2 > 0 else (100 if prezzo1 > 0 else 0)
+        # Differenza in ordine cronologico: periodo piu' recente - periodo piu' vecchio,
+        # cosi' il segno indica sempre l'andamento dell'anno piu' recente
+        qn, qo = (qty1, qty2) if is_period1_newer else (qty2, qty1)
+        tn, to = (tot1, tot2) if is_period1_newer else (tot2, tot1)
+        pn, po = (prezzo1, prezzo2) if is_period1_newer else (prezzo2, prezzo1)
+
+        diff_qty = qn - qo
+        diff_prezzo = pn - po
+        diff_totale = tn - to
+
+        pct_qty = ((qn - qo) / qo * 100) if qo > 0 else (100 if qn > 0 else 0)
+        pct_prezzo = ((pn - po) / po * 100) if po > 0 else (100 if pn > 0 else 0)
         
         confronto.append({
             "prodotto": nome,
@@ -940,7 +944,8 @@ async def confronta_periodi(
         "confronto": confronto,
         "totale_prodotti": len(confronto),
         "periodo1": f"{start1} - {end1}",
-        "periodo2": f"{start2} - {end2}"
+        "periodo2": f"{start2} - {end2}",
+        "periodo_recente": 1 if is_period1_newer else 2,
     }
 
 
