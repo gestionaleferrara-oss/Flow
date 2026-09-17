@@ -161,6 +161,15 @@ class FlowPDF(FPDF):
         self.multi_cell(CONTENT_W, 3.6, clean_text(text))
         self.ln(1)
 
+    def intro_text(self, text):
+        """Introduzione ai dati: corpo piccolo, leggibile ma discreto."""
+        self.ensure_space(14)
+        self.set_font(FONT, '', 7.6)
+        self.set_text_color(70, 82, 102)
+        self.set_x(ML)
+        self.multi_cell(CONTENT_W, 4.0, clean_text(text))
+        self.ln(1.5)
+
     def lead_text(self, text):
         """Paragrafo introduttivo piu' grande."""
         self.ensure_space(16)

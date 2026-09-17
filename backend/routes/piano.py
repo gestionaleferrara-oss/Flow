@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException
 
 from database import db
 from routes.analisi import EXCLUDED_CLIENTS, esclusi_filter
-from routes.previsione_peso import PESO_BASE, PESO_PREC, agg_ponderata, anno_prec, pondera
+from routes.previsione_peso import PESO_BASE, PESO_PREC, agg_ponderata, anno_prec
 
 router = APIRouter()
 
@@ -57,21 +57,31 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
     oggi = _d(datetime.now())
     anno_start = _d(datetime.now() - timedelta(days=365))
 
-    domanda = await db.vendite.aggregate([
-        {"$match": {**base_v, "data": {"$gte": ly_fs, "$lte": ly_fe}}},
-        {"$group": {"_id": "$prodotto_nome", "qty": {"$sum": {"$abs": "$quantita"}},
-                    "fatt": {"$sum": {"$abs": "$totale"}},
-                    "clienti": {"$addToSet": "$cliente_nome"}}},
-    ]).to_list(20000)
-    dom_map = {r['_id']: r for r in domanda if r['_id'] and r['qty'] > 0}
-
     ly2_fs = _d(datetime.strptime(ly_fs, "%Y-%m-%d") - timedelta(days=365))
     ly2_fe = _d(datetime.strptime(ly_fe, "%Y-%m-%d") - timedelta(days=365))
-    dom2_map = {r['_id']: r for r in await db.vendite.aggregate([
-        {"$match": {**base_v, "data": {"$gte": ly2_fs, "$lte": ly2_fe}}},
-        {"$group": {"_id": "$prodotto_nome", "qty": {"$sum": {"$abs": "$quantita"}},
-                    "fatt": {"$sum": {"$abs": "$totale"}}}},
-    ]).to_list(20000) if r['_id']}
+
+    # Stessa base della previsione in Analisi: media ponderata per coppia cliente+prodotto,
+    # poi somma per prodotto (cosi' i due moduli danno gli stessi numeri)
+    coppie = await agg_ponderata(
+        db.vendite, base_v, ly_fs, ly_fe, ly2_fs, ly2_fe,
+        {"_id": {"c": "$cliente_nome", "p": "$prodotto_nome"},
+         "qty": {"$sum": {"$abs": "$quantita"}},
+         "fatt": {"$sum": {"$abs": "$totale"}}},
+        ("qty", "fatt"), limit=200000)
+
+    dom_map: Dict[str, Dict] = {}
+    for c in coppie:
+        nome_p = c['_id'].get('p')
+        if not nome_p:
+            continue
+        r = dom_map.setdefault(nome_p, {"_id": nome_p, "qty": 0.0, "fatt": 0.0,
+                                        "qty_base": 0.0, "fatt_base": 0.0,
+                                        "qty_prec": 0.0, "clienti": set()})
+        for campo in ("qty", "fatt", "qty_base", "fatt_base", "qty_prec"):
+            r[campo] += c.get(campo) or 0
+        if c['_id'].get('c'):
+            r['clienti'].add(c['_id']['c'])
+    dom_map = {k: v for k, v in dom_map.items() if v['qty'] > 0}
 
     # Prezzi fornitore nella stessa finestra dell'anno scorso (fallback: ultimi 12 mesi)
     async def acq_per_fornitore(s, e):
@@ -126,11 +136,10 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
 
     articoli: List[Dict] = []
     for nome, d in dom_map.items():
-        d2 = dom2_map.get(nome) or {}
-        q2 = d2.get('qty', 0) or 0
-        # previsione = media ponderata 70% anno base + 30% anno precedente
-        dom = pondera(d['qty'], q2)
-        fatt_prev = pondera(d['fatt'], d2.get('fatt', 0))
+        # previsione gia' ponderata (70% anno base + 30% anno precedente) per coppia cliente+prodotto
+        dom = d['qty']
+        fatt_prev = d['fatt']
+        q2 = d['qty_prec']
         giac = giacenze.get(nome, 0) or 0
         da_ordinare = max(dom - giac, 0)
         forns = acq_map.get(nome, {})
@@ -146,7 +155,7 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
         margine_pct = ((pv - costo) / costo * 100) if (costo and pv) else None
         rotazione, n_ord = _rotazione(nome)
         # variazione della previsione sull'anno base (dato reale)
-        var_anno = ((dom - d['qty']) / d['qty'] * 100) if d['qty'] else None
+        var_anno = ((dom - d['qty_base']) / d['qty_base'] * 100) if d['qty_base'] else None
         qty_ord_ly = (ord_ly.get(nome) or {}).get('qty', 0) or 0
         lotto_medio = (qty_ord_ly / n_ord) if n_ord else None
         articoli.append({
@@ -161,7 +170,7 @@ async def _piano_acquisti(periodo: Dict, limit: int) -> Dict:
             "qty_riordinata_periodo": round(qty_ord_ly, 1),
             "lotto_medio": round(lotto_medio, 1) if lotto_medio else None,
             "domanda_anno_prec": round(q2, 1),
-            "domanda_anno_base": round(d['qty'], 1),
+            "domanda_anno_base": round(d['qty_base'], 1),
             "var_anno_pct": round(var_anno, 1) if var_anno is not None else None,
             "fornitore": best or FORNITORE_IGNOTO,
             "fornitori_alternativi": len(prezzi),

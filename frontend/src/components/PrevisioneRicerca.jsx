@@ -204,17 +204,17 @@ export const PrevisioneRicerca = ({ giorni = 30 }) => {
         <div className="border-t border-white/[0.06] p-4 space-y-4" data-testid="previsione-risultato">
           <p className="text-xs text-slate-400" data-testid="previsione-periodi">
             <span className="text-slate-200 font-medium">{etichettaSelezione}</span> · previsione dal {dmy(per.futuro_start)} al{' '}
-            {dmy(per.futuro_end)}, calcolata sul venduto dal {dmy(per.storico_start)} al {dmy(per.storico_end)} (anno scorso)
+            {dmy(per.futuro_end)}, media ponderata 70% del venduto dal {dmy(per.storico_start)} al {dmy(per.storico_end)} e 30% dello stesso periodo dell'anno prima
           </p>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {tipo === 'prodotto' && (
               <>
-                <Kpi label="Quantità attesa" value={`${num(k.quantita_attesa)} pz`} color="text-cyan-300" />
+                <Kpi label="Quantità attesa" value={`${num(k.quantita_attesa)}${k.unita ? ` ${k.unita}` : ''}`} color="text-cyan-300" />
                 <Kpi label="Fatturato atteso" value={formatCurrency(k.fatturato_atteso)} color="text-white" />
                 <Kpi label="Margine previsto" value={k.margine_atteso !== null ? `${formatCurrency(k.margine_atteso)} (${k.margine_pct}%)` : '—'} color="text-violet-300" />
-                <Kpi label="Da ordinare" value={`${num(k.da_ordinare)} pz · ${formatCurrency(k.valore_ordine)}`} color={k.da_ordinare > 0 ? 'text-amber-300' : 'text-slate-500'} />
-                <Kpi label="Giacenza totale" value={`${num(k.giacenza)} pz`} color="text-slate-200" />
+                <Kpi label="Da ordinare" value={`${num(k.da_ordinare)}${k.unita ? ` ${k.unita}` : ''} · ${formatCurrency(k.valore_ordine)}`} color={k.da_ordinare > 0 ? 'text-amber-300' : 'text-slate-500'} />
+                <Kpi label="Giacenza totale" value={`${num(k.giacenza)}${k.unita ? ` ${k.unita}` : ''}`} color="text-slate-200" />
                 <Kpi label="Clienti attesi" value={`${k.clienti_attesi}`} color="text-emerald-300" />
               </>
             )}
@@ -292,7 +292,7 @@ export const PrevisioneRicerca = ({ giorni = 30 }) => {
                           </td>
                           <td className={cn('px-3 py-2 text-right tabular-nums',
                             r.gia_ordinato > 0 ? 'text-slate-400' : 'text-amber-300 font-medium')}>
-                            {r.gia_ordinato > 0 ? `${num(r.gia_ordinato)} pz` : 'da proporre'}
+                            {r.gia_ordinato > 0 ? `${num(r.gia_ordinato)}${k.unita ? ` ${k.unita}` : ''}` : 'da proporre'}
                           </td>
                           {tipo === 'prodotto' && (
                             <td className="px-3 py-2 text-right text-slate-400 tabular-nums">{dmy(r.ultimo_acquisto)}</td>

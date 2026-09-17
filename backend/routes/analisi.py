@@ -674,6 +674,7 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
             "nome": r['_id'],
             "domanda_prevista": round(r['quantita'], 1),
             "kg_previsti": kg(r['_id'], r['quantita']),
+            "unita": unita(r['_id']),
             "kg_per_unita": kg_per_unita(r['_id']),
             "quantita_anno_prec": round(r['quantita_base'], 1),
             "fatturato_anno_prec": round(r['fatturato_base'], 2),
@@ -756,6 +757,9 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
             "kg_attesi": round(sum(r['kg_previsti'] for r in prodotti_righe), 1),
             "valore_acquisto": round(sum((r['prezzo_acquisto'] or 0) * r['domanda_prevista']
                                          for r in prodotti_righe), 2),
+            # unita' comune agli articoli selezionati (None se sono mischiati kg e pz)
+            "unita": (list({r['unita'] for r in prodotti_righe})[0]
+                      if len({r['unita'] for r in prodotti_righe}) == 1 else None),
             "fatturato_atteso": round(fatt, 2),
             "margine_atteso": round(fatt - costo, 2) if costo else None,
             "margine_pct": round((fatt - costo) / costo * 100, 1) if costo > 0 else None,
@@ -948,7 +952,7 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
                          nome: Optional[str] = None, giorni: int = 30, vista: str = "entrambi"):
     """Esporta in PDF la previsione (nessun grafico: KPI, sintesi e tabelle)."""
     from fastapi.responses import Response
-    from routes.pdf_helper import (C_AMBER, C_BLUE, C_EMERALD, C_SLATE, C_VIOLET,
+    from routes.pdf_helper import (C_AMBER, C_BLUE, C_EMERALD, C_VIOLET,
                                    FlowPDF, clean_text, eur, it_num)
 
     lista = list(nomi) or ([nome] if nome else [])
@@ -992,8 +996,19 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
             ("SPESA ULTIMI 12 MESI", eur(k['spesa_ultimo_anno']), C_AMBER, None),
         ])
 
-    pdf.section_title("Selezione", C_SLATE, top_gap=2)
-    pdf.lead_text(", ".join(d['nomi'])[:900])
+    tipi = {"prodotto": "articoli", "cliente": "clienti", "fornitore": "fornitori"}[d['tipo']]
+    intro = (
+        f"Questo report stima la domanda dei prossimi {per['giorni']} giorni "
+        f"({dm(per['futuro_start'])} - {dm(per['futuro_end'])}) partendo dal venduto reale dello stesso "
+        f"intervallo degli anni precedenti: {dm(per['storico_start'])} - {dm(per['storico_end'])} "
+        f"({per['storico_start'][:4]}) con peso {int(PESO_BASE * 100)}% e lo stesso periodo del "
+        f"{per['storico2_start'][:4]} con peso {int(PESO_PREC * 100)}%. "
+        "Prezzi di vendita e margini derivano dallo storico, i margini sono calcolati sul costo reale "
+        "dei lotti (FIFO). Le quantita' sono espresse come nel resto del sistema: kg per gli articoli "
+        "a peso, pezzi (confezioni) per i confezionati.\n"
+        f"{len(d['nomi'])} {tipi} in analisi: " + ", ".join(d['nomi'])[:900]
+    )
+    pdf.intro_text(intro)
 
     if d['tipo'] == 'fornitore':
         da_ord = [r for r in d['righe'] if r['da_ordinare'] > 0][:30]
@@ -1041,7 +1056,7 @@ async def previsione_pdf(tipo: str = "prodotto", nomi: List[str] = Query(default
                             aligns=['L', 'R', 'R', 'R', 'R'])
             if resto:
                 pdf.note_text(f"Altri {len(resto)} clienti per {eur(sum(r['fatturato_atteso'] for r in resto))} "
-                              f"e {it_num(sum(r['quantita_attesa'] for r in resto), 0)} pezzi attesi.")
+                              f"e {it_num(sum(r['quantita_attesa'] for r in resto), 0)} di quantita' attesa.")
         if d.get('righe_prodotti'):
             pdf.section_title("Riepilogo per prodotto", C_AMBER)
             pdf.smart_table(['Prodotto', 'Domanda prev.', f'Venduto {anno_prec_lbl}',

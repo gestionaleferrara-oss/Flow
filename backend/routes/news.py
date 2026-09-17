@@ -15,8 +15,19 @@ router = APIRouter()
 
 RSS_SOURCES = [
     {"name": "FreshPlaza", "url": "https://www.freshplaza.it/rss.xml", "categoria": "ortofrutta"},
-    {"name": "Corriere Ortofrutticolo", "url": "https://www.corriereortofrutticolo.it/feed/", "categoria": "ortofrutta"},
 ]
+# Il sito del Corriere Ortofrutticolo cambia spesso endpoint: proviamo i feed noti e,
+# se nessuno risponde, leggiamo direttamente la home
+CORRIERE = {"name": "Corriere Ortofrutticolo", "categoria": "ortofrutta"}
+CORRIERE_BASE = "https://www.corriereortofrutticolo.it"
+CORRIERE_FEEDS = [
+    f"{CORRIERE_BASE}/feed/",
+    f"{CORRIERE_BASE}/?feed=rss2",
+    f"{CORRIERE_BASE}/feed/rss/",
+    "https://corriereortofrutticolo.it/feed/",
+]
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 MYFRUIT_NEWS_URL = "https://www.myfruit.it/news-page/1"
 _market_price_cache = {"links": [], "last_updated": None}
 
@@ -57,7 +68,8 @@ def parse_italian_news_date(date_str: str) -> datetime:
 async def fetch_rss_feed(source: dict) -> List[dict]:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(source["url"], follow_redirects=True)
+            response = await client.get(source["url"], follow_redirects=True,
+                                        headers={"User-Agent": UA})
             if response.status_code != 200:
                 return []
             root = ET.fromstring(response.content)
