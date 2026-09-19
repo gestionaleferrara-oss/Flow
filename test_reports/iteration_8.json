@@ -1,0 +1,34 @@
+{
+  "summary": "Iter9 review: eseguiti 32 test backend (pytest, tutti green) su PDF Analisi, coerenza KPI previsione, allineamento previsione/piano, unita di misura, cliente CORRISPETTIVI, PDF confronto statistiche, differenze cronologiche e regressione PDF. Verifica frontend con Playwright su Statistiche (toggle Confronta, selettori giorno/mese/anno1/anno2, card Variazione con segni negativi rossi, PDF Confronto scaricato correttamente), Ottimizzazione e Analisi.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter9_review.py",
+    "/app/test_reports/pytest/iter9.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "unita.py: se un prodotto (es. 'PISTACCHIO TOST. GR. 150 X 24') non ha vendite storiche, kpi.unita risulta null perche viene calcolato per intersezione delle righe. Il calcolo dovrebbe usare l'unita ricavata dal nome anche in assenza di storico. Non e' un blocco funzionale, ma il KPI viene mostrato senza unita finche non ci sono dati.",
+    "Regex GR. in unita.py potrebbe falsare articoli con 'GR.<numero>' che indica il peso della singola confezione ma potrebbe non essere sempre pezzo (es. cassette). Verificare eventuali edge case sui prodotti a peso etichettati con GR. nel nome."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter9_review.py"
+  ],
+  "success_rate": {
+    "backend": "100% (32/32)",
+    "frontend": "100% flussi critici testati"
+  },
+  "test_credentials": "N/A (app aperta, nessuna autenticazione)",
+  "seed_data_creation": "Nessuna",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend Flow app: usare BASE=REACT_APP_BACKEND_URL. Endpoint piano ha struttura {ordini:[{articoli:[...]}]}, non {righe:[]}. Endpoint /analisi/previsione/pdf richiede parametro 'nomi' anche per tipo=cliente/fornitore. Endpoint clienti list e' /analisi/opzioni?tipo=clienti. CORRISPETTIVI non e' piu' in EXCLUDED_CLIENTS. Data corrente ambiente: settembre 2026. Le considerazioni AI possono mancare nei PDF se il budget e' esaurito (non e' un bug).",
+  "rca of the issue": "Tutti i bug segnalati dall'utente risultano risolti: (1) PDF Analisi 200 OK (parametro search corretto), (2) KPI coerenti con righe (aggregazione unica 'coppie'), (3) previsione allineata al piano con tolleranza <1%, (4) unita corretta ('kg' per articoli a peso, 'pz' per confezionati, null per selezioni miste), (5) PDF Statistiche in modalita' confronto restituisce 'CONFRONTO VENDITE' con tabella variazioni, selettori UI giorno+mese+2 anni, (6) diff cronologiche stabili (segno invariante allo scambio dei periodi, campo periodo_recente presente), (7) CLIENTE CORRISPETTIVI presente in opzioni clienti e top_clienti."
+}

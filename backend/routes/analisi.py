@@ -758,8 +758,8 @@ async def _prev_prodotti(nomi: List[str], giorni: int) -> Dict:
             "valore_acquisto": round(sum((r['prezzo_acquisto'] or 0) * r['domanda_prevista']
                                          for r in prodotti_righe), 2),
             # unita' comune agli articoli selezionati (None se sono mischiati kg e pz)
-            "unita": (list({r['unita'] for r in prodotti_righe})[0]
-                      if len({r['unita'] for r in prodotti_righe}) == 1 else None),
+            "unita": (list({unita(n) for n in nomi})[0]
+                      if len({unita(n) for n in nomi}) == 1 else None),
             "fatturato_atteso": round(fatt, 2),
             "margine_atteso": round(fatt - costo, 2) if costo else None,
             "margine_pct": round((fatt - costo) / costo * 100, 1) if costo > 0 else None,

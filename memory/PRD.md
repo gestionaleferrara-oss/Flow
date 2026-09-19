@@ -214,3 +214,6 @@
 - PrevisioneRicerca (usata in Analisi e Ottimizzazione) non scrive piu' "pz" a caso: il backend espone `unita` per riga prodotto e nei KPI (None se la selezione mischia kg e pz); i KPI e la colonna "Gia ordinato" usano quell'unita'.
 - PDF report prodotti: al posto della sezione "Selezione" c'e' un'introduzione ai dati in corpo piccolo (`intro_text` in pdf_helper) con periodo, metodo di calcolo, unita' di misura e l'elenco degli articoli analizzati.
 - news.py: sorgente Corriere Ortofrutticolo resa resiliente (piu' URL feed candidati + User-Agent). NOTA: il sito corriereortofrutticolo.it e' attualmente OFFLINE (restituisce una pagina di test PHP), quindi non e' scaricabile nessun articolo da quella fonte.
+- Sessione 8l: incluso il cliente 'CLIENTE CORRISPETTIVI' (9.423 righe, ~251.000 euro) in TUTTO il sistema: rimosso dalle liste EXCLUDED_CLIENTS/EXCLUDED in analisi.py, dashboard.py (10 occorrenze), vendite.py, pdf_export.py, pdf_sections.py, forecast.py, prodotti.py. Restano esclusi solo 'SCARICO VENDUTO' e il cliente vuoto.
+- `kpi.unita` della previsione ora ricavata dai nomi selezionati (non dalle righe con storico), cosi' e' corretta anche per articoli senza vendite nel periodo.
+- TESTING AGENT (iteration_8.json): 32/32 test backend passati + flussi frontend Statistiche/Ottimizzazione/Analisi verificati. Nessun issue critico o minore.
