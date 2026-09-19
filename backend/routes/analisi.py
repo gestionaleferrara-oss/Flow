@@ -8,7 +8,7 @@ from routes.unita import etichetta_qta, kg, kg_per_unita, unita
 
 router = APIRouter()
 
-EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+EXCLUDED_CLIENTS = ['SCARICO VENDUTO', '']
 
 
 async def reference_date() -> datetime:

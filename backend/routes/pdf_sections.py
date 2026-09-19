@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 from database import db
 from routes.pdf_helper import C_BLUE, C_NAVY, C_RED, C_SLATE, FONT, clean_text
 
-EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+EXCLUDED_CLIENTS = ['SCARICO VENDUTO', '']
 
 
 def it_num(v, dec=0) -> str:

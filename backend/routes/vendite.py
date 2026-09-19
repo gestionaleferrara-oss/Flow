@@ -108,7 +108,7 @@ async def get_statistiche(
     vendite = await db.vendite.find(query, {"_id": 0}).to_list(100000)
     from routes.esclusioni import get_prodotti_esclusi_set
     prod_esclusi = await get_prodotti_esclusi_set()
-    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', '']
     vendite_filtrate = [v for v in vendite
                         if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]
                         and v.get('prodotto_nome', '') not in prod_esclusi]

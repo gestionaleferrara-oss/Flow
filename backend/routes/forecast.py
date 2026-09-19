@@ -29,7 +29,7 @@ async def get_forecast_prodotti(search: str = ""):
 @router.get("/forecast/clienti")
 async def get_forecast_clienti(search: str = ""):
     """Get clients with sales history for forecasting"""
-    EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED = ['SCARICO VENDUTO', '']
     
     # Get clients that have purchased
     pipeline = [
@@ -55,7 +55,7 @@ async def generate_forecast(
     """Generate AI-powered sales forecast for revenue or order count"""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     
-    EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED = ['SCARICO VENDUTO', '']
     from routes.esclusioni import get_prodotti_esclusi
     prod_esclusi = await get_prodotti_esclusi()
     excl_prod = {"prodotto_nome": {"$nin": prod_esclusi}} if prod_esclusi else {}

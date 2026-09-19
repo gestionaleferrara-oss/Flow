@@ -10,7 +10,7 @@ from routes.pdf_helper import (eur, it_num,
 )
 
 router = APIRouter()
-EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+EXCLUDED = ['SCARICO VENDUTO', '']
 
 
 # ── Color helpers for table cells ──────────────────────────────────

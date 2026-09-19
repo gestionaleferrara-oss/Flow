@@ -343,7 +343,7 @@ async def get_prodotto_storico_clienti(prodotto_nome: str):
     clienti_vendite = {}
     for v in vendite:
         cliente = v.get('cliente_nome', '')
-        if not cliente or cliente.upper() in ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']:
+        if not cliente or cliente.upper() in ['SCARICO VENDUTO', '']:
             continue
         if cliente not in clienti_vendite:
             clienti_vendite[cliente] = []

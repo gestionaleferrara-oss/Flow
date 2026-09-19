@@ -27,7 +27,7 @@ async def get_dashboard():
     prev_month_start = prev_month.replace(day=1).strftime("%Y-%m-%d")
     prev_month_end = prev_month.strftime("%Y-%m-%d")
 
-    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', '']
     from routes.esclusioni import get_prodotti_esclusi_set
     prod_esclusi = await get_prodotti_esclusi_set()
 
@@ -48,7 +48,7 @@ async def get_dashboard():
     crescita = ((fatturato_mese - fatturato_mese_prec) / fatturato_mese_prec * 100) if fatturato_mese_prec > 0 else (100 if fatturato_mese > 0 else 0)
 
     # Unique active clients this month
-    EXCLUDED_CLIENTS_DASH = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED_CLIENTS_DASH = ['SCARICO VENDUTO', '']
     clienti_mese_set = set(
         v.get('cliente_nome', '') for v in vendite_mese_corrente
         if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS_DASH]
@@ -106,7 +106,7 @@ async def get_ai_suggestion():
     if cached:
         return cached
 
-    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', '']
     ninety_days_ago = (now - timedelta(days=90)).strftime("%Y-%m-%d")
     vendite = await db.vendite.find({"data": {"$gte": ninety_days_ago}}, {"_id": 0}).to_list(10000)
     vendite = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
@@ -161,7 +161,7 @@ async def get_ai_suggestion():
 @router.post("/ai-suggestion/refresh")
 async def refresh_ai_suggestion():
     now = datetime.now()
-    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', '']
     ninety_days_ago = (now - timedelta(days=90)).strftime("%Y-%m-%d")
     vendite = await db.vendite.find({"data": {"$gte": ninety_days_ago}}, {"_id": 0}).to_list(10000)
     vendite = [v for v in vendite if v.get('cliente_nome', '').upper() not in [c.upper() for c in EXCLUDED_CLIENTS]]
@@ -206,7 +206,7 @@ async def refresh_ai_suggestion():
 
 @router.get("/alerts")
 async def get_management_alerts():
-    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', '']
     alerts = {"prodottiSottoScorta": [], "clientiInattivi": [], "prodottiInEsaurimento": []}
 
     prodotti = await db.prodotti.find({}, {"_id": 0}).to_list(1000)
@@ -273,7 +273,7 @@ async def get_management_alerts():
 @router.get("/margine-vendite")
 async def get_margine_vendite():
     """Margine reale sulle vendite del mese usando il costo FIFO lotto per lotto."""
-    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', '']
     from routes.esclusioni import get_prodotti_esclusi
     prod_esclusi = await get_prodotti_esclusi()
 
@@ -355,7 +355,7 @@ async def get_sales_insight():
     prev_month_start = prev_month.replace(day=1).strftime("%Y-%m-%d")
     prev_month_end = prev_month.strftime("%Y-%m-%d")
     last_30_days = (reference_date - timedelta(days=30)).strftime("%Y-%m-%d")
-    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', '']
     from routes.esclusioni import get_prodotti_esclusi
     prod_esclusi = await get_prodotti_esclusi()
     excl_prod = {"prodotto_nome": {"$nin": prod_esclusi}} if prod_esclusi else {}
@@ -515,7 +515,7 @@ async def get_card_detail(card_type: str, periodo: str = "mese"):
     prev_m = ref.replace(day=1) - timedelta(days=1)
     prev_start = prev_m.replace(day=1).strftime("%Y-%m-%d")
     prev_end = prev_m.strftime("%Y-%m-%d")
-    EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED = ['SCARICO VENDUTO', '']
     from routes.esclusioni import get_prodotti_esclusi
     prod_esclusi = await get_prodotti_esclusi()
     excl_prod = {"prodotto_nome": {"$nin": prod_esclusi}} if prod_esclusi else {}
@@ -778,7 +778,7 @@ async def get_top_clienti_prodotti_calo():
     Get products that are declining in quantity across ALL sales.
     Compares current month with previous month.
     """
-    EXCLUDED = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED = ['SCARICO VENDUTO', '']
     from routes.esclusioni import get_prodotti_esclusi_set
     esclusi_set = await get_prodotti_esclusi_set()
     
@@ -975,7 +975,7 @@ async def delete_ai_report(report_id: str):
 async def generate_ai_report(report_type: str = Query("settimanale", enum=["settimanale", "mensile", "dashboard"])):
     from emergentintegrations.llm.chat import LlmChat, UserMessage
 
-    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', '']
     now = datetime.now()
 
     if report_type == "settimanale":
@@ -1195,7 +1195,7 @@ async def ai_chat(data: dict):
     if not message:
         raise HTTPException(status_code=400, detail="Messaggio richiesto")
     
-    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', 'CLIENTE CORRISPETTIVI', '']
+    EXCLUDED_CLIENTS = ['SCARICO VENDUTO', '']
     now = datetime.now()
     
     # Gather comprehensive data for AI context
