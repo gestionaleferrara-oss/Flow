@@ -349,6 +349,7 @@ from routes.ottimizzazione_detail import router as ottimizzazione_detail_router
 from routes.piano import router as piano_router
 from routes.pdf_ai_report import router as pdf_ai_report_router
 from routes.ai_agent import router as ai_agent_router
+from routes.export_dati import router as export_dati_router
 
 api_router.include_router(upload_router)
 api_router.include_router(entities_router)
@@ -367,6 +368,7 @@ api_router.include_router(ottimizzazione_detail_router)
 api_router.include_router(piano_router)
 api_router.include_router(pdf_ai_report_router)
 api_router.include_router(ai_agent_router)
+api_router.include_router(export_dati_router)
 
 app.include_router(api_router)
 
