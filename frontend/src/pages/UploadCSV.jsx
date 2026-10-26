@@ -18,6 +18,7 @@ import {
 import PageWrapper, { PageHeader } from '@/components/PageWrapper';
 import { Button } from '@/components/ui/button';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import ExportDati from '@/components/ExportDati';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -392,6 +393,9 @@ export default function UploadCSV() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Download dati */}
+        <ExportDati />
 
         {/* Instructions */}
         {!result && (
